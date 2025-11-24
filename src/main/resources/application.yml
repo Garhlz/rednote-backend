@@ -1,0 +1,33 @@
+server:
+  port: 8080
+  servlet:
+    context-path: / # 默认根路径
+
+spring:
+  application:
+    name: szu-redbook-platform
+  profiles:
+    active: dev # 默认激活开发环境
+  # 全局 JSON 配置 (前后端交互时间格式化)
+  jackson:
+    date-format: yyyy-MM-dd HH:mm:ss
+    time-zone: GMT+8
+    default-property-inclusion: non_null # 不返回 null 字段 (可选)
+
+# MyBatis-Plus 全局配置
+mybatis-plus:
+  mapper-locations: classpath:mapper/*.xml # 如果你以后要手写 XML SQL，放在这里
+  type-aliases-package: com.szu.afternoon3.platform.entity # 实体类包名
+  configuration:
+    # 开启驼峰命名转换 (user_id -> userId)
+    map-underscore-to-camel-case: true
+  global-config:
+    db-config:
+      # 主键策略：
+      # 如果你的 PG 建表用了 BIGSERIAL (自增)，这里选 AUTO
+      # 如果你的 PG 建表只是 BIGINT，这里选 ASSIGN_ID (雪花算法，推荐)
+      id-type: auto
+      # 逻辑删除配置 (0:未删除, 1:已删除)
+      logic-delete-field: deleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
