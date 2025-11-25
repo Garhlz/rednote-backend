@@ -47,16 +47,21 @@
       "business_code": 40005,
       "message": "密码强度不符合要求",
       "description": "密码强度不够（比如太短、没大写字母）是一个很常见的业务校验"
-    }
+    },
+    {
+      "business_code": 40006,
+      "message": "旧密码错误",
+      "description": "在更新密码的时候，旧密码错误"
+    },
   ],
   "401": [
     {
-      "business_code": 40100,
+      "business_code": 40101,
       "message": "请先登录",
       "description": "Header 没带 Token"
     },
     {
-      "business_code": 40101,
+      "business_code": 40102,
       "message": "登录已过期，请重新登录",
       "description": "Token 过期或非法"
     }
@@ -85,6 +90,11 @@
       "business_code": 40901,
       "message": "该邮箱已被其他账号绑定",
       "description": "绑定邮箱时，发现邮箱已存在"
+    },
+    {
+      "business_code": 40902,
+      "message": "已设置过密码，请调用修改密码接口",
+      "description": "已设置过密码，请调用修改密码接口"
     }
   ],
   "429": [
@@ -96,14 +106,19 @@
   ],
   "500": [
     {
-      "business_code": 50000,
+      "business_code": 50001,
       "message": "服务器开小差了",
       "description": "后端代码抛出未捕获异常 (空指针、DB连不上)"
     },
     {
-      "business_code": 50001,
+      "business_code": 50002,
       "message": "邮件服务异常",
       "description": "第三方服务发送邮件可能会失败（比如网断了或者达到上限）"
+    },
+    {
+      "business_code": 50003,
+      "message": "OSS服务上传异常",
+      "description": "OSS服务出于种种原因失效"
     }
   ]
 }

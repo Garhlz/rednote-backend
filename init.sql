@@ -12,6 +12,12 @@ CREATE TABLE users (
     nickname VARCHAR(64) NOT NULL DEFAULT '微信用户',
     avatar VARCHAR(512) DEFAULT '',
     -- 头像 URL
+    gender SMALLINT DEFAULT 0,
+    -- 性别，0:保密, 1:男, 2:女
+    birthday DATE,
+    -- 生日
+    region VARCHAR(100),
+    -- 地区
     bio VARCHAR(255) DEFAULT '',
     -- 个人简介
     role VARCHAR(20) DEFAULT 'USER',
