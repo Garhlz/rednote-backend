@@ -27,3 +27,19 @@ aliyun:
 wechat:
   appid: 你的AppID
   secret: 你的Secret
+
+mybatis-plus:
+  # 如在 resources/mapper 下写 xml
+  mapper-locations: classpath:/mapper/*.xml
+  type-aliases-package: com.szu.afternoon3.platform.entity
+  configuration:
+    # 开启控制台 SQL 日志打印
+    # 调试的时候，控制台会打印出：==>  Preparing: SELECT id, ... FROM users WHERE ...
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+    # 开启驼峰命名自动转换（默认通常是开启的，显式写出来更安心）
+    map-underscore-to-camel-case: true
+  global-config:
+    db-config:
+      # 全局逻辑删除配置（配合你的 @TableLogic）
+      logic-delete-value: 1
+      logic-not-delete-value: 0
