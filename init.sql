@@ -62,7 +62,7 @@ CREATE INDEX idx_posts_user_id ON posts(user_id);
 COMMENT ON TABLE posts IS '帖子主表';
 -- ==========================================
 -- 3. 帖子资源表 (post_resources)
--- ==========================================
+-- ================ ==========================
 CREATE TABLE post_resources (
     id BIGSERIAL PRIMARY KEY,
     post_id BIGINT NOT NULL,

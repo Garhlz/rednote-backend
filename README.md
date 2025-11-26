@@ -27,7 +27,7 @@
 🏗 系统架构 (Architecture)
 
 系统采用典型的分层架构，并预留了 AI 模块的扩展接口。
-
+```
 graph TD
     User[小程序/Web端] --> Nginx[Nginx 网关 (80/443)]
     Nginx -->|/api/auth & /api/user| Boot[Spring Boot 后端 (8080)]
@@ -38,7 +38,7 @@ graph TD
     Boot --> OSS[阿里云 OSS]
     
     Boot -.->|异步调用| AI[AI 服务 (Python/预留)]
-
+```
 核心模块划分
 
     Auth 模块: 处理微信一键登录、账号注册、邮件验证码、JWT 签发。

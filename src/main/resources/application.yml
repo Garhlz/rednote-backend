@@ -5,29 +5,37 @@ server:
 
 spring:
   application:
-    name: szu-redbook-platform
+    name: afternoon3-backendc
   profiles:
     active: dev # 默认激活开发环境
   # 全局 JSON 配置 (前后端交互时间格式化)
+  # --- Jackson 全局 JSON 配置 (解决前后端时间格式不一致问题) ---
   jackson:
     date-format: yyyy-MM-dd HH:mm:ss
     time-zone: GMT+8
-    default-property-inclusion: non_null # 不返回 null 字段 (可选)
+    default-property-inclusion: always # 即使字段是 null 也返回（方便前端判断）
 
-# MyBatis-Plus 全局配置
+  # --- 文件上传限制 ---
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 50MB
+
+# --- MyBatis-Plus 全局配置 ---
 mybatis-plus:
-  mapper-locations: classpath:mapper/*.xml # 如果你以后要手写 XML SQL，放在这里
-  type-aliases-package: com.szu.afternoon3.platform.entity # 实体类包名
   configuration:
-    # 开启驼峰命名转换 (user_id -> userId)
-    map-underscore-to-camel-case: true
+    map-underscore-to-camel-case: true # 开启下划线转驼峰 (user_id -> userId)
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl # 开发时打印 SQL 到控制台 (生产环境需在-prod中覆盖)
   global-config:
     db-config:
-      # 主键策略：
-      # 如果你的 PG 建表用了 BIGSERIAL (自增)，这里选 AUTO
-      # 如果你的 PG 建表只是 BIGINT，这里选 ASSIGN_ID (雪花算法，推荐)
-      id-type: auto
-      # 逻辑删除配置 (0:未删除, 1:已删除)
-      logic-delete-field: deleted
-      logic-delete-value: 1
-      logic-not-delete-value: 0
+      logic-delete-field: isDeleted # 逻辑删除字段名
+      logic-delete-value: 1         # 1 代表已删除
+      logic-not-delete-value: 0     # 0 代表未删除
+      id-type: auto                 # 主键策略：数据库自增
+  mapper-locations: classpath:mapper/*.xml # 如果你写 XML，放在 resources/mapper 下
+
+# --- 自定义配置 (预留位置) ---
+szu:
+  jwt:
+    secret: ${JWT_SECRET:defaultSecretForDevOnly123456} # 支持读取环境变量，读不到就用默认值
+    expiration: 604800 # 7天

@@ -1,0 +1,1599 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "默认模块",
+    "description": "",
+    "version": "1.0.0"
+  },
+  "tags": [
+    {
+      "name": "/api/auth/"
+    },
+    {
+      "name": "/api/user/"
+    },
+    {
+      "name": "/api/common/"
+    }
+  ],
+  "paths": {
+    "/api/auth/login/wechat": {
+      "post": {
+        "summary": "微信一键登陆",
+        "deprecated": false,
+        "description": "1. 前端调用 wx.login 获取 code。\n2. 后端调用 code2Session 获取 openid。\n3. 后端查库：\n- 若存在： 返回用户信息。\n- 若不存在： 自动注册，写入默认昵称(\"微信用户\")和默认头像，返回 isNewUser: true。\n4. 注意： 前端收到 isNewUser: true 后，必须跳转到“完善资料页”，调用上传接口和更新资料接口，完成头像昵称的收集。",
+        "tags": [
+          "/api/auth/"
+        ],
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "code": {
+                    "description": "必填，小程序端通过 wx.login 获取的临时凭证",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "code"
+                ]
+              },
+              "example": "{\n  \"code\": \"081K...\" // 必填，小程序端通过 wx.login 获取的临时凭证\n}"
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "token": {
+                          "type": "string"
+                        },
+                        "userInfo": {
+                          "type": "object",
+                          "properties": {
+                            "userId": {
+                              "type": "string"
+                            },
+                            "nickname": {
+                              "type": "string"
+                            },
+                            "avatar": {
+                              "type": "string",
+                              "description": "从OSS获取的URL"
+                            },
+                            "email": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "userId",
+                            "nickname",
+                            "avatar",
+                            "email"
+                          ]
+                        },
+                        "isNewUser": {
+                          "description": "前端注意：true 则弹窗绑定邮箱",
+                          "type": "boolean"
+                        },
+                        "hasPassword": {
+                          "description": "前端注意：false 则在设置页引导设密码",
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "token",
+                        "userInfo",
+                        "isNewUser",
+                        "hasPassword"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                },
+                "example": {
+                  "code": 20000,
+                  "message": "登录成功",
+                  "data": {
+                    "token": "eyJhbGciOiJIUzI1NiJ9.eyJ1c2Vy...",
+                    "userInfo": {
+                      "userId": "10086",
+                      "nickname": "微信用户",
+                      "avatar": "https://oss.example.com/default.png",
+                      "email": null
+                    },
+                    "isNewUser": true,
+                    "hasPassword": false
+                  }
+                }
+              }
+            },
+            "headers": {}
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                },
+                "example": {
+                  "code": 40001,
+                  "message": "请求参数错误",
+                  "data": null
+                }
+              }
+            },
+            "headers": {}
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                },
+                "example": {
+                  "code": 40301,
+                  "message": "账号已被禁用",
+                  "data": null
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/auth/login/account": {
+      "post": {
+        "summary": "账号密码登陆",
+        "deprecated": false,
+        "description": "可在登录页点击账户登录，输入账户和密码，若不匹配弹出提示",
+        "tags": [
+          "/api/auth/"
+        ],
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "account": {
+                    "description": "邮箱或用户名",
+                    "type": "string"
+                  },
+                  "password": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "account",
+                  "password"
+                ]
+              },
+              "example": "{\n  \"account\": \"test@qq.com\", // 邮箱或用户名\n  \"password\": \"password123\"\n}"
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "token": {
+                          "type": "string"
+                        },
+                        "userInfo": {
+                          "type": "object",
+                          "properties": {
+                            "userId": {
+                              "type": "string"
+                            },
+                            "nickname": {
+                              "type": "string"
+                            },
+                            "avatar": {
+                              "type": "string"
+                            },
+                            "email": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "userId",
+                            "nickname",
+                            "avatar",
+                            "email"
+                          ]
+                        },
+                        "isNewUser": {
+                          "type": "boolean"
+                        },
+                        "hasPassword": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "token",
+                        "userInfo",
+                        "isNewUser",
+                        "hasPassword"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                },
+                "example": {
+                  "code": 200,
+                  "message": "登录成功",
+                  "data": {
+                    "token": "eyJhbGciOiJIUzI1Ni...",
+                    "userInfo": {
+                      "userId": "10086",
+                      "nickname": "小青",
+                      "avatar": "https://oss...",
+                      "email": "elaine@szu.edu.cn"
+                    },
+                    "isNewUser": false,
+                    "hasPassword": true
+                  }
+                }
+              }
+            },
+            "headers": {}
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                },
+                "example": {
+                  "code": 40001,
+                  "message": "请求参数错误",
+                  "data": null
+                }
+              }
+            },
+            "headers": {}
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                },
+                "example": {
+                  "code": 40301,
+                  "message": "账号已被禁用",
+                  "data": null
+                }
+              }
+            },
+            "headers": {}
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                },
+                "example": {
+                  "code": 40401,
+                  "message": "该账号未注册",
+                  "data": null
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/auth/send-code": {
+      "post": {
+        "summary": "发送邮箱验证码",
+        "deprecated": false,
+        "description": "点击验证码输入框右侧的“发送验证码”按键\n这个接口既用于绑定邮箱，也用于重置密码，通过type区分",
+        "tags": [
+          "/api/auth/"
+        ],
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string"
+                  },
+                  "type": {
+                    "description": "枚举值：BIND (绑定邮箱), RESET (重置密码)",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "email",
+                  "type"
+                ]
+              },
+              "example": "{\n  \"email\": \"test@qq.com\",\n  \"type\": \"BIND\" // 枚举值：BIND (绑定邮箱), RESET (重置密码)\n}"
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                },
+                "example": {
+                  "code": 200,
+                  "message": "验证码已发送",
+                  "data": null
+                }
+              }
+            },
+            "headers": {}
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                },
+                "example": {
+                  "code": 40001,
+                  "message": "请求参数错误",
+                  "data": null
+                }
+              }
+            },
+            "headers": {}
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                },
+                "example": {
+                  "code": 40901,
+                  "message": "该邮箱已被其他账号绑定",
+                  "data": null
+                }
+              }
+            },
+            "headers": {}
+          },
+          "429": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                },
+                "example": {
+                  "code": 42901,
+                  "message": "操作太频繁，请稍后再试",
+                  "data": null
+                }
+              }
+            },
+            "headers": {}
+          },
+          "500": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                },
+                "example": {
+                  "code": 50000,
+                  "message": "服务器开小差了",
+                  "data": null
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/user/bind-email": {
+      "post": {
+        "summary": "绑定邮箱",
+        "deprecated": false,
+        "description": "微信登录用户的补充动作，前端需要根据isNewUser字段判断是否要弹出窗口",
+        "tags": [
+          "/api/user/"
+        ],
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "",
+            "required": true,
+            "example": "Bearer <jwt_token>",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string"
+                  },
+                  "code": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "email",
+                  "code"
+                ]
+              },
+              "example": {
+                "email": "qingxi@szu.edu.cn",
+                "code": "123456"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "email": {
+                          "description": "返回更新后的邮箱",
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "email"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                },
+                "example": {
+                  "code": 200,
+                  "message": "绑定成功",
+                  "data": {
+                    "email": "elaine@szu.edu.cn"
+                  }
+                }
+              }
+            },
+            "headers": {}
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                },
+                "example": {
+                  "code": 40002,
+                  "message": "验证码错误或已失效",
+                  "data": null
+                }
+              }
+            },
+            "headers": {}
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                },
+                "example": {
+                  "code": 40101,
+                  "message": "请先登录",
+                  "data": null
+                }
+              }
+            },
+            "headers": {}
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                },
+                "example": {
+                  "code": 40901,
+                  "message": "该邮箱已被其他账号绑定",
+                  "data": null
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/user/set-password": {
+      "post": {
+        "summary": "初始化/修改密码",
+        "deprecated": false,
+        "description": "微信用户设置初始密码，或老用户改密码",
+        "tags": [
+          "/api/user/"
+        ],
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "",
+            "required": true,
+            "example": "Bearer <jwt_token>",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "password": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "password"
+                ]
+              },
+              "example": {
+                "password": "NewPassword2025!"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                },
+                "example": {
+                  "code": 200,
+                  "message": "密码设置成功",
+                  "data": null
+                }
+              }
+            },
+            "headers": {}
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                },
+                "example": {
+                  "code": 40005,
+                  "message": "密码强度不符合要求",
+                  "data": null
+                }
+              }
+            },
+            "headers": {}
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                },
+                "example": {
+                  "code": 40101,
+                  "message": "请先登录",
+                  "data": null
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/user/profile": {
+      "get": {
+        "summary": "获取个人资料",
+        "deprecated": false,
+        "description": "这是进入“我的”页面时调用的接口，返回所有展示需要的数据。\n从携带的token获取用户id",
+        "tags": [
+          "/api/user/"
+        ],
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "",
+            "required": true,
+            "example": "Bearer <jwt_token>",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "userId": {
+                          "type": "string"
+                        },
+                        "nickname": {
+                          "type": "string"
+                        },
+                        "avatar": {
+                          "type": "string"
+                        },
+                        "bio": {
+                          "type": "string"
+                        },
+                        "gender": {
+                          "description": "0:保密, 1:男, 2:女",
+                          "type": "integer"
+                        },
+                        "birthday": {
+                          "description": "格式 yyyy-MM-dd",
+                          "type": "string"
+                        },
+                        "region": {
+                          "type": "string"
+                        },
+                        "email": {
+                          "description": "用于显示绑定的邮箱",
+                          "type": "string"
+                        },
+                        "hasPassword": {
+                          "description": "前端根据此字段判断显示“设置密码”还是“修改密码”",
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "userId",
+                        "nickname",
+                        "avatar",
+                        "bio",
+                        "gender",
+                        "birthday",
+                        "region",
+                        "email",
+                        "hasPassword"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                },
+                "example": {
+                  "code": 200,
+                  "message": "获取个人资料成功",
+                  "data": {
+                    "userId": "10086",
+                    "nickname": "小青",
+                    "avatar": "https://oss.../avatar.jpg",
+                    "bio": "这个人很神秘，什么话都没有写",
+                    "gender": 2,
+                    "birthday": "2003-05-20",
+                    "region": "广东 深圳",
+                    "email": "elaine@szu.edu.cn",
+                    "hasPassword": false
+                  }
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": []
+      },
+      "put": {
+        "summary": "修改个人资料",
+        "deprecated": false,
+        "description": "这是一个聚合更新接口。前端只传需要修改的字段，不想改的字段不传，或传原值",
+        "tags": [
+          "/api/user/"
+        ],
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "",
+            "required": true,
+            "example": "Bearer <jwt_token>",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "nickname": {
+                    "description": "选填",
+                    "type": "string"
+                  },
+                  "avatar": {
+                    "description": "选填 (上传接口返回的URL)",
+                    "type": "string"
+                  },
+                  "bio": {
+                    "description": "选填",
+                    "type": "string"
+                  },
+                  "gender": {
+                    "description": "选填 (0, 1, 2)",
+                    "type": "integer"
+                  },
+                  "birthday": {
+                    "description": "选填 (yyyy-MM-dd)",
+                    "type": "string"
+                  },
+                  "region": {
+                    "description": "选填",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "nickname",
+                  "avatar",
+                  "bio",
+                  "gender",
+                  "birthday",
+                  "region"
+                ]
+              },
+              "example": "{\n  \"nickname\": \"Elaine\",         // 选填\n  \"avatar\": \"https://oss...\",   // 选填 (上传接口返回的URL)\n  \"bio\": \"新的简介...\",          // 选填\n  \"gender\": 2,                  // 选填 (0, 1, 2)\n  \"birthday\": \"2003-05-20\",     // 选填 (yyyy-MM-dd)\n  \"region\": \"广东 深圳\"          // 选填\n}"
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                },
+                "example": {
+                  "code": 200,
+                  "message": "资料更新成功",
+                  "data": null
+                }
+              }
+            },
+            "headers": {}
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "description": "或者返回更新后的完整 profile",
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                },
+                "example": {
+                  "code": 40001,
+                  "message": "请求参数错误",
+                  "data": null
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/user/password/set": {
+      "post": {
+        "summary": "首次设置密码 (验证邮箱)",
+        "deprecated": false,
+        "description": "未设置过密码的用户，在输入邮箱验证码后，再输入两次密码，完成密码设置",
+        "tags": [
+          "/api/user/"
+        ],
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "",
+            "required": true,
+            "example": "Bearer <jwt_token>",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "code": {
+                    "description": "邮箱验证码 (调用 /api/auth/send-code 获取)",
+                    "type": "string"
+                  },
+                  "password": {
+                    "description": "新密码",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "code",
+                  "password"
+                ]
+              },
+              "example": "{\n  \"code\": \"123456\",            // 邮箱验证码 (调用 /api/auth/send-code 获取)\n  \"password\": \"NewPassword123!\" // 新密码\n}"
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                },
+                "example": {
+                  "code": 200,
+                  "message": "密码设置成功",
+                  "data": null
+                }
+              }
+            },
+            "headers": {}
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                },
+                "example": {
+                  "code": 40002,
+                  "message": "验证码错误或已失效",
+                  "data": null
+                }
+              }
+            },
+            "headers": {}
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                },
+                "example": {
+                  "code": 40902,
+                  "message": "已设置过密码，请调用修改密码接口",
+                  "data": null
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/user/password/change": {
+      "post": {
+        "summary": "修改密码 (验证旧密码)",
+        "deprecated": false,
+        "description": "已设置过密码的用户，输入一次原密码进行身份验证，再输入新密码",
+        "tags": [
+          "/api/user/"
+        ],
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "",
+            "required": true,
+            "example": "Bearer <jwt_token>",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "oldPassword": {
+                    "description": "旧密码",
+                    "type": "string"
+                  },
+                  "newPassword": {
+                    "description": "新密码",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "oldPassword",
+                  "newPassword"
+                ]
+              },
+              "example": "{\n  \"oldPassword\": \"OldPassword123!\", // 旧密码\n  \"newPassword\": \"NewPassword123!\"  // 新密码\n}"
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                },
+                "example": {
+                  "code": 200,
+                  "message": "密码修改成功",
+                  "data": null
+                }
+              }
+            },
+            "headers": {}
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                },
+                "example": {
+                  "code": 40006,
+                  "message": "旧密码错误",
+                  "data": null
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/common/upload": {
+      "post": {
+        "summary": "文件上传(OSS)",
+        "deprecated": false,
+        "description": "通用的文件上传接口，前端上传文件，后端存入OSS服务器，返回url",
+        "tags": [
+          "/api/common/"
+        ],
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "",
+            "required": false,
+            "example": "Bearer <jwt_token>",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "description": "图片/视频文件二进制流",
+                    "example": "",
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
+              },
+              "examples": {}
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "url": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "url"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                },
+                "example": {
+                  "code": 200,
+                  "message": "上传成功",
+                  "data": {
+                    "url": "https://szu-redbook.oss-cn-shenzhen.aliyuncs.com/avatar/uuid_123.jpg"
+                  }
+                }
+              }
+            },
+            "headers": {}
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    }
+  },
+  "components": {
+    "schemas": {},
+    "responses": {},
+    "securitySchemes": {}
+  },
+  "servers": [],
+  "security": []
+}
