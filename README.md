@@ -13,8 +13,12 @@
     核心框架: Spring Boot 3.x
 
     数据库: PostgreSQL 15 (支持 JSONB 与向量扩展)
+    
+    ORM 框架: MyBatis-Plus (高效的数据库操作与动态 SQL)
 
     缓存: Redis 7 (用于 Session 管理、验证码、高频计数)
+
+    服务器：Aliyun
 
     对象存储: Aliyun OSS (存储图片、视频资源)
 
@@ -36,8 +40,7 @@ graph TD
     Boot --> PG[(PostgreSQL)]
     Boot --> Redis[(Redis 缓存)]
     Boot --> OSS[阿里云 OSS]
-    
-    Boot -.->|异步调用| AI[AI 服务 (Python/预留)]
+    Boot -->|异步调用| AI[AI 服务 (Python/预留)]
 ```
 核心模块划分
 
@@ -48,3 +51,23 @@ graph TD
     Post 模块: 笔记发布、流媒体处理。
 
     Interaction 模块: 点赞、收藏、评论。
+
+项目结构
+```
+graph TD
+    Request[前端请求 JSON] --> DTO
+    DTO --> Controller
+    Controller --> Service
+    
+    subgraph 业务逻辑
+    Service --> Utils
+    Service --> Mapper
+    end
+    
+    Mapper --> Entity
+    Entity <--> DB[(PostgreSQL)]
+    
+    Service --> VO
+    VO --> Result[统一响应: Result]
+    Result --> Response[前端响应 JSON]
+```

@@ -1,4 +1,4 @@
-package com.szu.afternoon3.platform.VO;
+package com.szu.afternoon3.platform.vo;
 
 import lombok.Data;
 

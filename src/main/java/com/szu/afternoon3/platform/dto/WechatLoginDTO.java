@@ -1,4 +1,4 @@
-package com.szu.afternoon3.platform.DTO;
+package com.szu.afternoon3.platform.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;

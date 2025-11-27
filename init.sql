@@ -10,6 +10,7 @@ CREATE TABLE users (
     password VARCHAR(255),
     -- 密码 Hash
     nickname VARCHAR(64) NOT NULL DEFAULT '微信用户',
+    -- 昵称，需要从前端上传
     avatar VARCHAR(512) DEFAULT '',
     -- 头像 URL
     gender SMALLINT DEFAULT 0,
@@ -80,24 +81,49 @@ CREATE TABLE post_resources (
 CREATE INDEX idx_resources_post_id ON post_resources(post_id);
 COMMENT ON TABLE post_resources IS '帖子图片/视频资源表';
 -- ==========================================
--- 4. 互动表 (interactions)
+-- 4.1. 帖子点赞表 (post_likes)
 -- ==========================================
-CREATE TABLE interactions (
+CREATE TABLE post_likes (
     id BIGSERIAL PRIMARY KEY,
     user_id BIGINT NOT NULL,
     post_id BIGINT NOT NULL,
-    type INT NOT NULL,
-    -- 1:点赞, 2:收藏
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    is_deleted INT DEFAULT 0,
-    UNIQUE (user_id, post_id, type),
-    CONSTRAINT fk_interactions_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    CONSTRAINT fk_interactions_post FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE
+    is_deleted INT DEFAULT 0, -- 逻辑删除: 0未删, 1已删
+
+    -- 联合唯一索引: 确保一个用户对一个帖子只能点赞一次
+    UNIQUE (user_id, post_id),
+
+    -- 外键约束: 级联删除
+    CONSTRAINT fk_post_likes_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT fk_post_likes_post FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE
 );
--- 索引：查询某人点赞过的列表 / 查询某帖子的点赞列表
-CREATE INDEX idx_interactions_user_type ON interactions(user_id, type);
-CREATE INDEX idx_interactions_post_type ON interactions(post_id, type);
-COMMENT ON TABLE interactions IS '点赞收藏互动表';
+
+-- 索引：优化“查询某用户赞过的帖子”
+CREATE INDEX idx_post_likes_user_id ON post_likes(user_id);
+-- 索引：优化“查询某帖子的点赞列表”
+CREATE INDEX idx_post_likes_post_id ON post_likes(post_id);
+COMMENT ON TABLE post_likes IS '帖子点赞表';
+-- ==========================================
+-- 4.2. 帖子收藏表 (post_collects)
+-- ==========================================
+CREATE TABLE post_collects (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    post_id BIGINT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    is_deleted INT DEFAULT 0, -- 逻辑删除
+
+    -- 联合唯一索引: 确保一个用户对一个帖子只能收藏一次
+    UNIQUE (user_id, post_id),
+
+    -- 外键约束: 级联删除
+    CONSTRAINT fk_post_collects_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT fk_post_collects_post FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE
+);
+
+-- 索引：优化“查询某用户收藏的帖子”
+CREATE INDEX idx_post_collects_user_id ON post_collects(user_id);
+COMMENT ON TABLE post_collects IS '帖子收藏表';
 -- ==========================================
 -- 5. 评论表 (comments)
 -- ==========================================

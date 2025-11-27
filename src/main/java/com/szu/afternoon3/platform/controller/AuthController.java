@@ -1,8 +1,8 @@
 package com.szu.afternoon3.platform.controller;
 
-import com.szu.afternoon3.platform.DTO.AccountLoginDTO;
-import com.szu.afternoon3.platform.DTO.WechatLoginDTO;
-import com.szu.afternoon3.platform.VO.LoginVO;
+import com.szu.afternoon3.platform.dto.AccountLoginDTO;
+import com.szu.afternoon3.platform.dto.WechatLoginDTO;
+import com.szu.afternoon3.platform.vo.LoginVO;
 import com.szu.afternoon3.platform.common.Result;
 import com.szu.afternoon3.platform.service.AuthService;
 import jakarta.validation.Valid;

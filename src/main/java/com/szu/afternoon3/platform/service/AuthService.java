@@ -1,6 +1,6 @@
 package com.szu.afternoon3.platform.service;
 
-import com.szu.afternoon3.platform.VO.LoginVO;
+import com.szu.afternoon3.platform.vo.LoginVO;
 
 public interface AuthService {
     LoginVO wechatLogin(String code);

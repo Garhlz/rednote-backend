@@ -3,6 +3,8 @@ package com.szu.afternoon3.platform.util;
 import cn.hutool.http.HttpUtil;
 import cn.hutool.json.JSONObject;
 import cn.hutool.json.JSONUtil;
+import com.szu.afternoon3.platform.exception.AppException;
+import com.szu.afternoon3.platform.exception.ResultCode;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -38,7 +40,8 @@ public class WeChatUtil {
         // 检查错误码
         if (json.containsKey("errcode") && json.getInt("errcode") != 0) {
             log.error("微信登录出错: code={}, msg={}", json.getInt("errcode"), json.getStr("errmsg"));
-            throw new RuntimeException("微信授权失败: " + json.getStr("errmsg"));
+//            throw new RuntimeException("微信授权失败: " + json.getStr("errmsg"));
+            throw new AppException(ResultCode.WECHAT_AUTH_ERROR);
         }
 
         return json.getStr("openid");
