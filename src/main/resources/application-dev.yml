@@ -3,8 +3,8 @@ spring:
   # --- 数据库连接 (PostgreSQL) ---
   datasource:
     driver-class-name: org.postgresql.Driver
-    url: jdbc:postgresql://localhost:5432/rednote?currentSchema=public
-    username: postgres       # 你的本地 PG 用户名
+    url: jdbc:postgresql://localhost:5432/rednote-mongodb?currentSchema=public
+    username: elaine       # 你的本地 PG 用户名
     password: 123456   # 你的本地 PG 密码
 
   # --- Redis 连接 ---
