@@ -9,6 +9,10 @@ spring:
 
   # --- Redis 连接 ---
   data:
+    mongodb:
+      # 格式: mongodb://用户名:密码@主机:端口/库名
+      # 如果没有密码: mongodb://localhost:27017/platform_db
+      uri: mongodb://localhost:27017/rednote
     redis:
       host: localhost
       port: 6379
