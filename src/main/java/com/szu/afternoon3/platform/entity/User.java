@@ -4,7 +4,7 @@ import com.baomidou.mybatisplus.annotation.*;
 import lombok.Data;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 
 @Data
 @TableName("users") // 对应数据库表名
@@ -27,10 +27,10 @@ public class User {
     // 自动填充字段 (需要在 MybatisPlusConfig 中配置 Handler 才会生效，暂时手动或者数据库默认值也行)
     // 这里我们先假设数据库有 DEFAULT CURRENT_TIMESTAMP，或者手动设置
     @TableField(fill = FieldFill.INSERT)
-    private LocalDateTime createdAt;
+    private OffsetDateTime createdAt;
 
     @TableField(fill = FieldFill.INSERT_UPDATE)
-    private LocalDateTime updatedAt;
+    private OffsetDateTime updatedAt;
 
     @TableLogic // 逻辑删除
     private Integer isDeleted;

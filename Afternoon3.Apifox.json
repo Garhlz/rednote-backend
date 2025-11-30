@@ -1,0 +1,2830 @@
+{
+  "apifoxProject": "1.0.0",
+  "$schema": {
+    "app": "apifox",
+    "type": "project",
+    "version": "1.2.0"
+  },
+  "info": {
+    "name": "Afternoon3",
+    "description": "",
+    "mockRule": {
+      "rules": [],
+      "enableSystemRule": true
+    }
+  },
+  "apiCollection": [
+    {
+      "name": "根目录",
+      "id": 71906900,
+      "auth": {},
+      "securityScheme": {},
+      "parentId": 0,
+      "serverId": "",
+      "description": "",
+      "identityPattern": {
+        "httpApi": {
+          "type": "methodAndPath",
+          "bodyType": "",
+          "fields": []
+        }
+      },
+      "shareSettings": {},
+      "visibility": "SHARED",
+      "moduleId": 6610335,
+      "preProcessors": [
+        {
+          "id": "inheritProcessors",
+          "type": "inheritProcessors",
+          "data": {}
+        }
+      ],
+      "postProcessors": [
+        {
+          "id": "inheritProcessors",
+          "type": "inheritProcessors",
+          "data": {}
+        }
+      ],
+      "inheritPostProcessors": {},
+      "inheritPreProcessors": {},
+      "items": [
+        {
+          "name": "/api/auth/",
+          "id": 72151479,
+          "auth": {},
+          "securityScheme": {},
+          "parentId": 0,
+          "serverId": "",
+          "description": "",
+          "identityPattern": {
+            "httpApi": {
+              "type": "inherit",
+              "bodyType": "",
+              "fields": []
+            }
+          },
+          "shareSettings": {},
+          "visibility": "INHERITED",
+          "moduleId": 6610335,
+          "preProcessors": [
+            {
+              "id": "inheritProcessors",
+              "type": "inheritProcessors",
+              "data": {}
+            }
+          ],
+          "postProcessors": [
+            {
+              "id": "inheritProcessors",
+              "type": "inheritProcessors",
+              "data": {}
+            }
+          ],
+          "inheritPostProcessors": {},
+          "inheritPreProcessors": {},
+          "items": [
+            {
+              "name": "微信一键登陆",
+              "api": {
+                "id": "381289620",
+                "method": "post",
+                "path": "/api/auth/login/wechat",
+                "parameters": {
+                  "query": []
+                },
+                "auth": {},
+                "securityScheme": {},
+                "commonParameters": {
+                  "query": [],
+                  "body": [],
+                  "cookie": [],
+                  "header": []
+                },
+                "responses": [
+                  {
+                    "id": "155311020",
+                    "code": 200,
+                    "name": "成功",
+                    "headers": [],
+                    "jsonSchema": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "integer"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "data": {
+                          "type": "object",
+                          "properties": {
+                            "token": {
+                              "type": "string"
+                            },
+                            "userInfo": {
+                              "type": "object",
+                              "properties": {
+                                "userId": {
+                                  "type": "string"
+                                },
+                                "nickname": {
+                                  "type": "string"
+                                },
+                                "avatar": {
+                                  "type": "string",
+                                  "description": "从OSS获取的URL"
+                                },
+                                "email": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "userId",
+                                "nickname",
+                                "avatar",
+                                "email"
+                              ],
+                              "x-apifox-orders": [
+                                "userId",
+                                "nickname",
+                                "avatar",
+                                "email"
+                              ]
+                            },
+                            "isNewUser": {
+                              "description": "前端注意：true 则弹窗绑定邮箱",
+                              "type": "boolean"
+                            },
+                            "hasPassword": {
+                              "description": "前端注意：false 则在设置页引导设密码",
+                              "type": "boolean"
+                            }
+                          },
+                          "required": [
+                            "token",
+                            "userInfo",
+                            "isNewUser",
+                            "hasPassword"
+                          ],
+                          "x-apifox-orders": [
+                            "token",
+                            "userInfo",
+                            "isNewUser",
+                            "hasPassword"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "data"
+                      ],
+                      "x-apifox-orders": [
+                        "code",
+                        "message",
+                        "data"
+                      ]
+                    },
+                    "description": "",
+                    "contentType": "json",
+                    "mediaType": ""
+                  },
+                  {
+                    "id": "183022807",
+                    "code": "400",
+                    "name": "请求参数错误",
+                    "headers": [],
+                    "jsonSchema": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "integer"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "data": {
+                          "type": "null"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "data"
+                      ],
+                      "x-apifox-orders": [
+                        "code",
+                        "message",
+                        "data"
+                      ]
+                    },
+                    "description": "",
+                    "contentType": "json",
+                    "mediaType": ""
+                  },
+                  {
+                    "id": "115862935",
+                    "code": "400",
+                    "name": "微信 Code 无效/过期",
+                    "headers": [],
+                    "jsonSchema": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "integer"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "data": {
+                          "type": "null"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "data"
+                      ],
+                      "x-apifox-orders": [
+                        "code",
+                        "message",
+                        "data"
+                      ]
+                    },
+                    "description": "",
+                    "contentType": "json",
+                    "mediaType": ""
+                  },
+                  {
+                    "id": "122740907",
+                    "code": "403",
+                    "name": "账号已被禁用",
+                    "headers": [],
+                    "jsonSchema": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "integer"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "data": {
+                          "type": "null"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "data"
+                      ],
+                      "x-apifox-orders": [
+                        "code",
+                        "message",
+                        "data"
+                      ]
+                    },
+                    "description": "",
+                    "contentType": "json",
+                    "mediaType": ""
+                  }
+                ],
+                "responseExamples": [
+                  {
+                    "name": "示例 1",
+                    "data": "{\n    \"code\": 20000,\n    \"message\": \"登录成功\",\n    \"data\": {\n        \"token\": \"eyJhbGciOiJIUzI1NiJ9.eyJ1c2Vy...\",\n        \"userInfo\": {\n            \"userId\": \"10086\",\n            \"nickname\": \"微信用户\",\n            \"avatar\": \"https://oss.example.com/default.png\",\n            \"email\": null\n        },\n        \"isNewUser\": true,\n        \"hasPassword\": false\n    }\n}",
+                    "responseId": "155311020"
+                  },
+                  {
+                    "name": "成功示例",
+                    "data": "{\n  \"code\": 40001,\n  \"message\": \"请求参数错误\",\n  \"data\": null\n}",
+                    "responseId": "183022807"
+                  },
+                  {
+                    "name": "成功示例",
+                    "data": "{\n  \"code\": 40004,\n  \"message\": \"微信授权失败，请重试\",\n  \"data\": null\n}",
+                    "responseId": "115862935"
+                  },
+                  {
+                    "name": "成功示例",
+                    "data": "{\n  \"code\": 40301,\n  \"message\": \"账号已被禁用\",\n  \"data\": null\n}",
+                    "responseId": "122740907"
+                  }
+                ],
+                "requestBody": {
+                  "type": "application/json",
+                  "parameters": [],
+                  "jsonSchema": {
+                    "type": "object",
+                    "properties": {
+                      "code": {
+                        "description": "必填，小程序端通过 wx.login 获取的临时凭证",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "code"
+                    ],
+                    "x-apifox-orders": [
+                      "code"
+                    ]
+                  },
+                  "required": true,
+                  "mediaType": "",
+                  "examples": [
+                    {
+                      "mediaType": "application/json",
+                      "value": "{\n  \"code\": \"081K...\" // 必填，小程序端通过 wx.login 获取的临时凭证\n}",
+                      "name": "示例 1"
+                    }
+                  ],
+                  "oasExtensions": ""
+                },
+                "description": "1. 前端调用 wx.login 获取 code。\n2. 后端调用 code2Session 获取 openid。\n3. 后端查库：\n- 若存在： 返回用户信息。\n- 若不存在： 自动注册，写入默认昵称(\"微信用户\")和默认头像，返回 isNewUser: true。\n4. 注意： 前端收到 isNewUser: true 后，必须跳转到“完善资料页”，调用上传接口和更新资料接口，完成头像昵称的收集。",
+                "tags": [],
+                "status": "developing",
+                "serverId": "",
+                "operationId": "",
+                "sourceUrl": "",
+                "ordering": 60,
+                "cases": [],
+                "mocks": [],
+                "customApiFields": "{}",
+                "advancedSettings": {
+                  "disabledSystemHeaders": {}
+                },
+                "mockScript": {},
+                "codeSamples": [],
+                "commonResponseStatus": {},
+                "responseChildren": [],
+                "maintainer": "华浩名",
+                "visibility": "INHERITED",
+                "moduleId": 6610335,
+                "oasExtensions": "",
+                "type": "http",
+                "preProcessors": [],
+                "postProcessors": [],
+                "inheritPostProcessors": {},
+                "inheritPreProcessors": {}
+              }
+            },
+            {
+              "name": "账号密码登陆",
+              "api": {
+                "id": "381300387",
+                "method": "post",
+                "path": "/api/auth/login/account",
+                "parameters": {},
+                "auth": {},
+                "securityScheme": {},
+                "commonParameters": {
+                  "query": [],
+                  "body": [],
+                  "cookie": [],
+                  "header": []
+                },
+                "responses": [
+                  {
+                    "id": "192830674",
+                    "code": 200,
+                    "name": "成功",
+                    "headers": [],
+                    "jsonSchema": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "integer"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "data": {
+                          "type": "object",
+                          "properties": {
+                            "token": {
+                              "type": "string"
+                            },
+                            "userInfo": {
+                              "type": "object",
+                              "properties": {
+                                "userId": {
+                                  "type": "string"
+                                },
+                                "nickname": {
+                                  "type": "string"
+                                },
+                                "avatar": {
+                                  "type": "string"
+                                },
+                                "email": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "userId",
+                                "nickname",
+                                "avatar",
+                                "email"
+                              ],
+                              "x-apifox-orders": [
+                                "userId",
+                                "nickname",
+                                "avatar",
+                                "email"
+                              ]
+                            },
+                            "isNewUser": {
+                              "type": "boolean"
+                            },
+                            "hasPassword": {
+                              "type": "boolean"
+                            }
+                          },
+                          "required": [
+                            "token",
+                            "userInfo",
+                            "isNewUser",
+                            "hasPassword"
+                          ],
+                          "x-apifox-orders": [
+                            "token",
+                            "userInfo",
+                            "isNewUser",
+                            "hasPassword"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "data"
+                      ],
+                      "x-apifox-orders": [
+                        "code",
+                        "message",
+                        "data"
+                      ]
+                    },
+                    "description": "",
+                    "contentType": "json",
+                    "mediaType": ""
+                  },
+                  {
+                    "id": "156759029",
+                    "code": "400",
+                    "name": "邮箱格式不正确",
+                    "headers": [],
+                    "jsonSchema": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "integer"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "data": {
+                          "type": "null"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "data"
+                      ],
+                      "x-apifox-orders": [
+                        "code",
+                        "message",
+                        "data"
+                      ]
+                    },
+                    "description": "",
+                    "contentType": "json",
+                    "mediaType": ""
+                  },
+                  {
+                    "id": "136069907",
+                    "code": "400",
+                    "name": "用户名或密码错误",
+                    "headers": [],
+                    "jsonSchema": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "integer"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "data": {
+                          "type": "null"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "data"
+                      ],
+                      "x-apifox-orders": [
+                        "code",
+                        "message",
+                        "data"
+                      ]
+                    },
+                    "description": "",
+                    "contentType": "json",
+                    "mediaType": ""
+                  },
+                  {
+                    "id": "100075552",
+                    "code": "404",
+                    "name": "该账号未注册",
+                    "headers": [],
+                    "jsonSchema": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "integer"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "data": {
+                          "type": "null"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "data"
+                      ],
+                      "x-apifox-orders": [
+                        "code",
+                        "message",
+                        "data"
+                      ]
+                    },
+                    "description": "",
+                    "contentType": "json",
+                    "mediaType": ""
+                  },
+                  {
+                    "id": "111890354",
+                    "code": "403",
+                    "name": "该账户已被禁用",
+                    "headers": [],
+                    "jsonSchema": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "integer"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "data": {
+                          "type": "null"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "data"
+                      ],
+                      "x-apifox-orders": [
+                        "code",
+                        "message",
+                        "data"
+                      ]
+                    },
+                    "description": "",
+                    "contentType": "json",
+                    "mediaType": ""
+                  }
+                ],
+                "responseExamples": [
+                  {
+                    "name": "成功示例",
+                    "data": "{\n  \"code\": 200,\n  \"message\": \"登录成功\",\n  \"data\": {\n    \"token\": \"eyJhbGciOiJIUzI1Ni...\",\n    \"userInfo\": {\n      \"userId\": \"10086\",\n      \"nickname\": \"小青\",\n      \"avatar\": \"https://oss...\",\n      \"email\": \"elaine@szu.edu.cn\"\n    },\n    \"isNewUser\": false,\n    \"hasPassword\": true\n  }\n}",
+                    "responseId": "192830674"
+                  },
+                  {
+                    "name": "成功示例",
+                    "data": "{\n  \"code\": 40001,\n  \"message\": \"请求参数错误\",\n  \"data\": null\n}",
+                    "responseId": "156759029"
+                  },
+                  {
+                    "name": "成功示例",
+                    "data": "{\n  \"code\": 40003,\n  \"message\": \"用户名或密码错误\",\n  \"data\": null\n}",
+                    "responseId": "136069907"
+                  },
+                  {
+                    "name": "成功示例",
+                    "data": "{\n  \"code\": 40401,\n  \"message\": \"该账号未注册\",\n  \"data\": null\n}",
+                    "responseId": "100075552"
+                  },
+                  {
+                    "name": "成功示例",
+                    "data": "{\n  \"code\": 40301,\n  \"message\": \"账号已被禁用\",\n  \"data\": null\n}",
+                    "responseId": "111890354"
+                  }
+                ],
+                "requestBody": {
+                  "type": "application/json",
+                  "parameters": [],
+                  "jsonSchema": {
+                    "type": "object",
+                    "properties": {
+                      "account": {
+                        "description": "邮箱或用户名",
+                        "type": "string"
+                      },
+                      "password": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "account",
+                      "password"
+                    ],
+                    "x-apifox-orders": [
+                      "account",
+                      "password"
+                    ]
+                  },
+                  "required": true,
+                  "mediaType": "",
+                  "examples": [
+                    {
+                      "mediaType": "application/json",
+                      "value": "{\n  \"account\": \"test@qq.com\", // 邮箱或用户名\n  \"password\": \"password123\"\n}",
+                      "name": "示例 1"
+                    }
+                  ],
+                  "oasExtensions": ""
+                },
+                "description": "可在登录页点击账户登录，输入账户和密码，若不匹配弹出提示",
+                "tags": [],
+                "status": "developing",
+                "serverId": "",
+                "operationId": "",
+                "sourceUrl": "",
+                "ordering": 70,
+                "cases": [],
+                "mocks": [],
+                "customApiFields": "{}",
+                "advancedSettings": {
+                  "disabledSystemHeaders": {}
+                },
+                "mockScript": {},
+                "codeSamples": [],
+                "commonResponseStatus": {},
+                "responseChildren": [],
+                "maintainer": "华浩名",
+                "visibility": "INHERITED",
+                "moduleId": 6610335,
+                "oasExtensions": "",
+                "type": "http",
+                "preProcessors": [],
+                "postProcessors": [],
+                "inheritPostProcessors": {},
+                "inheritPreProcessors": {}
+              }
+            },
+            {
+              "name": "发送邮箱验证码",
+              "api": {
+                "id": "381301071",
+                "method": "post",
+                "path": "/api/auth/send-code",
+                "parameters": {},
+                "auth": {},
+                "securityScheme": {},
+                "commonParameters": {
+                  "query": [],
+                  "body": [],
+                  "cookie": [],
+                  "header": []
+                },
+                "responses": [
+                  {
+                    "id": "113405658",
+                    "code": 200,
+                    "name": "成功",
+                    "headers": [],
+                    "jsonSchema": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "integer"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "data": {
+                          "type": "null"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "data"
+                      ],
+                      "x-apifox-orders": [
+                        "code",
+                        "message",
+                        "data"
+                      ]
+                    },
+                    "description": "",
+                    "contentType": "json",
+                    "mediaType": ""
+                  },
+                  {
+                    "id": "183744630",
+                    "code": "400",
+                    "name": "邮箱格式错误",
+                    "headers": [],
+                    "jsonSchema": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "integer"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "data": {
+                          "type": "null"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "data"
+                      ],
+                      "x-apifox-orders": [
+                        "code",
+                        "message",
+                        "data"
+                      ]
+                    },
+                    "description": "",
+                    "contentType": "json",
+                    "mediaType": ""
+                  },
+                  {
+                    "id": "163894808",
+                    "code": "409",
+                    "name": "(仅 BIND 模式) 该邮箱已被其他账号绑定",
+                    "headers": [],
+                    "jsonSchema": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "integer"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "data": {
+                          "type": "null"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "data"
+                      ],
+                      "x-apifox-orders": [
+                        "code",
+                        "message",
+                        "data"
+                      ]
+                    },
+                    "description": "",
+                    "contentType": "json",
+                    "mediaType": ""
+                  },
+                  {
+                    "id": "164790745",
+                    "code": "429",
+                    "name": "操作太频繁",
+                    "headers": [],
+                    "jsonSchema": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "integer"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "data": {
+                          "type": "null"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "data"
+                      ],
+                      "x-apifox-orders": [
+                        "code",
+                        "message",
+                        "data"
+                      ]
+                    },
+                    "description": "",
+                    "contentType": "json",
+                    "mediaType": ""
+                  },
+                  {
+                    "id": "137952153",
+                    "code": "500",
+                    "name": "邮件服务异常",
+                    "headers": [],
+                    "jsonSchema": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "integer"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "data": {
+                          "type": "null"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "data"
+                      ],
+                      "x-apifox-orders": [
+                        "code",
+                        "message",
+                        "data"
+                      ]
+                    },
+                    "description": "",
+                    "contentType": "json",
+                    "mediaType": ""
+                  }
+                ],
+                "responseExamples": [
+                  {
+                    "name": "成功示例",
+                    "data": "{\n  \"code\": 200,\n  \"message\": \"验证码已发送\",\n  \"data\": null\n}",
+                    "responseId": "113405658"
+                  },
+                  {
+                    "name": "成功示例",
+                    "data": "{\n  \"code\": 40001,       \n  \"message\": \"请求参数错误\", \n  \"data\": null     \n}",
+                    "responseId": "183744630"
+                  },
+                  {
+                    "name": "成功示例",
+                    "data": "{\n  \"code\": 40901,       \n  \"message\": \"该邮箱已被其他账号绑定\", \n  \"data\": null     \n}",
+                    "responseId": "163894808"
+                  },
+                  {
+                    "name": "成功示例",
+                    "data": "{\n  \"code\": 42901,       \n  \"message\": \"操作太频繁，请稍后再试\", \n  \"data\": null     \n}",
+                    "responseId": "164790745"
+                  },
+                  {
+                    "name": "成功示例",
+                    "data": "{\n  \"code\": 50000,       \n  \"message\": \"服务器开小差了\", \n  \"data\": null     \n}",
+                    "responseId": "137952153"
+                  }
+                ],
+                "requestBody": {
+                  "type": "application/json",
+                  "parameters": [],
+                  "jsonSchema": {
+                    "type": "object",
+                    "properties": {
+                      "email": {
+                        "type": "string"
+                      },
+                      "type": {
+                        "description": "枚举值：BIND (绑定邮箱), RESET (重置密码)",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "email",
+                      "type"
+                    ],
+                    "x-apifox-orders": [
+                      "email",
+                      "type"
+                    ]
+                  },
+                  "required": true,
+                  "mediaType": "",
+                  "examples": [
+                    {
+                      "mediaType": "application/json",
+                      "value": "{\n  \"email\": \"test@qq.com\",\n  \"type\": \"BIND\" // 枚举值：BIND (绑定邮箱), RESET (重置密码)\n}",
+                      "name": "示例 1"
+                    }
+                  ],
+                  "oasExtensions": ""
+                },
+                "description": "点击验证码输入框右侧的“发送验证码”按键\n这个接口既用于绑定邮箱，也用于重置密码，通过type区分",
+                "tags": [],
+                "status": "developing",
+                "serverId": "",
+                "operationId": "",
+                "sourceUrl": "",
+                "ordering": 80,
+                "cases": [],
+                "mocks": [],
+                "customApiFields": "{}",
+                "advancedSettings": {
+                  "disabledSystemHeaders": {}
+                },
+                "mockScript": {},
+                "codeSamples": [],
+                "commonResponseStatus": {},
+                "responseChildren": [],
+                "maintainer": "华浩名",
+                "visibility": "INHERITED",
+                "moduleId": 6610335,
+                "oasExtensions": "",
+                "type": "http",
+                "preProcessors": [],
+                "postProcessors": [],
+                "inheritPostProcessors": {},
+                "inheritPreProcessors": {}
+              }
+            }
+          ]
+        },
+        {
+          "name": "/api/user/",
+          "id": 72151481,
+          "auth": {},
+          "securityScheme": {},
+          "parentId": 0,
+          "serverId": "",
+          "description": "请求时需要在请求头中携带token",
+          "identityPattern": {
+            "httpApi": {
+              "type": "inherit",
+              "bodyType": "",
+              "fields": []
+            }
+          },
+          "shareSettings": {},
+          "visibility": "INHERITED",
+          "moduleId": 6610335,
+          "preProcessors": [
+            {
+              "id": "inheritProcessors",
+              "type": "inheritProcessors",
+              "data": {}
+            }
+          ],
+          "postProcessors": [
+            {
+              "id": "inheritProcessors",
+              "type": "inheritProcessors",
+              "data": {}
+            }
+          ],
+          "inheritPostProcessors": {},
+          "inheritPreProcessors": {},
+          "items": [
+            {
+              "name": "绑定邮箱",
+              "api": {
+                "id": "381304951",
+                "method": "post",
+                "path": "/api/user/bind-email",
+                "parameters": {
+                  "header": [
+                    {
+                      "required": true,
+                      "description": "",
+                      "type": "string",
+                      "id": "KgoEKbmzTG",
+                      "example": "Bearer <jwt_token>",
+                      "enable": true,
+                      "name": "Authorization"
+                    }
+                  ]
+                },
+                "auth": {},
+                "securityScheme": {},
+                "commonParameters": {
+                  "query": [],
+                  "body": [],
+                  "cookie": [],
+                  "header": []
+                },
+                "responses": [
+                  {
+                    "id": "188112349",
+                    "code": 200,
+                    "name": "成功",
+                    "headers": [],
+                    "jsonSchema": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "integer"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "data": {
+                          "type": "object",
+                          "properties": {
+                            "email": {
+                              "description": "返回更新后的邮箱",
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "email"
+                          ],
+                          "x-apifox-orders": [
+                            "email"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "data"
+                      ],
+                      "x-apifox-orders": [
+                        "code",
+                        "message",
+                        "data"
+                      ]
+                    },
+                    "description": "",
+                    "contentType": "json",
+                    "mediaType": ""
+                  },
+                  {
+                    "id": "186373341",
+                    "code": "401",
+                    "name": "请先登录（Token 无效）",
+                    "headers": [],
+                    "jsonSchema": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "integer"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "data": {
+                          "type": "null"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "data"
+                      ],
+                      "x-apifox-orders": [
+                        "code",
+                        "message",
+                        "data"
+                      ]
+                    },
+                    "description": "",
+                    "contentType": "json",
+                    "mediaType": ""
+                  },
+                  {
+                    "id": "147917417",
+                    "code": "400",
+                    "name": "验证码错误或失效",
+                    "headers": [],
+                    "jsonSchema": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "integer"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "data": {
+                          "type": "null"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "data"
+                      ],
+                      "x-apifox-orders": [
+                        "code",
+                        "message",
+                        "data"
+                      ]
+                    },
+                    "description": "",
+                    "contentType": "json",
+                    "mediaType": ""
+                  },
+                  {
+                    "id": "119527275",
+                    "code": "409",
+                    "name": "该邮箱已被其他账号绑定",
+                    "headers": [],
+                    "jsonSchema": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "integer"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "data": {
+                          "type": "null"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "data"
+                      ],
+                      "x-apifox-orders": [
+                        "code",
+                        "message",
+                        "data"
+                      ]
+                    },
+                    "description": "",
+                    "contentType": "json",
+                    "mediaType": ""
+                  }
+                ],
+                "responseExamples": [
+                  {
+                    "name": "成功示例",
+                    "data": "{\n  \"code\": 200,\n  \"message\": \"绑定成功\",\n  \"data\": {\n    \"email\": \"elaine@szu.edu.cn\"\n  }\n}",
+                    "responseId": "188112349"
+                  },
+                  {
+                    "name": "成功示例",
+                    "data": "{\n  \"code\": 40101,\n  \"message\": \"请先登录\",\n  \"data\": null\n}",
+                    "responseId": "186373341"
+                  },
+                  {
+                    "name": "成功示例",
+                    "data": "{\n  \"code\": 40002,       \n  \"message\": \"验证码错误或已失效\", \n  \"data\": null     \n}",
+                    "responseId": "147917417"
+                  },
+                  {
+                    "name": "成功示例",
+                    "data": "{\n  \"code\": 40901,       \n  \"message\": \"该邮箱已被其他账号绑定\", \n  \"data\": null     \n}",
+                    "responseId": "119527275"
+                  }
+                ],
+                "requestBody": {
+                  "type": "application/json",
+                  "parameters": [],
+                  "jsonSchema": {
+                    "type": "object",
+                    "properties": {
+                      "email": {
+                        "type": "string"
+                      },
+                      "code": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "email",
+                      "code"
+                    ],
+                    "x-apifox-orders": [
+                      "email",
+                      "code"
+                    ]
+                  },
+                  "required": true,
+                  "mediaType": "",
+                  "examples": [
+                    {
+                      "mediaType": "application/json",
+                      "value": "{\n  \"email\": \"qingxi@szu.edu.cn\",\n  \"code\": \"123456\"\n}"
+                    }
+                  ],
+                  "oasExtensions": ""
+                },
+                "description": "微信登录用户的补充动作，前端需要根据isNewUser字段判断是否要弹出窗口",
+                "tags": [],
+                "status": "developing",
+                "serverId": "",
+                "operationId": "",
+                "sourceUrl": "",
+                "ordering": 100,
+                "cases": [],
+                "mocks": [],
+                "customApiFields": "{}",
+                "advancedSettings": {
+                  "disabledSystemHeaders": {}
+                },
+                "mockScript": {},
+                "codeSamples": [],
+                "commonResponseStatus": {},
+                "responseChildren": [],
+                "maintainer": "华浩名",
+                "visibility": "INHERITED",
+                "moduleId": 6610335,
+                "oasExtensions": "",
+                "type": "http",
+                "preProcessors": [],
+                "postProcessors": [],
+                "inheritPostProcessors": {},
+                "inheritPreProcessors": {}
+              }
+            },
+            {
+              "name": "初始化/修改密码",
+              "api": {
+                "id": "381305203",
+                "method": "post",
+                "path": "/api/user/set-password",
+                "parameters": {
+                  "header": [
+                    {
+                      "required": true,
+                      "description": "",
+                      "type": "string",
+                      "id": "zx3Hbj3NKa",
+                      "example": "Bearer <jwt_token>",
+                      "enable": true,
+                      "name": "Authorization"
+                    }
+                  ]
+                },
+                "auth": {},
+                "securityScheme": {},
+                "commonParameters": {
+                  "query": [],
+                  "body": [],
+                  "cookie": [],
+                  "header": []
+                },
+                "responses": [
+                  {
+                    "id": "196499681",
+                    "code": 200,
+                    "name": "成功",
+                    "headers": [],
+                    "jsonSchema": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "integer"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "data": {
+                          "type": "null"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "data"
+                      ],
+                      "x-apifox-orders": [
+                        "code",
+                        "message",
+                        "data"
+                      ]
+                    },
+                    "description": "",
+                    "contentType": "json",
+                    "mediaType": ""
+                  },
+                  {
+                    "id": "159725410",
+                    "code": "401",
+                    "name": "请先登录",
+                    "headers": [],
+                    "jsonSchema": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "integer"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "data": {
+                          "type": "null"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "data"
+                      ],
+                      "x-apifox-orders": [
+                        "code",
+                        "message",
+                        "data"
+                      ]
+                    },
+                    "description": "",
+                    "contentType": "json",
+                    "mediaType": ""
+                  },
+                  {
+                    "id": "180584602",
+                    "code": "400",
+                    "name": "密码强度不符合要求",
+                    "headers": [],
+                    "jsonSchema": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "integer"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "data": {
+                          "type": "null"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "data"
+                      ],
+                      "x-apifox-orders": [
+                        "code",
+                        "message",
+                        "data"
+                      ]
+                    },
+                    "description": "",
+                    "contentType": "json",
+                    "mediaType": ""
+                  }
+                ],
+                "responseExamples": [
+                  {
+                    "name": "成功示例",
+                    "data": "{\n  \"code\": 200,\n  \"message\": \"密码设置成功\",\n  \"data\": null\n}",
+                    "responseId": "196499681"
+                  },
+                  {
+                    "name": "成功示例",
+                    "data": "{\n  \"code\": 40101,\n  \"message\": \"请先登录\",\n  \"data\": null\n}",
+                    "responseId": "159725410"
+                  },
+                  {
+                    "name": "成功示例",
+                    "data": "{\n  \"code\": 40005,       \n  \"message\": \"密码强度不符合要求\", \n  \"data\": null     \n}",
+                    "responseId": "180584602"
+                  }
+                ],
+                "requestBody": {
+                  "type": "application/json",
+                  "parameters": [],
+                  "jsonSchema": {
+                    "type": "object",
+                    "properties": {
+                      "password": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "password"
+                    ],
+                    "x-apifox-orders": [
+                      "password"
+                    ]
+                  },
+                  "required": true,
+                  "mediaType": "",
+                  "examples": [
+                    {
+                      "mediaType": "application/json",
+                      "value": "{\n  \"password\": \"NewPassword2025!\"\n}",
+                      "name": "示例 1"
+                    }
+                  ],
+                  "oasExtensions": ""
+                },
+                "description": "微信用户设置初始密码，或老用户改密码",
+                "tags": [],
+                "status": "developing",
+                "serverId": "",
+                "operationId": "",
+                "sourceUrl": "",
+                "ordering": 110,
+                "cases": [],
+                "mocks": [],
+                "customApiFields": "{}",
+                "advancedSettings": {
+                  "disabledSystemHeaders": {}
+                },
+                "mockScript": {},
+                "codeSamples": [],
+                "commonResponseStatus": {},
+                "responseChildren": [],
+                "maintainer": "华浩名",
+                "visibility": "INHERITED",
+                "moduleId": 6610335,
+                "oasExtensions": "",
+                "type": "http",
+                "preProcessors": [],
+                "postProcessors": [],
+                "inheritPostProcessors": {},
+                "inheritPreProcessors": {}
+              }
+            },
+            {
+              "name": "获取个人资料",
+              "api": {
+                "id": "382009057",
+                "method": "get",
+                "path": "/api/user/profile",
+                "parameters": {
+                  "header": [
+                    {
+                      "required": true,
+                      "description": "",
+                      "type": "string",
+                      "id": "NNtGqYKZOC",
+                      "example": "Bearer <jwt_token>",
+                      "enable": true,
+                      "name": "Authorization"
+                    }
+                  ]
+                },
+                "auth": {},
+                "securityScheme": {},
+                "commonParameters": {
+                  "query": [],
+                  "body": [],
+                  "cookie": [],
+                  "header": []
+                },
+                "responses": [
+                  {
+                    "id": "176480523",
+                    "code": 200,
+                    "name": "成功",
+                    "headers": [],
+                    "jsonSchema": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "integer"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "data": {
+                          "type": "object",
+                          "properties": {
+                            "userId": {
+                              "type": "string"
+                            },
+                            "nickname": {
+                              "type": "string"
+                            },
+                            "avatar": {
+                              "type": "string"
+                            },
+                            "bio": {
+                              "type": "string"
+                            },
+                            "gender": {
+                              "description": "0:保密, 1:男, 2:女",
+                              "type": "integer"
+                            },
+                            "birthday": {
+                              "description": "格式 yyyy-MM-dd",
+                              "type": "string"
+                            },
+                            "region": {
+                              "type": "string"
+                            },
+                            "email": {
+                              "description": "用于显示绑定的邮箱",
+                              "type": "string"
+                            },
+                            "hasPassword": {
+                              "description": "前端根据此字段判断显示“设置密码”还是“修改密码”",
+                              "type": "boolean"
+                            }
+                          },
+                          "required": [
+                            "userId",
+                            "nickname",
+                            "avatar",
+                            "bio",
+                            "gender",
+                            "birthday",
+                            "region",
+                            "email",
+                            "hasPassword"
+                          ],
+                          "x-apifox-orders": [
+                            "userId",
+                            "nickname",
+                            "avatar",
+                            "bio",
+                            "gender",
+                            "birthday",
+                            "region",
+                            "email",
+                            "hasPassword"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "data"
+                      ],
+                      "x-apifox-orders": [
+                        "code",
+                        "message",
+                        "data"
+                      ]
+                    },
+                    "description": "",
+                    "contentType": "json",
+                    "mediaType": ""
+                  }
+                ],
+                "responseExamples": [
+                  {
+                    "name": "成功示例",
+                    "data": "{\n  \"code\": 200,\n  \"message\": \"获取个人资料成功\",\n  \"data\": {\n    \"userId\": \"10086\",\n    \"nickname\": \"小青\",\n    \"avatar\": \"https://oss.../avatar.jpg\",\n    \"bio\": \"这个人很神秘，什么话都没有写\",\n    \"gender\": 2,\n    \"birthday\": \"2003-05-20\",\n    \"region\": \"广东 深圳\",\n    \"email\": \"elaine@szu.edu.cn\",\n    \"hasPassword\": false\n  }\n}",
+                    "responseId": "176480523"
+                  }
+                ],
+                "requestBody": {
+                  "type": "none",
+                  "parameters": [],
+                  "required": true,
+                  "mediaType": "",
+                  "examples": [],
+                  "oasExtensions": ""
+                },
+                "description": "这是进入“我的”页面时调用的接口，返回所有展示需要的数据。\n从携带的token获取用户id",
+                "tags": [],
+                "status": "developing",
+                "serverId": "",
+                "operationId": "",
+                "sourceUrl": "",
+                "ordering": 130,
+                "cases": [],
+                "mocks": [],
+                "customApiFields": "{}",
+                "advancedSettings": {
+                  "disabledSystemHeaders": {}
+                },
+                "mockScript": {},
+                "codeSamples": [],
+                "commonResponseStatus": {},
+                "responseChildren": [],
+                "maintainer": "华浩名",
+                "visibility": "INHERITED",
+                "moduleId": 6610335,
+                "oasExtensions": "",
+                "type": "http",
+                "preProcessors": [],
+                "postProcessors": [],
+                "inheritPostProcessors": {},
+                "inheritPreProcessors": {}
+              }
+            },
+            {
+              "name": "修改个人资料",
+              "api": {
+                "id": "382009360",
+                "method": "put",
+                "path": "/api/user/profile",
+                "parameters": {
+                  "header": [
+                    {
+                      "required": true,
+                      "description": "",
+                      "type": "string",
+                      "id": "zaMwaGYs1D",
+                      "example": "Bearer <jwt_token>",
+                      "enable": true,
+                      "name": "Authorization"
+                    }
+                  ]
+                },
+                "auth": {},
+                "securityScheme": {},
+                "commonParameters": {
+                  "query": [],
+                  "body": [],
+                  "cookie": [],
+                  "header": []
+                },
+                "responses": [
+                  {
+                    "id": "154367789",
+                    "code": 200,
+                    "name": "成功",
+                    "headers": [],
+                    "jsonSchema": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "integer"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "data": {
+                          "type": "null"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "data"
+                      ],
+                      "x-apifox-orders": [
+                        "code",
+                        "message",
+                        "data"
+                      ]
+                    },
+                    "description": "",
+                    "contentType": "json",
+                    "mediaType": ""
+                  },
+                  {
+                    "id": "101494953",
+                    "code": "400",
+                    "name": "昵称含有敏感词（之后扩展这里） / 格式错误",
+                    "headers": [],
+                    "jsonSchema": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "integer"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "data": {
+                          "description": "或者返回更新后的完整 profile",
+                          "type": "null"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "data"
+                      ],
+                      "x-apifox-orders": [
+                        "code",
+                        "message",
+                        "data"
+                      ]
+                    },
+                    "description": "",
+                    "contentType": "json",
+                    "mediaType": ""
+                  }
+                ],
+                "responseExamples": [
+                  {
+                    "name": "成功示例",
+                    "data": "{\n  \"code\": 200,\n  \"message\": \"资料更新成功\",\n  \"data\": null\n}",
+                    "responseId": "154367789"
+                  },
+                  {
+                    "name": "成功示例",
+                    "data": "{\n  \"code\": 40001,\n  \"message\": \"请求参数错误\",\n  \"data\": null\n}",
+                    "responseId": "101494953"
+                  }
+                ],
+                "requestBody": {
+                  "type": "application/json",
+                  "parameters": [],
+                  "jsonSchema": {
+                    "type": "object",
+                    "properties": {
+                      "nickname": {
+                        "description": "选填",
+                        "type": "string"
+                      },
+                      "avatar": {
+                        "description": "选填 (上传接口返回的URL)",
+                        "type": "string"
+                      },
+                      "bio": {
+                        "description": "选填",
+                        "type": "string"
+                      },
+                      "gender": {
+                        "description": "选填 (0, 1, 2)",
+                        "type": "integer"
+                      },
+                      "birthday": {
+                        "description": "选填 (yyyy-MM-dd)",
+                        "type": "string"
+                      },
+                      "region": {
+                        "description": "选填",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "nickname",
+                      "avatar",
+                      "bio",
+                      "gender",
+                      "birthday",
+                      "region"
+                    ],
+                    "x-apifox-orders": [
+                      "nickname",
+                      "avatar",
+                      "bio",
+                      "gender",
+                      "birthday",
+                      "region"
+                    ]
+                  },
+                  "required": true,
+                  "mediaType": "",
+                  "examples": [
+                    {
+                      "mediaType": "application/json",
+                      "value": "{\n  \"nickname\": \"Elaine\",         // 选填\n  \"avatar\": \"https://oss...\",   // 选填 (上传接口返回的URL)\n  \"bio\": \"新的简介...\",          // 选填\n  \"gender\": 2,                  // 选填 (0, 1, 2)\n  \"birthday\": \"2003-05-20\",     // 选填 (yyyy-MM-dd)\n  \"region\": \"广东 深圳\"          // 选填\n}"
+                    }
+                  ],
+                  "oasExtensions": ""
+                },
+                "description": "这是一个聚合更新接口。前端只传需要修改的字段，不想改的字段不传，或传原值",
+                "tags": [],
+                "status": "developing",
+                "serverId": "",
+                "operationId": "",
+                "sourceUrl": "",
+                "ordering": 140,
+                "cases": [],
+                "mocks": [],
+                "customApiFields": "{}",
+                "advancedSettings": {
+                  "disabledSystemHeaders": {}
+                },
+                "mockScript": {},
+                "codeSamples": [],
+                "commonResponseStatus": {},
+                "responseChildren": [],
+                "maintainer": "华浩名",
+                "visibility": "INHERITED",
+                "moduleId": 6610335,
+                "oasExtensions": "",
+                "type": "http",
+                "preProcessors": [],
+                "postProcessors": [],
+                "inheritPostProcessors": {},
+                "inheritPreProcessors": {}
+              }
+            },
+            {
+              "name": "首次设置密码 (验证邮箱)",
+              "api": {
+                "id": "382010450",
+                "method": "post",
+                "path": "/api/user/password/set",
+                "parameters": {
+                  "header": [
+                    {
+                      "required": true,
+                      "description": "",
+                      "type": "string",
+                      "id": "Zoa7VOkAvR",
+                      "example": "Bearer <jwt_token>",
+                      "enable": true,
+                      "name": "Authorization"
+                    }
+                  ]
+                },
+                "auth": {},
+                "securityScheme": {},
+                "commonParameters": {
+                  "query": [],
+                  "body": [],
+                  "cookie": [],
+                  "header": []
+                },
+                "responses": [
+                  {
+                    "id": "130193964",
+                    "code": 200,
+                    "name": "成功",
+                    "headers": [],
+                    "jsonSchema": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "integer"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "data": {
+                          "type": "null"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "data"
+                      ],
+                      "x-apifox-orders": [
+                        "code",
+                        "message",
+                        "data"
+                      ]
+                    },
+                    "description": "",
+                    "contentType": "json",
+                    "mediaType": ""
+                  },
+                  {
+                    "id": "161283601",
+                    "code": "400",
+                    "name": "验证码错误或已失效",
+                    "headers": [],
+                    "jsonSchema": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "integer"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "data": {
+                          "type": "null"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "data"
+                      ],
+                      "x-apifox-orders": [
+                        "code",
+                        "message",
+                        "data"
+                      ]
+                    },
+                    "description": "",
+                    "contentType": "json",
+                    "mediaType": ""
+                  },
+                  {
+                    "id": "187180575",
+                    "code": "400",
+                    "name": "密码强度不符合要求",
+                    "headers": [],
+                    "jsonSchema": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "integer"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "data": {
+                          "type": "null"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "data"
+                      ],
+                      "x-apifox-orders": [
+                        "code",
+                        "message",
+                        "data"
+                      ]
+                    },
+                    "description": "",
+                    "contentType": "json",
+                    "mediaType": ""
+                  },
+                  {
+                    "id": "124022298",
+                    "code": "409",
+                    "name": "已设置过密码，请调用修改密码接口",
+                    "headers": [],
+                    "jsonSchema": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "integer"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "data": {
+                          "type": "null"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "data"
+                      ],
+                      "x-apifox-orders": [
+                        "code",
+                        "message",
+                        "data"
+                      ]
+                    },
+                    "description": "",
+                    "contentType": "json",
+                    "mediaType": ""
+                  }
+                ],
+                "responseExamples": [
+                  {
+                    "name": "成功示例",
+                    "data": "{\n  \"code\": 200,\n  \"message\": \"密码设置成功\",\n  \"data\": null\n}",
+                    "responseId": "130193964"
+                  },
+                  {
+                    "name": "成功示例",
+                    "data": "{\n  \"code\": 40002,\n  \"message\": \"验证码错误或已失效\",\n  \"data\": null\n}",
+                    "responseId": "161283601"
+                  },
+                  {
+                    "name": "成功示例",
+                    "data": "{\n  \"code\": 40005,\n  \"message\": \"密码强度不符合要求\",\n  \"data\": null\n}",
+                    "responseId": "187180575"
+                  },
+                  {
+                    "name": "成功示例",
+                    "data": "{\n  \"code\": 40902,\n  \"message\": \"已设置过密码，请调用修改密码接口\",\n  \"data\": null\n}",
+                    "responseId": "124022298"
+                  }
+                ],
+                "requestBody": {
+                  "type": "application/json",
+                  "parameters": [],
+                  "jsonSchema": {
+                    "type": "object",
+                    "properties": {
+                      "code": {
+                        "description": "邮箱验证码 (调用 /api/auth/send-code 获取)",
+                        "type": "string"
+                      },
+                      "password": {
+                        "description": "新密码",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "code",
+                      "password"
+                    ],
+                    "x-apifox-orders": [
+                      "code",
+                      "password"
+                    ]
+                  },
+                  "required": true,
+                  "mediaType": "",
+                  "examples": [
+                    {
+                      "mediaType": "application/json",
+                      "value": "{\n  \"code\": \"123456\",            // 邮箱验证码 (调用 /api/auth/send-code 获取)\n  \"password\": \"NewPassword123!\" // 新密码\n}",
+                      "name": "示例 1"
+                    }
+                  ],
+                  "oasExtensions": ""
+                },
+                "description": "未设置过密码的用户，在输入邮箱验证码后，再输入两次密码，完成密码设置",
+                "tags": [],
+                "status": "developing",
+                "serverId": "",
+                "operationId": "",
+                "sourceUrl": "",
+                "ordering": 150,
+                "cases": [],
+                "mocks": [],
+                "customApiFields": "{}",
+                "advancedSettings": {
+                  "disabledSystemHeaders": {}
+                },
+                "mockScript": {},
+                "codeSamples": [],
+                "commonResponseStatus": {},
+                "responseChildren": [],
+                "maintainer": "华浩名",
+                "visibility": "INHERITED",
+                "moduleId": 6610335,
+                "oasExtensions": "",
+                "type": "http",
+                "preProcessors": [],
+                "postProcessors": [],
+                "inheritPostProcessors": {},
+                "inheritPreProcessors": {}
+              }
+            },
+            {
+              "name": "修改密码 (验证旧密码)",
+              "api": {
+                "id": "382011874",
+                "method": "post",
+                "path": "/api/user/password/change",
+                "parameters": {
+                  "header": [
+                    {
+                      "required": true,
+                      "description": "",
+                      "type": "string",
+                      "id": "rHMz708MKB",
+                      "example": "Bearer <jwt_token>",
+                      "enable": true,
+                      "name": "Authorization"
+                    }
+                  ]
+                },
+                "auth": {},
+                "securityScheme": {},
+                "commonParameters": {
+                  "query": [],
+                  "body": [],
+                  "cookie": [],
+                  "header": []
+                },
+                "responses": [
+                  {
+                    "id": "150624854",
+                    "code": 200,
+                    "name": "成功",
+                    "headers": [],
+                    "jsonSchema": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "integer"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "data": {
+                          "type": "null"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "data"
+                      ],
+                      "x-apifox-orders": [
+                        "code",
+                        "message",
+                        "data"
+                      ]
+                    },
+                    "description": "",
+                    "contentType": "json",
+                    "mediaType": ""
+                  },
+                  {
+                    "id": "160251474",
+                    "code": "400",
+                    "name": "旧密码错误",
+                    "headers": [],
+                    "jsonSchema": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "integer"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "data": {
+                          "type": "null"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "data"
+                      ],
+                      "x-apifox-orders": [
+                        "code",
+                        "message",
+                        "data"
+                      ]
+                    },
+                    "description": "",
+                    "contentType": "json",
+                    "mediaType": ""
+                  },
+                  {
+                    "id": "134847262",
+                    "code": "400",
+                    "name": "新密码强度不足",
+                    "headers": [],
+                    "jsonSchema": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "integer"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "data": {
+                          "type": "null"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "data"
+                      ],
+                      "x-apifox-orders": [
+                        "code",
+                        "message",
+                        "data"
+                      ]
+                    },
+                    "description": "",
+                    "contentType": "json",
+                    "mediaType": ""
+                  }
+                ],
+                "responseExamples": [
+                  {
+                    "name": "成功示例",
+                    "data": "{\n  \"code\": 200,\n  \"message\": \"密码修改成功\",\n  \"data\": null\n}",
+                    "responseId": "150624854"
+                  },
+                  {
+                    "name": "成功示例",
+                    "data": "{\n  \"code\": 40006,\n  \"message\": \"旧密码错误\",\n  \"data\": null\n}",
+                    "responseId": "160251474"
+                  },
+                  {
+                    "name": "成功示例",
+                    "data": "{\n  \"code\": 40005,       \n  \"message\": \"密码强度不符合要求\", \n  \"data\": null     \n}",
+                    "responseId": "134847262"
+                  }
+                ],
+                "requestBody": {
+                  "type": "application/json",
+                  "parameters": [],
+                  "jsonSchema": {
+                    "type": "object",
+                    "properties": {
+                      "oldPassword": {
+                        "description": "旧密码",
+                        "type": "string"
+                      },
+                      "newPassword": {
+                        "description": "新密码",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "oldPassword",
+                      "newPassword"
+                    ],
+                    "x-apifox-orders": [
+                      "oldPassword",
+                      "newPassword"
+                    ]
+                  },
+                  "required": true,
+                  "mediaType": "",
+                  "examples": [
+                    {
+                      "mediaType": "application/json",
+                      "value": "{\n  \"oldPassword\": \"OldPassword123!\", // 旧密码\n  \"newPassword\": \"NewPassword123!\"  // 新密码\n}",
+                      "name": "示例 1"
+                    }
+                  ],
+                  "oasExtensions": ""
+                },
+                "description": "已设置过密码的用户，输入一次原密码进行身份验证，再输入新密码",
+                "tags": [],
+                "status": "developing",
+                "serverId": "",
+                "operationId": "",
+                "sourceUrl": "",
+                "ordering": 160,
+                "cases": [],
+                "mocks": [],
+                "customApiFields": "{}",
+                "advancedSettings": {
+                  "disabledSystemHeaders": {}
+                },
+                "mockScript": {},
+                "codeSamples": [],
+                "commonResponseStatus": {},
+                "responseChildren": [],
+                "maintainer": "华浩名",
+                "visibility": "INHERITED",
+                "moduleId": 6610335,
+                "oasExtensions": "",
+                "type": "http",
+                "preProcessors": [],
+                "postProcessors": [],
+                "inheritPostProcessors": {},
+                "inheritPreProcessors": {}
+              }
+            }
+          ]
+        },
+        {
+          "name": "/api/common/",
+          "id": 72151484,
+          "auth": {},
+          "securityScheme": {},
+          "parentId": 0,
+          "serverId": "",
+          "description": "",
+          "identityPattern": {
+            "httpApi": {
+              "type": "inherit",
+              "bodyType": "",
+              "fields": []
+            }
+          },
+          "shareSettings": {},
+          "visibility": "INHERITED",
+          "moduleId": 6610335,
+          "preProcessors": [
+            {
+              "id": "inheritProcessors",
+              "type": "inheritProcessors",
+              "data": {}
+            }
+          ],
+          "postProcessors": [
+            {
+              "id": "inheritProcessors",
+              "type": "inheritProcessors",
+              "data": {}
+            }
+          ],
+          "inheritPostProcessors": {},
+          "inheritPreProcessors": {},
+          "items": [
+            {
+              "name": "文件上传(OSS)",
+              "api": {
+                "id": "382007873",
+                "method": "post",
+                "path": "/api/common/upload",
+                "parameters": {
+                  "header": [
+                    {
+                      "required": false,
+                      "description": "",
+                      "type": "string",
+                      "id": "Ng7LUN2N0z",
+                      "example": "Bearer <jwt_token>",
+                      "enable": true,
+                      "name": "Authorization"
+                    }
+                  ]
+                },
+                "auth": {},
+                "securityScheme": {},
+                "commonParameters": {
+                  "query": [],
+                  "body": [],
+                  "cookie": [],
+                  "header": []
+                },
+                "responses": [
+                  {
+                    "id": "153413090",
+                    "code": 200,
+                    "name": "成功",
+                    "headers": [],
+                    "jsonSchema": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "integer"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "data": {
+                          "type": "object",
+                          "properties": {
+                            "url": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "url"
+                          ],
+                          "x-apifox-orders": [
+                            "url"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "data"
+                      ],
+                      "x-apifox-orders": [
+                        "code",
+                        "message",
+                        "data"
+                      ]
+                    },
+                    "description": "",
+                    "contentType": "json",
+                    "mediaType": ""
+                  },
+                  {
+                    "id": "164710071",
+                    "code": "400",
+                    "name": "文件为空或格式不支持",
+                    "headers": [],
+                    "jsonSchema": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "integer"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "data": {
+                          "type": "null"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "data"
+                      ],
+                      "x-apifox-orders": [
+                        "code",
+                        "message",
+                        "data"
+                      ]
+                    },
+                    "description": "",
+                    "contentType": "json",
+                    "mediaType": ""
+                  },
+                  {
+                    "id": "127373283",
+                    "code": "500",
+                    "name": "OSS 服务上传失败",
+                    "headers": [],
+                    "jsonSchema": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "integer"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "data": {
+                          "type": "null"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "data"
+                      ],
+                      "x-apifox-orders": [
+                        "code",
+                        "message",
+                        "data"
+                      ]
+                    },
+                    "description": "",
+                    "contentType": "json",
+                    "mediaType": ""
+                  }
+                ],
+                "responseExamples": [
+                  {
+                    "name": "成功示例",
+                    "data": "{\n  \"code\": 200,\n  \"message\": \"上传成功\",\n  \"data\": {\n    \"url\": \"https://szu-redbook.oss-cn-shenzhen.aliyuncs.com/avatar/uuid_123.jpg\"\n  }\n}",
+                    "responseId": "153413090"
+                  }
+                ],
+                "requestBody": {
+                  "type": "multipart/form-data",
+                  "parameters": [
+                    {
+                      "required": false,
+                      "description": "图片/视频文件二进制流",
+                      "type": "file",
+                      "id": "ijSpsQ17Sb",
+                      "example": "",
+                      "enable": true,
+                      "name": "file"
+                    }
+                  ],
+                  "jsonSchema": {
+                    "type": "object",
+                    "properties": {}
+                  },
+                  "required": true,
+                  "mediaType": "",
+                  "examples": [],
+                  "oasExtensions": ""
+                },
+                "description": "通用的文件上传接口，前端上传文件，后端存入OSS服务器，返回UUID生成的url",
+                "tags": [],
+                "status": "developing",
+                "serverId": "",
+                "operationId": "",
+                "sourceUrl": "",
+                "ordering": 120,
+                "cases": [],
+                "mocks": [],
+                "customApiFields": "{}",
+                "advancedSettings": {
+                  "disabledSystemHeaders": {}
+                },
+                "mockScript": {},
+                "codeSamples": [],
+                "commonResponseStatus": {},
+                "responseChildren": [],
+                "maintainer": "华浩名",
+                "visibility": "INHERITED",
+                "moduleId": 6610335,
+                "oasExtensions": "",
+                "type": "http",
+                "preProcessors": [],
+                "postProcessors": [],
+                "inheritPostProcessors": {},
+                "inheritPreProcessors": {}
+              }
+            }
+          ]
+        },
+        {
+          "name": "/api/post",
+          "id": 72263726,
+          "auth": {},
+          "securityScheme": {},
+          "parentId": 0,
+          "serverId": "",
+          "description": "",
+          "identityPattern": {
+            "httpApi": {
+              "type": "inherit",
+              "bodyType": "",
+              "fields": []
+            }
+          },
+          "shareSettings": {},
+          "visibility": "INHERITED",
+          "moduleId": 6610335,
+          "preProcessors": [
+            {
+              "id": "inheritProcessors",
+              "type": "inheritProcessors",
+              "data": {}
+            }
+          ],
+          "postProcessors": [
+            {
+              "id": "inheritProcessors",
+              "type": "inheritProcessors",
+              "data": {}
+            }
+          ],
+          "inheritPostProcessors": {},
+          "inheritPreProcessors": {},
+          "items": []
+        }
+      ]
+    }
+  ],
+  "socketCollection": [],
+  "docCollection": [],
+  "webSocketCollection": [],
+  "socketIOCollection": [],
+  "responseCollection": [
+    {
+      "_databaseId": 7925528,
+      "updatedAt": "2025-11-22T09:23:57.000Z",
+      "name": "根目录",
+      "type": "root",
+      "children": [],
+      "moduleId": 6610335,
+      "parentId": 0,
+      "id": 7925528,
+      "ordering": [],
+      "items": []
+    }
+  ],
+  "schemaCollection": [
+    {
+      "id": 17361432,
+      "name": "根目录",
+      "visibility": "SHARED",
+      "moduleId": 6610335,
+      "items": [],
+      "ordering": []
+    }
+  ],
+  "securitySchemeCollection": [
+    {
+      "id": 2594203,
+      "moduleId": 6610335,
+      "name": "根目录",
+      "items": [],
+      "ordering": []
+    }
+  ],
+  "requestCollection": [
+    {
+      "name": "根目录",
+      "children": [],
+      "ordering": [
+        "requestFolder.7967337"
+      ],
+      "items": []
+    }
+  ],
+  "apiTestCaseCollection": [
+    {
+      "name": "Root",
+      "children": [],
+      "items": []
+    }
+  ],
+  "testCaseReferences": [],
+  "environments": [],
+  "commonScripts": [],
+  "databaseConnections": [],
+  "globalVariables": [],
+  "commonParameters": null,
+  "projectSetting": {
+    "id": "7489680",
+    "auth": {},
+    "securityScheme": {},
+    "gateway": [],
+    "language": "zh-CN",
+    "apiStatuses": [
+      "developing",
+      "testing",
+      "released",
+      "deprecated"
+    ],
+    "mockSettings": {},
+    "preProcessors": [],
+    "postProcessors": [],
+    "advancedSettings": {
+      "enableJsonc": true,
+      "enableBigint": false,
+      "responseValidate": true,
+      "enableTestScenarioSetting": false,
+      "enableYAPICompatScript": false,
+      "isDefaultUrlEncoding": 2,
+      "publishedDocUrlRules": {
+        "defaultRule": "RESOURCE_KEY_ONLY",
+        "resourceKeyStandard": "NEW"
+      },
+      "folderShareExpandModeSettings": {
+        "expandId": [],
+        "mode": "AUTO"
+      }
+    },
+    "initialDisabledMockIds": [],
+    "servers": [
+      {
+        "id": "default",
+        "name": "默认服务"
+      }
+    ],
+    "cloudMock": {
+      "security": "free",
+      "enable": false,
+      "tokenKey": "apifoxToken"
+    }
+  },
+  "customFunctions": [],
+  "projectTestCaseCategories": [
+    {
+      "id": 4476431,
+      "name": "正向",
+      "description": "有效的输入和正确的预期结果，代表典型的用法。"
+    },
+    {
+      "id": 4476432,
+      "name": "负向",
+      "description": "消极的、无效的输入，如缺少字段、错误的类型、不支持的方法等。"
+    },
+    {
+      "id": 4476433,
+      "name": "边界值",
+      "description": "极端或边缘条件，如最大字符串长度、空值、零、null等"
+    },
+    {
+      "id": 4476434,
+      "name": "安全性",
+      "description": "可能暴露API安全性风险的测试用例。"
+    },
+    {
+      "id": 4476435,
+      "name": "其他",
+      "description": "其他未归属的测试用例。"
+    }
+  ],
+  "projectTestCaseTags": [
+    {
+      "id": 10900511,
+      "name": "仅传必要字段",
+      "description": "仅发送具有有效值的必填字段，省略所有可选字段，以测试最小有效请求。"
+    },
+    {
+      "id": 10900512,
+      "name": "语义合法",
+      "description": "使用语法正确且在业务逻辑或域上下文中也有意义的值。"
+    },
+    {
+      "id": 10900513,
+      "name": "覆盖枚举组合",
+      "description": "对所有枚举型参数，应用正交设计系统地构建参数及其枚举值的测试用例组合，专用于测试枚举覆盖率"
+    },
+    {
+      "id": 10900514,
+      "name": "其他正向",
+      "description": "提供符合API规范的真实有效的输入，产生正确和预期的结果。"
+    },
+    {
+      "id": 10900515,
+      "name": "缺失必填字段",
+      "description": "在请求主体或参数中省略一个或多个必需字段。"
+    },
+    {
+      "id": 10900516,
+      "name": "无效值",
+      "description": "提供的值类型和格式正确，但在逻辑上对该字段无效。"
+    },
+    {
+      "id": 10900517,
+      "name": "类型错误",
+      "description": "使用数据类型不正确的值，例如发送字符串而不是整数。"
+    },
+    {
+      "id": 10900518,
+      "name": "格式错误",
+      "description": "以不正确的格式提供值，例如，错误的日期模式，格式错误的电子邮件地址。"
+    },
+    {
+      "id": 10900519,
+      "name": "语义非法",
+      "description": "使用语法正确且格式正确的值，这些值在逻辑上不可能或违反域规则。"
+    },
+    {
+      "id": 10900520,
+      "name": "其他负向",
+      "description": "提供无效或意外的输入，应触发错误处理或拒绝API。"
+    },
+    {
+      "id": 10900521,
+      "name": "Null",
+      "description": "必须是 JSON 字面量 `null`（不是空的，也不是 \"null\"）。"
+    },
+    {
+      "id": 10900522,
+      "name": "零值",
+      "description": "必须是数字字面值0。"
+    },
+    {
+      "id": 10900523,
+      "name": "空值",
+      "description": "必须是\"\"。"
+    },
+    {
+      "id": 10900524,
+      "name": "极大值",
+      "description": "Max/min值 - 为数字或日期字段提供精确的最小值和最大值。"
+    },
+    {
+      "id": 10900525,
+      "name": "极小值",
+      "description": "Max/min值 - 为数字或日期字段提供精确的最小值和最大值。"
+    },
+    {
+      "id": 10900526,
+      "name": "超出最大边界值",
+      "description": "过长/过短字符串 - 提供超出允许的最小或最大边界的值。"
+    },
+    {
+      "id": 10900527,
+      "name": "超出最小边界值",
+      "description": "过长/过短字符串 - 提供超出允许的最小或最大边界的值。"
+    },
+    {
+      "id": 10900528,
+      "name": "字符串过长",
+      "description": "超出范围的值 - 提供大于允许的最大长度或小于要求的最小长度的字符串。"
+    },
+    {
+      "id": 10900529,
+      "name": "字符串过短",
+      "description": "超出范围的值 - 提供大于允许的最大长度或小于要求的最小长度的字符串。"
+    },
+    {
+      "id": 10900530,
+      "name": "对象级别授权缺失",
+      "description": "对象级别授权缺失 - 用户在没有适当授权的情况下访问或操作数据对象。"
+    },
+    {
+      "id": 10900531,
+      "name": "访问控制",
+      "description": "基于角色、权限或属性来限制用户能访问哪些资源、能执行哪些操作"
+    },
+    {
+      "id": 10900532,
+      "name": "认证失败",
+      "description": "认证失败 - 认证薄弱、配置错误或被绕过，导致未授权访问。"
+    },
+    {
+      "id": 10900533,
+      "name": "SQL注入",
+      "description": "在输入字段中插入恶意SQL代码，测试是否存在SQL注入漏洞。"
+    },
+    {
+      "id": 10900534,
+      "name": "XSS注入",
+      "description": "注入JavaScript或HTML标签来测试跨站点脚本漏洞。"
+    },
+    {
+      "id": 10900535,
+      "name": "模糊输入",
+      "description": "发送大型或随机生成的有效载荷，以测试输入的有效性和稳定性。"
+    },
+    {
+      "id": 10900536,
+      "name": "命令行注入",
+      "description": "将shell命令插入输入以测试命令执行漏洞。"
+    },
+    {
+      "id": 10900537,
+      "name": "JSON注入",
+      "description": "插入恶意或意外的JSON结构来测试解析和验证。"
+    },
+    {
+      "id": 10900538,
+      "name": "NoSQL注入",
+      "description": "提供NoSQL特定的恶意查询或操作符来测试注入漏洞。"
+    },
+    {
+      "id": 10900539,
+      "name": "其他",
+      "description": "其他未归属的测试用例。"
+    }
+  ],
+  "projectAssociations": [],
+  "moduleSettings": [
+    {
+      "id": "6610335",
+      "name": "默认模块",
+      "description": "",
+      "moduleVariables": [],
+      "openApiInfo": {}
+    }
+  ]
+}
