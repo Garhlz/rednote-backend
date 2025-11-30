@@ -5,7 +5,6 @@ package com.szu.afternoon3.platform.common;
  * 利用 ThreadLocal 实现线程隔离，存储当前登录的用户ID
  */
 public class UserContext {
-    // ThreadLocal 就像是线程的专属变量副本
     private static final ThreadLocal<Long> USER_HOLDER = new ThreadLocal<>();
 
     // 存入 UserId
@@ -18,7 +17,7 @@ public class UserContext {
         return USER_HOLDER.get();
     }
 
-    // 清除 (必须调用，防止内存泄漏)
+    // 清除
     public static void clear() {
         USER_HOLDER.remove();
     }

@@ -28,7 +28,7 @@ public class WebMvcConfig implements WebMvcConfigurer {
                 );
     }
 
-    // 2. 配置跨域 (之前你单独写在 CorsConfig 里，可以合并到这里)
+    // 2. 配置跨域
     @Override
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/**")

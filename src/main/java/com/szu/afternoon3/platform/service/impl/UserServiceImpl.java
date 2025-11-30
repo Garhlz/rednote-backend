@@ -13,6 +13,7 @@ import com.szu.afternoon3.platform.service.UserService;
 import com.szu.afternoon3.platform.vo.UserProfileVO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,6 +28,9 @@ public class UserServiceImpl implements UserService {
 
     @Autowired
     private UserMapper userMapper;
+
+    @Autowired
+    private StringRedisTemplate redisTemplate;
 
     @Override
     public UserProfileVO getUserProfile() {
@@ -95,20 +99,6 @@ public class UserServiceImpl implements UserService {
         Map<String, String> result = new HashMap<>();
         result.put("email", user.getEmail());
         return result;
-    }
-
-    @Override
-    @Transactional(rollbackFor = Exception.class)
-    public void setPassword(UserSetPasswordSimpleDTO dto) {
-        User user = getCurrentUser();
-        // 校验密码强度（这里简单校验长度）
-        if (dto.getPassword().length() < 6) {
-            throw new AppException(ResultCode.PASSWORD_STRENGTH_ERROR);
-        }
-
-        String hashed = BCrypt.hashpw(dto.getPassword());
-        user.setPassword(hashed);
-        userMapper.updateById(user);
     }
 
     @Override
@@ -194,15 +184,20 @@ public class UserServiceImpl implements UserService {
         return vo;
     }
 
-    /**
-     * 模拟验证码校验
-     * 实际项目中应该注入 RedisTemplate 从 Redis 中获取验证码比对
-     */
+    // 实现了邮箱验证码的逻辑
     private void verifyCode(String target, String code) {
-        // TODO: 接 Redis 校验
-        // 暂时 Mock: 只要 code 是 "123456" 就通过
-        if (!"123456".equals(code)) {
+        // 修改了api接口，只能进行绑定邮箱
+        String redisKey = "verify:code:" + target; // 假设只验证绑定类型的码
+
+        String cacheCode = redisTemplate.opsForValue().get(redisKey);
+
+        if (cacheCode == null || !cacheCode.equals(code)) {
             throw new AppException(ResultCode.VERIFY_CODE_ERROR);
         }
+
+        // [修复]验证成功后，不要立即删除！
+        // 因为后续的 bindEmail 或 setPassword 逻辑可能会因为"邮箱已存在"等原因失败。
+        // 如果这里删了，用户想重试就必须重新发送验证码，体验很差。
+        // redisTemplate.delete(redisKey);
     }
 }

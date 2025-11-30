@@ -10,7 +10,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 @SpringBootTest
-public class MongoTest {
+public class MongodbTest {
 
     @Autowired
     private PostRepository postRepository;

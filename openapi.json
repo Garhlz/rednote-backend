@@ -420,7 +420,7 @@
       "post": {
         "summary": "发送邮箱验证码",
         "deprecated": false,
-        "description": "点击验证码输入框右侧的“发送验证码”按键\n这个接口既用于绑定邮箱，也用于重置密码，通过type区分",
+        "description": "点击验证码输入框右侧的“发送验证码”按键\n这个接口仅用于绑定邮箱",
         "tags": [
           "/api/auth/"
         ],
@@ -433,18 +433,15 @@
                 "properties": {
                   "email": {
                     "type": "string"
-                  },
-                  "type": {
-                    "description": "枚举值：BIND (绑定邮箱), RESET (重置密码)",
-                    "type": "string"
                   }
                 },
                 "required": [
-                  "email",
-                  "type"
+                  "email"
                 ]
               },
-              "example": "{\n  \"email\": \"test@qq.com\",\n  \"type\": \"BIND\" // 枚举值：BIND (绑定邮箱), RESET (重置密码)\n}"
+              "example": {
+                "email": "test@qq.com"
+              }
             }
           },
           "required": true
@@ -794,148 +791,6 @@
                 "example": {
                   "code": 40901,
                   "message": "该邮箱已被其他账号绑定",
-                  "data": null
-                }
-              }
-            },
-            "headers": {}
-          }
-        },
-        "security": []
-      }
-    },
-    "/api/user/set-password": {
-      "post": {
-        "summary": "初始化/修改密码",
-        "deprecated": false,
-        "description": "微信用户设置初始密码，或老用户改密码",
-        "tags": [
-          "/api/user/"
-        ],
-        "parameters": [
-          {
-            "name": "Authorization",
-            "in": "header",
-            "description": "",
-            "required": true,
-            "example": "Bearer <jwt_token>",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "password": {
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "password"
-                ]
-              },
-              "example": {
-                "password": "NewPassword2025!"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    },
-                    "data": {
-                      "type": "null"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message",
-                    "data"
-                  ]
-                },
-                "example": {
-                  "code": 200,
-                  "message": "密码设置成功",
-                  "data": null
-                }
-              }
-            },
-            "headers": {}
-          },
-          "400": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    },
-                    "data": {
-                      "type": "null"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message",
-                    "data"
-                  ]
-                },
-                "example": {
-                  "code": 40005,
-                  "message": "密码强度不符合要求",
-                  "data": null
-                }
-              }
-            },
-            "headers": {}
-          },
-          "401": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    },
-                    "data": {
-                      "type": "null"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message",
-                    "data"
-                  ]
-                },
-                "example": {
-                  "code": 40101,
-                  "message": "请先登录",
                   "data": null
                 }
               }
@@ -1454,7 +1309,7 @@
       "post": {
         "summary": "文件上传(OSS)",
         "deprecated": false,
-        "description": "通用的文件上传接口，前端上传文件，后端存入OSS服务器，返回url",
+        "description": "通用的文件上传接口，前端上传文件，后端存入OSS服务器，返回UUID生成的url",
         "tags": [
           "/api/common/"
         ],
@@ -1556,7 +1411,8 @@
                   ]
                 }
               }
-            }
+            },
+            "headers": {}
           },
           "500": {
             "description": "",
@@ -1582,7 +1438,8 @@
                   ]
                 }
               }
-            }
+            },
+            "headers": {}
           }
         },
         "security": []

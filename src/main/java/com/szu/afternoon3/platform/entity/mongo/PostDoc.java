@@ -40,8 +40,10 @@ public class PostDoc {
     private Integer commentCount = 0;
 
     private Integer status; // 0:审核中, 1:发布
-    private LocalDateTime createdAt;
-    private LocalDateTime updatedAt;
+
+    // [建议] 显式初始化，防止插入时为 null
+    private LocalDateTime createdAt = LocalDateTime.now();
+    private LocalDateTime updatedAt = LocalDateTime.now();
 
     private Integer isDeleted = 0;
     @Data

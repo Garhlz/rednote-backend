@@ -1,11 +1,27 @@
+# src/main/resources/application-prod.yml
+
 spring:
   # --- 数据库连接 (PostgreSQL) ---
   datasource:
     driver-class-name: org.postgresql.Driver
-    # 引用环境变量 DB_URL
-    url: ${DB_URL:jdbc:postgresql://localhost:5432/rednote-mongodb?currentSchema=public}
-    username: ${DB_USERNAME:postgres}
-    password: ${DB_PASSWORD:postgres}
+    # 【关键修改】 host 改为 docker-compose 里的服务名 "postgres"
+    url: jdbc:postgresql://postgres:5432/platform_db?currentSchema=public
+    username: ${DB_USERNAME} # 读取环境变量
+    password: ${DB_PASSWORD} # 读取环境变量
+
+  # --- NoSQL & Cache ---
+  data:
+    mongodb:
+      # 【关键修改】 host 改为 "mongo"
+      uri: mongodb://mongo:27017/rednote
+    redis:
+      # 【关键修改】 host 改为 "redis"
+      host: redis
+      port: 6379
+      database: 0
+      password: ${REDIS_PASSWORD}
+
+  # --- 邮件配置 (保持不变，读取环境变量) ---
   mail:
     host: ${MAIL_HOST}
     username: ${MAIL_USERNAME}
@@ -20,20 +36,10 @@ spring:
             enable: true
             required: true
           ssl:
-            enable: true # 163 推荐使用 SSL (端口 465)
+            enable: true
           socketFactory:
             port: 465
             class: javax.net.ssl.SSLSocketFactory
-
-  # --- NoSQL & Cache ---
-  data:
-    mongodb:
-      uri: ${MONGO_URI:mongodb://localhost:27017/rednote}
-    redis:
-      host: ${REDIS_HOST:localhost}
-      port: ${REDIS_PORT:6379}
-      database: 0
-      password: ${REDIS_PASSWORD:} # 默认为空
 
 # --- 阿里云 OSS ---
 aliyun:
@@ -41,19 +47,20 @@ aliyun:
     endpoint: ${ALIYUN_OSS_ENDPOINT:oss-cn-shenzhen.aliyuncs.com}
     access-key-id: ${ALIYUN_ACCESS_KEY_ID}
     access-key-secret: ${ALIYUN_ACCESS_KEY_SECRET}
-    bucket-name: ${ALIYUN_BUCKET_NAME:szu-redbook-dev}
+    bucket-name: ${ALIYUN_BUCKET_NAME}
 
-# --- 微信小程序配置 ---
+# --- 微信小程序 ---
 wechat:
   appid: ${WECHAT_APPID}
   secret: ${WECHAT_SECRET}
 
-# --- MyBatis Plus  ---
+# --- MyBatis Plus (生产环境优化) ---
 mybatis-plus:
   mapper-locations: classpath:/mapper/*.xml
   type-aliases-package: com.szu.afternoon3.platform.entity
   configuration:
-    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+    # 【关键修改】生产环境关闭 SQL 打印，避免日志爆炸
+    # log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
     map-underscore-to-camel-case: true
   global-config:
     db-config:

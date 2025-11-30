@@ -24,11 +24,6 @@ public interface UserService {
     Map<String, String> bindEmail(UserBindEmailDTO dto);
 
     /**
-     * 初始化/修改密码 (简单模式，无需验证码)
-     */
-    void setPassword(UserSetPasswordSimpleDTO dto);
-
-    /**
      * 首次设置密码 (验证邮箱模式)
      */
     void setPasswordWithCode(UserPasswordSetDTO dto);

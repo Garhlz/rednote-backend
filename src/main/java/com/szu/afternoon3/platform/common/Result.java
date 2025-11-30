@@ -2,7 +2,7 @@ package com.szu.afternoon3.platform.common;
 
 import com.szu.afternoon3.platform.exception.ResultCode;
 import lombok.Data;
-// 统一返回类，code,message,data
+// 统一返回类
 @Data
 public class Result<T> {
     private Integer code;   // 业务码

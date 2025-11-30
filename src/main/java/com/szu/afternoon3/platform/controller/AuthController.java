@@ -1,6 +1,7 @@
 package com.szu.afternoon3.platform.controller;
 
 import com.szu.afternoon3.platform.dto.AccountLoginDTO;
+import com.szu.afternoon3.platform.dto.SendEmailCodeDTO;
 import com.szu.afternoon3.platform.dto.WechatLoginDTO;
 import com.szu.afternoon3.platform.vo.LoginVO;
 import com.szu.afternoon3.platform.common.Result;
@@ -19,7 +20,7 @@ public class AuthController {
     @Autowired
     private AuthService authService;
 
-    // 1. 微信一键登录
+    // 微信一键登录
     @PostMapping("/login/wechat")
     public Result<LoginVO> wechatLogin(@RequestBody @Valid WechatLoginDTO loginDTO) {
         // 直接调用 Service，异常由全局异常处理器捕获（或者暂时让它报错500）
@@ -27,10 +28,16 @@ public class AuthController {
         return Result.success(loginVO);
     }
 
-    // 2. 账号密码登录
+    // 账号密码登录
     @PostMapping("/login/account")
     public Result<LoginVO> accountLogin(@RequestBody @Valid AccountLoginDTO loginDTO) {
         LoginVO loginVO = authService.accountLogin(loginDTO.getAccount(), loginDTO.getPassword());
         return Result.success(loginVO);
+    }
+
+    @PostMapping("/send-code")
+    public Result<Void> sendCode(@RequestBody @Valid SendEmailCodeDTO dto) {
+        authService.sendEmailCode(dto.getEmail());
+        return Result.success();
     }
 }

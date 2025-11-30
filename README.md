@@ -4,6 +4,9 @@
 
 这是一个基于 Spring Boot 和微服务架构思想构建的后端系统，为我们的“类小红书”微信小程序及 Web 管理后台提供 API 支持。
 
+- [业务代码规范](./business_codes.md)
+- [apifox接口(openapi)](./openapi.json)
+
 ## 🛠 技术栈 (Tech Stack)
 
 本项目采用现代化的 Java 后端技术栈，容器化部署。

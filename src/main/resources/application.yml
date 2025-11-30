@@ -2,10 +2,30 @@ server:
   port: 8080
   servlet:
     context-path: / # 默认根路径
+  undertow:
+    threads:
+          # IO 线程：主要负责非阻塞的网络连接。
+          # 设置为 CPU 核心数即可。4G 内存的云服务器通常是 2核 (vCPU)。
+          # 如果设置过大，会产生无意义的上下文切换。
+          io: 2
+
+          # Worker 线程：负责处理具体的 Controller/Service 业务逻辑（阻塞操作）。
+          # 默认是 io * 8 = 16。
+          # 在内存受限时，不要设置得太高（例如 200），因为每个 Java 线程都需要独立的 Stack 内存（默认 1MB）。
+          # 设置为 32-64 足够应对大多数中小规模并发。
+          worker: 32
+
+          # 缓冲区大小：Undertow 分配内存的单位。
+          buffer-size: 16384
+
+          # 是否使用堆外内存 (Direct Memory)。
+          # 开启 (true)：网络 IO 性能更好，减少 GC 压力。
+          # 关闭 (false)：所有内存都在 Heap 里，容易触发 Full GC，但不容易导致系统级 OOM。
+          direct-buffers: true
 
 spring:
   application:
-    name: afternoon3-backendc
+    name: afternoon3-backend
   profiles:
     active: dev # 默认激活开发环境
   # 全局 JSON 配置 (前后端交互时间格式化)

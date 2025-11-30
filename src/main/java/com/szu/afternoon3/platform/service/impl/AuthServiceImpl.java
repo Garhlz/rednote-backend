@@ -1,5 +1,6 @@
 package com.szu.afternoon3.platform.service.impl;
 
+import cn.hutool.core.util.RandomUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.crypto.digest.BCrypt; // 引入 Hutool 加密工具
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
@@ -14,8 +15,13 @@ import com.szu.afternoon3.platform.vo.LoginVO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.mail.SimpleMailMessage;
+import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.concurrent.TimeUnit;
 
 @Service
 @Slf4j
@@ -27,6 +33,15 @@ public class AuthServiceImpl implements AuthService {
     private WeChatUtil weChatUtil;
     @Autowired
     private JwtUtil jwtUtil;
+
+    @Autowired
+    private JavaMailSender mailSender; // 注入邮件发送器
+
+    @Autowired
+    private StringRedisTemplate redisTemplate; // 注入 Redis
+
+    @Value("${spring.mail.username}")
+    private String fromEmail; // 发送人
 
     // todo 优化默认头像路径
     // 可在 application.yml 配置 oss.default-avatar，这里先定义为常量
@@ -115,5 +130,42 @@ public class AuthServiceImpl implements AuthService {
 
         vo.setUserInfo(info);
         return vo;
+    }
+
+    @Override
+    public void sendEmailCode(String email) {
+        // Redis Key 设计: verify:code:{email}
+        // 例如: verify:code:test@qq.com
+        String redisKey = "verify:code:" + email;
+
+        // 1. 防刷校验 (Rate Limiting): 检查是否有 TTL，如果 TTL > 4分30秒 (说明刚发过不到30秒)，拦截
+        // 或者简单点：设置一个额外的 key "verify:limit:email" 有效期 60s
+        String limitKey = "verify:limit:" + email;
+        if (redisTemplate.hasKey(limitKey)) {
+            throw new AppException(ResultCode.OPERATION_TOO_FREQUENT);
+        }
+
+        // 2. 生成 6 位随机数字验证码
+        String code = RandomUtil.randomNumbers(6);
+
+        // 3. 发送邮件
+        try {
+            SimpleMailMessage message = new SimpleMailMessage();
+            message.setFrom(fromEmail);
+            message.setTo(email);
+            message.setSubject("【映记】验证码");
+            message.setText("您的验证码是：" + code + "。有效期为5分钟，请勿泄露给他人。");
+            mailSender.send(message);
+            log.info("邮件发送成功: {} -> {}", email, code);
+        } catch (Exception e) {
+            log.error("邮件发送失败", e);
+            throw new AppException(ResultCode.MAIL_SEND_ERROR);
+        }
+
+        // 4. 存入 Redis (5分钟过期)
+        redisTemplate.opsForValue().set(redisKey, code, 5, TimeUnit.MINUTES);
+
+        // 5. 设置限流 Key (60秒过期)
+        redisTemplate.opsForValue().set(limitKey, "1", 60, TimeUnit.SECONDS);
     }
 }

@@ -65,7 +65,7 @@ public class TokenInterceptor implements HandlerInterceptor {
             }
             Long userId = Long.valueOf(userIdObj.toString());
 
-            // 8. 【核心一步】放入 ThreadLocal
+            // 8. 放入 ThreadLocal
             UserContext.setUserId(userId);
 
             // 放行
@@ -81,7 +81,7 @@ public class TokenInterceptor implements HandlerInterceptor {
 
     @Override
     public void afterCompletion(HttpServletRequest request, HttpServletResponse response, Object handler, Exception ex) throws Exception {
-        // 【非常重要】请求结束，必须清理 ThreadLocal，防止内存泄漏和数据污染
+        // 请求结束，必须清理 ThreadLocal，防止内存泄漏和数据污染
         UserContext.clear();
     }
 }

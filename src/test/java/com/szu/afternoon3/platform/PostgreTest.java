@@ -6,11 +6,10 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
-import java.time.OffsetDateTime;
-import java.util.UUID;
+import java.time.LocalDateTime;
 
 @SpringBootTest
-public class UserTest {
+public class PostgreTest {
 
     @Autowired
     private UserMapper userMapper;
@@ -32,8 +31,8 @@ public class UserTest {
         user.setPassword("123456");
         user.setRole("USER");
         user.setStatus(1);
-        user.setCreatedAt(OffsetDateTime.now());
-        user.setUpdatedAt(OffsetDateTime.now());
+        user.setCreatedAt(LocalDateTime.now());
+        user.setUpdatedAt(LocalDateTime.now());
         user.setIsDeleted(0);
 
         // 2. 插入数据库

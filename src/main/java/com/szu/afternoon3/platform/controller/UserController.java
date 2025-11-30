@@ -47,15 +47,16 @@ public class UserController {
         return Result.success(result);
     }
 
-    /**
-     * 初始化/修改密码 (简单模式，无需验证码)
-     * 对应 Apifox 接口: /api/user/set-password (POST)
-     */
-    @PostMapping("/set-password")
-    public Result<Void> setPassword(@RequestBody @Valid UserSetPasswordSimpleDTO dto) {
-        userService.setPassword(dto);
-        return Result.success(null);
-    }
+// 删除了这个接口。这个接口是冗余的（在apifox中也删除了）
+//    /**
+//     * 初始化/修改密码 (简单模式，无需验证码)
+//     * 对应 Apifox 接口: /api/user/set-password (POST)
+//     */
+//    @PostMapping("/set-password")
+//    public Result<Void> setPassword(@RequestBody @Valid UserSetPasswordSimpleDTO dto) {
+//        userService.setPassword(dto);
+//        return Result.success(null);
+//    }
 
     /**
      * 首次设置密码 (验证邮箱模式)
