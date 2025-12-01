@@ -1,17 +1,22 @@
 package com.szu.afternoon3.platform.config;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
+import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+
+import java.io.File;
 
 @Configuration
 public class WebMvcConfig implements WebMvcConfigurer {
 
     @Autowired
     private TokenInterceptor tokenInterceptor;
-
+    @Value("${file.upload.path:./uploads/}")
+    private String localUploadPath;
     // 1. 配置拦截器
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
@@ -37,5 +42,17 @@ public class WebMvcConfig implements WebMvcConfigurer {
                 .allowedHeaders("*")
                 .allowCredentials(true)
                 .maxAge(3600);
+    }
+
+    // [新增] 静态资源映射
+    @Override
+    public void addResourceHandlers(ResourceHandlerRegistry registry) {
+        // 映射 URL: /uploads/** -> 本地目录: ./uploads/
+        String projectRoot = System.getProperty("user.dir");
+        // 注意：addResourceLocations 需要 "file:" 前缀
+        String localPath = "file:" + projectRoot + File.separator + localUploadPath + File.separator;
+
+        registry.addResourceHandler("/uploads/**")
+                .addResourceLocations(localPath);
     }
 }

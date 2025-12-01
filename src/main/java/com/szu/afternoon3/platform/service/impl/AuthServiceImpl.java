@@ -4,6 +4,7 @@ import cn.hutool.core.util.RandomUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.crypto.digest.BCrypt; // 引入 Hutool 加密工具
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.szu.afternoon3.platform.dto.UserPasswordResetDTO;
 import com.szu.afternoon3.platform.exception.ResultCode;
 import com.szu.afternoon3.platform.exception.AppException;
 import com.szu.afternoon3.platform.entity.User;
@@ -12,6 +13,7 @@ import com.szu.afternoon3.platform.service.AuthService;
 import com.szu.afternoon3.platform.util.JwtUtil;
 import com.szu.afternoon3.platform.util.WeChatUtil;
 import com.szu.afternoon3.platform.vo.LoginVO;
+import com.szu.afternoon3.platform.vo.UserInfo;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -122,7 +124,7 @@ public class AuthServiceImpl implements AuthService {
         // 判断是否已设置密码 (用于前端判断是否引导用户设置密码)
         vo.setHasPassword(StrUtil.isNotBlank(user.getPassword()));
 
-        LoginVO.UserInfo info = new LoginVO.UserInfo();
+        UserInfo info = new UserInfo();
         info.setUserId(user.getId().toString()); // 转 String 防止前端 JS 精度丢失
         info.setNickname(user.getNickname());
         info.setAvatar(user.getAvatar());
@@ -167,5 +169,33 @@ public class AuthServiceImpl implements AuthService {
 
         // 5. 设置限流 Key (60秒过期)
         redisTemplate.opsForValue().set(limitKey, "1", 60, TimeUnit.SECONDS);
+    }
+
+    // AuthServiceImpl.java
+
+    @Override
+    public void resetPassword(UserPasswordResetDTO dto) {
+        // 1. 校验验证码 (复用之前的逻辑)
+        String redisKey = "verify:code:" + dto.getEmail();
+        String cacheCode = redisTemplate.opsForValue().get(redisKey);
+        if (cacheCode == null || !cacheCode.equals(dto.getCode())) {
+            throw new AppException(ResultCode.VERIFY_CODE_ERROR);
+        }
+
+        // 2. 根据邮箱查找用户
+        User user = userMapper.selectOne(new LambdaQueryWrapper<User>()
+                .eq(User::getEmail, dto.getEmail()));
+
+        if (user == null) {
+            throw new AppException(ResultCode.USER_NOT_FOUND);
+        }
+
+        // 3. 加密并更新密码
+        String hashed = BCrypt.hashpw(dto.getNewPassword());
+        user.setPassword(hashed);
+        userMapper.updateById(user);
+
+        // 4. (可选) 删除验证码，防止二次使用
+//        redisTemplate.delete(redisKey);
     }
 }

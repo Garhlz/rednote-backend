@@ -14,6 +14,12 @@
     },
     {
       "name": "/api/common/"
+    },
+    {
+      "name": "/api/post"
+    },
+    {
+      "name": "/api/tag/"
     }
   ],
   "paths": {
@@ -611,6 +617,147 @@
         "security": []
       }
     },
+    "/api/auth/password/reset": {
+      "post": {
+        "summary": "重置密码/忘记密码（用户未登录）",
+        "deprecated": false,
+        "description": "用户未登录的时候忘记密码，需要输入邮箱和验证码\n前端在调用的时候需要先向邮箱发送验证码",
+        "tags": [
+          "/api/auth/"
+        ],
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string"
+                  },
+                  "code": {
+                    "type": "string"
+                  },
+                  "newPassword": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "email",
+                  "newPassword",
+                  "code"
+                ]
+              },
+              "example": {
+                "email": "l7nrqi.q8t@163.com",
+                "code": "66",
+                "newPassword": "WQcy_AOnfZMoBP5"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                },
+                "example": {
+                  "code": 200,
+                  "message": "密码重置成功",
+                  "data": null
+                }
+              }
+            },
+            "headers": {}
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                },
+                "example": {
+                  "code": 40002,
+                  "message": "验证码错误或已失效",
+                  "data": null
+                }
+              }
+            },
+            "headers": {}
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                },
+                "example": {
+                  "code": 40401,
+                  "message": "该账号未注册",
+                  "data": null
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": []
+      }
+    },
     "/api/user/bind-email": {
       "post": {
         "summary": "绑定邮箱",
@@ -839,7 +986,7 @@
                       "type": "object",
                       "properties": {
                         "userId": {
-                          "type": "string"
+                          "type": "integer"
                         },
                         "nickname": {
                           "type": "string"
@@ -1305,6 +1452,227 @@
         "security": []
       }
     },
+    "/api/user/follows/{userId}": {
+      "get": {
+        "summary": "获取关注列表",
+        "deprecated": false,
+        "description": "根据userId获取某人的关注列表，支持分页查询",
+        "tags": [
+          "/api/user/"
+        ],
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "description": "",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "records": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "userId": {
+                                "type": "string"
+                              },
+                              "nickname": {
+                                "type": "string"
+                              },
+                              "avatar": {
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "total": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "records",
+                        "total"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                },
+                "example": {
+                  "code": 200,
+                  "message": "success",
+                  "data": {
+                    "records": [
+                      {
+                        "userId": "1002",
+                        "nickname": "关注者A",
+                        "avatar": "..."
+                      }
+                    ],
+                    "total": 5
+                  }
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/user/fans/{userId}": {
+      "get": {
+        "summary": "获取粉丝列表",
+        "deprecated": false,
+        "description": "根据userId获取某人的粉丝列表，支持分页查询",
+        "tags": [
+          "/api/user/"
+        ],
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "description": "",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "records": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "userId": {
+                                "type": "string"
+                              },
+                              "nickname": {
+                                "type": "string"
+                              },
+                              "avatar": {
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "total": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "records",
+                        "total"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                },
+                "example": {
+                  "code": 200,
+                  "message": "success",
+                  "data": {
+                    "records": [
+                      {
+                        "userId": "1002",
+                        "nickname": "被关注者A",
+                        "avatar": "..."
+                      }
+                    ],
+                    "total": 5
+                  }
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": []
+      }
+    },
     "/api/common/upload": {
       "post": {
         "summary": "文件上传(OSS)",
@@ -1435,6 +1803,595 @@
                     "code",
                     "message",
                     "data"
+                  ]
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/post/list": {
+      "get": {
+        "summary": "获取首页帖子流",
+        "deprecated": false,
+        "description": "获取首页推荐、关注或标签筛选的帖子列表。支持分页。",
+        "tags": [
+          "/api/post"
+        ],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "description": "页码",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "description": "每页数量",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 20
+            }
+          },
+          {
+            "name": "tab",
+            "in": "query",
+            "description": "Tab类型：recommend(推荐), follow(关注)。默认为 recommend",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "\"recommend\"",
+                "\"follow\""
+              ],
+              "default": "\"recommend\""
+            }
+          },
+          {
+            "name": "tag",
+            "in": "query",
+            "description": "标签筛选（选填）。如果用户点击了具体的标签（如'美食'），则传此参数，此时忽略 tab 参数",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "records": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "author": {
+                                "type": "object",
+                                "properties": {
+                                  "userId": {
+                                    "type": "string"
+                                  },
+                                  "nickname": {
+                                    "type": "string"
+                                  },
+                                  "avatar": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "userId",
+                                  "nickname",
+                                  "avatar"
+                                ]
+                              },
+                              "title": {
+                                "type": "string"
+                              },
+                              "content": {
+                                "type": "string"
+                              },
+                              "type": {
+                                "type": "integer"
+                              },
+                              "images": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              },
+                              "likeCount": {
+                                "type": "integer"
+                              },
+                              "collectCount": {
+                                "type": "integer"
+                              },
+                              "isLiked": {
+                                "type": "boolean"
+                              },
+                              "isCollected": {
+                                "type": "boolean"
+                              },
+                              "createdAt": {
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "total": {
+                          "type": "integer"
+                        },
+                        "current": {
+                          "type": "integer"
+                        },
+                        "size": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "records",
+                        "total",
+                        "current",
+                        "size"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                },
+                "example": {
+                  "code": 20000,
+                  "message": "获取成功",
+                  "data": {
+                    "records": [
+                      {
+                        "id": "656e12...",
+                        "author": {
+                          "userId": "10086",
+                          "nickname": "小青",
+                          "avatar": "http://..."
+                        },
+                        "title": "Arch Linux折腾笔记",
+                        "content": "今天安装了KDE...",
+                        "type": 0,
+                        "images": [
+                          "http://..."
+                        ],
+                        "likeCount": 102,
+                        "collectCount": 20,
+                        "isLiked": true,
+                        "isCollected": false,
+                        "createdAt": "2023-11-02 12:00:00"
+                      }
+                    ],
+                    "total": 100,
+                    "current": 1,
+                    "size": 10
+                  }
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/post/search": {
+      "get": {
+        "summary": "搜索帖子",
+        "deprecated": false,
+        "description": "根据关键词模糊搜索标题和内容",
+        "tags": [
+          "/api/post"
+        ],
+        "parameters": [
+          {
+            "name": "keyword",
+            "in": "query",
+            "description": "搜索关键词",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "description": "",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "records": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "author": {
+                                "type": "object",
+                                "properties": {
+                                  "userId": {
+                                    "type": "string"
+                                  },
+                                  "nickname": {
+                                    "type": "string"
+                                  },
+                                  "avatar": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "userId",
+                                  "nickname",
+                                  "avatar"
+                                ]
+                              },
+                              "title": {
+                                "type": "string"
+                              },
+                              "content": {
+                                "type": "string"
+                              },
+                              "type": {
+                                "type": "integer"
+                              },
+                              "images": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              },
+                              "likeCount": {
+                                "type": "integer"
+                              },
+                              "collectCount": {
+                                "type": "integer"
+                              },
+                              "isLiked": {
+                                "type": "boolean"
+                              },
+                              "isCollected": {
+                                "type": "boolean"
+                              },
+                              "createdAt": {
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "total": {
+                          "type": "integer"
+                        },
+                        "current": {
+                          "type": "integer"
+                        },
+                        "size": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "records",
+                        "total",
+                        "current",
+                        "size"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                },
+                "example": {
+                  "code": 20000,
+                  "message": "获取成功",
+                  "data": {
+                    "records": [
+                      {
+                        "id": "656e12...",
+                        "author": {
+                          "userId": "10086",
+                          "nickname": "小青",
+                          "avatar": "http://..."
+                        },
+                        "title": "Arch Linux折腾笔记",
+                        "content": "今天安装了KDE...",
+                        "type": 0,
+                        "images": [
+                          "http://..."
+                        ],
+                        "likeCount": 102,
+                        "collectCount": 20,
+                        "isLiked": true,
+                        "isCollected": false,
+                        "createdAt": "2023-11-02 12:00:00"
+                      }
+                    ],
+                    "total": 100,
+                    "current": 1,
+                    "size": 10
+                  }
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/post/{id}": {
+      "get": {
+        "summary": "获取帖子详情",
+        "deprecated": false,
+        "description": "进入帖子详情页时调用。包含完整的正文内容和高精度的图片/视频。",
+        "tags": [
+          "/api/post"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "帖子ID (Mongo ObjectId)",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "author": {
+                          "type": "object",
+                          "properties": {
+                            "userId": {
+                              "type": "string"
+                            },
+                            "nickname": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "userId",
+                            "nickname"
+                          ]
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "content": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "integer"
+                        },
+                        "images": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "videos": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "likeCount": {
+                          "type": "integer"
+                        },
+                        "collectCount": {
+                          "type": "integer"
+                        },
+                        "commentCount": {
+                          "type": "integer"
+                        },
+                        "isLiked": {
+                          "type": "boolean"
+                        },
+                        "isCollected": {
+                          "type": "boolean"
+                        },
+                        "isFollowed": {
+                          "type": "boolean"
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "author",
+                        "title",
+                        "content",
+                        "type",
+                        "images",
+                        "videos",
+                        "likeCount",
+                        "collectCount",
+                        "commentCount",
+                        "isLiked",
+                        "isCollected",
+                        "isFollowed",
+                        "createdAt"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                },
+                "example": {
+                  "code": 20000,
+                  "message": "获取成功",
+                  "data": {
+                    "id": "656e...",
+                    "author": {
+                      "userId": "1001",
+                      "nickname": "..."
+                    },
+                    "title": "完整标题",
+                    "content": "这里是非常长的完整正文内容...",
+                    "type": 0,
+                    "images": [
+                      "url1",
+                      "url2",
+                      "url3"
+                    ],
+                    "videos": [
+                      "url1",
+                      "url2",
+                      "url3"
+                    ],
+                    "likeCount": 100,
+                    "collectCount": 50,
+                    "commentCount": 12,
+                    "isLiked": true,
+                    "isCollected": true,
+                    "isFollowed": false,
+                    "createdAt": "2023-11-02 12:00:00"
+                  }
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/tag/hot": {
+      "get": {
+        "summary": "获取热门/推荐标签",
+        "deprecated": false,
+        "description": "用于首页顶部的横向滚动标签栏",
+        "tags": [
+          "/api/tag/"
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                },
+                "example": {
+                  "code": 20000,
+                  "message": "获取成功",
+                  "data": [
+                    "推荐",
+                    "穿搭",
+                    "美食",
+                    "彩妆",
+                    "影视",
+                    "职场",
+                    "情感",
+                    "家居",
+                    "游戏",
+                    "旅行"
                   ]
                 }
               }

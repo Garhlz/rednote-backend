@@ -2,6 +2,7 @@ package com.szu.afternoon3.platform.controller;
 
 import com.szu.afternoon3.platform.dto.AccountLoginDTO;
 import com.szu.afternoon3.platform.dto.SendEmailCodeDTO;
+import com.szu.afternoon3.platform.dto.UserPasswordResetDTO;
 import com.szu.afternoon3.platform.dto.WechatLoginDTO;
 import com.szu.afternoon3.platform.vo.LoginVO;
 import com.szu.afternoon3.platform.common.Result;
@@ -38,6 +39,12 @@ public class AuthController {
     @PostMapping("/send-code")
     public Result<Void> sendCode(@RequestBody @Valid SendEmailCodeDTO dto) {
         authService.sendEmailCode(dto.getEmail());
+        return Result.success();
+    }
+
+    @PostMapping("/password/reset")
+    public Result<Void> resetPassword(@RequestBody @Valid UserPasswordResetDTO dto) {
+        authService.resetPassword(dto);
         return Result.success();
     }
 }

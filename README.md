@@ -114,23 +114,48 @@ MongoDB 不需要提前建表（它会自动创建），但为了方便可视化
     db.createCollection("comments")
     db.createCollection("post_likes")
     db.createCollection("post_collects")
+    db.createCollection("user_follows")
     ```
+#### 2.3 Redis 配置
+本地启动一个 Redis 服务，默认端口 6379 即可。
 
-#### 2.3 修改项目配置
-打开 `src/main/resources/application-dev.yml` (或者 `application.yml`)，找到以下部分并修改为你本地的账号密码：
+Docker 快速启动: `docker run -d -p 6379:6379 --name rednote-redis redis`
 
-```yaml
-spring:
-  datasource:
-    # 修改 PostgreSQL 的账号密码
-    username: your_postgres_username (默认通常是 postgres)
-    password: your_postgres_password
-  data:
-    mongodb:
-      # 确认 MongoDB 地址 (通常不用改，除非你有密码)
-      uri: mongodb://localhost:27017/rednote
+#### 2.4 环境变量配置 (.env) [重要]
+为了安全起见，我们不再直接修改 application-dev.yml 中的密码，而是通过根目录下的 .env 文件注入环境变量。
+
+- 在项目根目录下创建一个名为 .env 的文件。
+
+- 复制以下内容并修改为你本地的真实配置：
+
+```Properties
+# --- 数据库配置 ---
+DB_URL=jdbc:postgresql://localhost:5432/platform_db?currentSchema=public
+DB_USERNAME=postgres
+DB_PASSWORD=你的数据库密码
+
+# --- Redis 配置 ---
+REDIS_HOST=localhost
+REDIS_PORT=6379
+REDIS_PASSWORD=  # 如果本地没密码就留空
+
+# --- 阿里云 OSS (开发环境可以使用 Mock 模式) ---
+# 设置为 false 则开启本地模拟上传，文件存放在项目根目录/uploads下
+ALIYUN_OSS_ENABLE=false
+# 如果设置为 true，则必须填写下面的真实的 Key
+ALIYUN_ACCESS_KEY_ID=
+ALIYUN_ACCESS_KEY_SECRET=
+ALIYUN_BUCKET_NAME=
+
+# --- 微信小程序 ---
+WECHAT_APPID=你的APPID
+WECHAT_SECRET=你的SECRET
+
+# --- 邮件服务 ---
+MAIL_HOST=smtp.163.com
+MAIL_USERNAME=你的邮箱@163.com
+MAIL_PASSWORD=你的授权码
 ```
-
 ### 3. 如何运行项目 (Run)
 
 本项目集成了 Maven Wrapper，不需要你手动配置 Maven 环境变量。
@@ -155,20 +180,42 @@ chmod +x mvnw
 `Started PlatformApplication in x.xxx seconds`
 ### 4. 验证测试 (Testing)
 
-为了确认你的环境（Postgres 和 Mongo）都配置正确了，请运行我们写好的两个测试文件。
+我们在 src/test/java 下编写了多维度的测试用例，帮助你验证环境和业务逻辑。
 
-在 IDEA 中找到以下文件，点击左侧绿色的 ▶️ 按钮运行：
+在 IDEA 中找到对应的测试文件，点击类名旁边的绿色 ▶️ 按钮即可运行。
 
-1. PostgreSQL 测试: src/test/java/.../UserTest.java
+#### 4.1 基础环境连通性测试
 
-- 作用: 测试能否向 Postgres 的 users 表插入数据。
+- PostgreSQL 测试: UserTest.java
 
-- 成功标志: 控制台输出 写入成功！User ID: xxxxx。
+    - 作用: 测试能否向 users 表插入数据。
+    
+    - 成功标志: 输出 写入成功！User ID: xxxxx。
 
-2. MongoDB 测试: src/test/java/.../MongoTest.java
+- MongoDB 测试: MongoTest.java
 
-- 作用: 测试能否向 Mongo 的 posts 集合写入文档。
+    - 作用: 测试能否向 posts 集合写入文档。
 
-- 成功标志: 控制台输出 写入成功！生成的 ID 为: xxxxx。
+    - 成功标志: 输出 写入成功！生成的 ID 为: xxxxx。
 
-如果两个测试都通过，说明你的本地开发环境已经完美就绪！🎉
+- Redis 测试: RedisTest.java
+
+    - 作用: 测试 Redis 的读写连通性。
+
+#### 4.2 业务逻辑集成测试 (推荐)
+
+这些测试模拟了真实的用户请求流程，且使用了 Mock 技术，不依赖外部第三方服务（如微信、OSS），非常适合开发时自测。
+
+- API 综合测试: controller/ApiIntegrationTest.java
+
+    - 内容: 模拟了“微信登录(Mock) -> 获取Token -> 修改个人资料”的全流程。
+
+    - 特点: 会自动回滚数据库，不会产生脏数据。
+
+- 文件上传测试: controller/CommonControllerTest.java
+
+    - 内容: 测试文件上传接口。
+
+    - 特点: 自动使用本地 Mock 模式，文件会生成在 target/test-uploads 目录下，无需配置阿里云账号。
+
+如果上述测试全部通过，说明你的后端环境及核心业务逻辑已经完美就绪！🎉

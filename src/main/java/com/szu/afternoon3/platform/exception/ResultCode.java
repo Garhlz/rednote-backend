@@ -6,7 +6,7 @@ import lombok.Getter;
 public enum ResultCode {
 
     /* 200: 成功 */
-    SUCCESS(20000, "操作成功"),
+    SUCCESS(200, "操作成功"),
 
     /* 400: 请求参数与业务逻辑错误 */
     PARAM_ERROR(40001, "请求参数错误"), // 对应 @Valid 校验失败
