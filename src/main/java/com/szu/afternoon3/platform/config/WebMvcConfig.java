@@ -15,18 +15,28 @@ public class WebMvcConfig implements WebMvcConfigurer {
 
     @Autowired
     private TokenInterceptor tokenInterceptor;
+
     @Value("${file.upload.path:./uploads/}")
     private String localUploadPath;
+
     // 1. 配置拦截器
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(tokenInterceptor)
-                .addPathPatterns("/api/**") // 拦截 api 下的所有路径
+                .addPathPatterns("/api/**") // 默认拦截 api 下的所有路径
                 // 排除不需要登录的接口
                 .excludePathPatterns(
                         "/api/auth/**",      // 登录注册
-                        "/api/common/**",    // 公共接口（如上传，视情况而定）
-                        "/doc.html",         // Swagger 文档
+                        "/api/common/**",    // 公共接口
+
+                        // --- 新增：放行内容浏览类接口 ---
+                        "/api/post/list",    // 首页列表
+                        "/api/post/search",  // 搜索
+                        "/api/post/*",       // 帖子详情 (匹配 /api/post/xxxx)
+                        "/api/tag/**",       // 标签相关
+
+                        // --- Swagger/静态资源 ---
+                        "/doc.html",
                         "/webjars/**",
                         "/v3/api-docs/**",
                         "/swagger-resources/**"
@@ -44,7 +54,7 @@ public class WebMvcConfig implements WebMvcConfigurer {
                 .maxAge(3600);
     }
 
-    // [新增] 静态资源映射
+    // 3. 静态资源映射
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
         // 映射 URL: /uploads/** -> 本地目录: ./uploads/

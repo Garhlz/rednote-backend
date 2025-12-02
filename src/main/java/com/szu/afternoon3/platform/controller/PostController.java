@@ -2,11 +2,13 @@ package com.szu.afternoon3.platform.controller;
 
 import com.szu.afternoon3.platform.common.Result;
 import com.szu.afternoon3.platform.service.PostService;
+import com.szu.afternoon3.platform.vo.PostVO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
 
@@ -32,7 +34,7 @@ public class PostController {
     }
 
     /**
-     * [新增] 搜索帖子
+     * 搜索帖子
      * 对应 Apifox 接口: /api/post/search (GET)
      */
     @GetMapping("/search")
@@ -43,5 +45,15 @@ public class PostController {
     ) {
         Map<String, Object> data = postService.searchPosts(keyword, page, size);
         return Result.success(data);
+    }
+
+    /**
+     * 获取帖子详情
+     * 对应接口: GET /api/post/{id}
+     */
+    @GetMapping("/{id}")
+    public Result<PostVO> getPostDetail(@PathVariable String id) {
+        PostVO vo = postService.getPostDetail(id);
+        return Result.success(vo);
     }
 }

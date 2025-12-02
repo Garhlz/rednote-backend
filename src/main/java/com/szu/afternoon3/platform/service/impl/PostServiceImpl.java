@@ -102,11 +102,29 @@ public class PostServiceImpl implements PostService {
         }
 
         // 3. 调用 Repository 自定义搜索方法
-        // 注意：需确保 PostRepository 中已经定义了 searchByKeyword 方法
         Page<PostDoc> postDocPage = postRepository.searchByKeyword(keyword, pageable);
 
         // 4. 构建返回结果
         return buildResultMap(postDocPage);
+    }
+
+    /**
+     * [新增] 获取帖子详情实现
+     */
+    @Override
+    public PostVO getPostDetail(String postId) {
+        // 1. 查询数据库
+        PostDoc doc = postRepository.findById(postId).orElse(null);
+
+        // 2. 校验是否存在或已删除
+        if (doc == null || (doc.getIsDeleted() != null && doc.getIsDeleted() == 1)) {
+            throw new AppException(ResultCode.RESOURCE_NOT_FOUND);
+        }
+
+        // TODO: 可以在此处增加浏览量(viewCount)逻辑
+
+        // 3. 转换为 VO (isDetail = true，表示保留完整内容)
+        return convertToVO(doc, true);
     }
 
     /**
@@ -116,7 +134,8 @@ public class PostServiceImpl implements PostService {
     private Map<String, Object> buildResultMap(Page<PostDoc> pageData) {
         // 转换 Entity -> VO
         List<PostVO> records = pageData.getContent().stream()
-                .map(this::convertToVO)
+                // [修改] 列表页调用时，isDetail = false
+                .map(doc -> convertToVO(doc, false))
                 .collect(Collectors.toList());
 
         Map<String, Object> result = new HashMap<>();
@@ -130,8 +149,9 @@ public class PostServiceImpl implements PostService {
 
     /**
      * 将 PostDoc 转为 PostVO，并填充当前用户的交互状态
+     * [修改] 增加 isDetail 参数，控制是否截断正文
      */
-    private PostVO convertToVO(PostDoc doc) {
+    private PostVO convertToVO(PostDoc doc, boolean isDetail) {
         PostVO vo = new PostVO();
         vo.setId(doc.getId());
 
@@ -143,8 +163,15 @@ public class PostServiceImpl implements PostService {
         vo.setAuthor(author);
 
         vo.setTitle(doc.getTitle());
-        // 列表页只截取前 50 字
-        vo.setContent(StrUtil.subPre(doc.getContent(), 50));
+
+        // [修改] 根据场景处理内容长度
+        if (isDetail) {
+            vo.setContent(doc.getContent()); // 详情页：完整内容
+        } else {
+            // 列表页只截取前 50 字
+            vo.setContent(StrUtil.subPre(doc.getContent(), 50));
+        }
+
         vo.setType(doc.getType());
 
         // 资源分离 (Image / Video)
@@ -159,7 +186,7 @@ public class PostServiceImpl implements PostService {
                 }
             }
         }
-        // 列表页通常只需要第一张图作为封面
+        // 列表页通常只需要第一张图作为封面(前端逻辑)，这里后端还是返回全部，或者也可以在这里根据 isDetail 做截取
         vo.setImages(images);
         vo.setVideos(videos);
 
