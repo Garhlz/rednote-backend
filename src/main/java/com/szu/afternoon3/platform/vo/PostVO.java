@@ -27,4 +27,11 @@ public class PostVO {
     private Boolean isFollowed;  // 我是否关注了作者
 
     private String createdAt;    // 格式化后的时间
+
+    @Data
+    public static class AuthorInfo {
+        private String userId;
+        private String nickname;
+        private String avatar;
+    }
 }

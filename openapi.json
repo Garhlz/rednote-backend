@@ -1823,12 +1823,22 @@
         ],
         "parameters": [
           {
+            "name": "Authorization",
+            "in": "header",
+            "description": "Bearer Token (查看关注流时必填)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "name": "page",
             "in": "query",
             "description": "页码",
             "required": false,
             "schema": {
-              "type": "integer"
+              "type": "integer",
+              "default": 1
             }
           },
           {
@@ -1849,16 +1859,16 @@
             "schema": {
               "type": "string",
               "enum": [
-                "\"recommend\"",
-                "\"follow\""
+                "recommend",
+                "follow"
               ],
-              "default": "\"recommend\""
+              "default": "recommend"
             }
           },
           {
             "name": "tag",
             "in": "query",
-            "description": "标签筛选（选填）。如果用户点击了具体的标签（如'美食'），则传此参数，此时忽略 tab 参数",
+            "description": "标签筛选（选填）。如果用户点击了具体的标签，则传此参数，此时忽略 tab 参数",
             "required": false,
             "schema": {
               "type": "string"
@@ -1867,17 +1877,19 @@
         ],
         "responses": {
           "200": {
-            "description": "",
+            "description": "成功获取列表",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "properties": {
                     "code": {
-                      "type": "integer"
+                      "type": "integer",
+                      "example": 20000
                     },
                     "message": {
-                      "type": "string"
+                      "type": "string",
+                      "example": "操作成功"
                     },
                     "data": {
                       "type": "object",
@@ -1887,121 +1899,78 @@
                           "items": {
                             "type": "object",
                             "properties": {
-                              "id": {
-                                "type": "string"
-                              },
+                              "id": { "type": "string" },
                               "author": {
                                 "type": "object",
                                 "properties": {
-                                  "userId": {
-                                    "type": "string"
-                                  },
-                                  "nickname": {
-                                    "type": "string"
-                                  },
-                                  "avatar": {
-                                    "type": "string"
-                                  }
-                                },
-                                "required": [
-                                  "userId",
-                                  "nickname",
-                                  "avatar"
-                                ]
-                              },
-                              "title": {
-                                "type": "string"
-                              },
-                              "content": {
-                                "type": "string"
-                              },
-                              "type": {
-                                "type": "integer"
-                              },
-                              "images": {
-                                "type": "array",
-                                "items": {
-                                  "type": "string"
+                                  "userId": { "type": "string" },
+                                  "nickname": { "type": "string" },
+                                  "avatar": { "type": "string" }
                                 }
                               },
-                              "likeCount": {
-                                "type": "integer"
-                              },
-                              "collectCount": {
-                                "type": "integer"
-                              },
-                              "isLiked": {
-                                "type": "boolean"
-                              },
-                              "isCollected": {
-                                "type": "boolean"
-                              },
-                              "createdAt": {
-                                "type": "string"
-                              }
+                              "title": { "type": "string" },
+                              "content": { "type": "string" },
+                              "type": { "type": "integer" },
+                              "images": { "type": "array", "items": { "type": "string" } },
+                              "likeCount": { "type": "integer" },
+                              "collectCount": { "type": "integer" },
+                              "isLiked": { "type": "boolean" },
+                              "isCollected": { "type": "boolean" },
+                              "createdAt": { "type": "string" }
                             }
                           }
                         },
-                        "total": {
-                          "type": "integer"
-                        },
-                        "current": {
-                          "type": "integer"
-                        },
-                        "size": {
-                          "type": "integer"
-                        }
-                      },
-                      "required": [
-                        "records",
-                        "total",
-                        "current",
-                        "size"
-                      ]
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message",
-                    "data"
-                  ]
-                },
-                "example": {
-                  "code": 20000,
-                  "message": "获取成功",
-                  "data": {
-                    "records": [
-                      {
-                        "id": "656e12...",
-                        "author": {
-                          "userId": "10086",
-                          "nickname": "小青",
-                          "avatar": "http://..."
-                        },
-                        "title": "Arch Linux折腾笔记",
-                        "content": "今天安装了KDE...",
-                        "type": 0,
-                        "images": [
-                          "http://..."
-                        ],
-                        "likeCount": 102,
-                        "collectCount": 20,
-                        "isLiked": true,
-                        "isCollected": false,
-                        "createdAt": "2023-11-02 12:00:00"
+                        "total": { "type": "integer" },
+                        "current": { "type": "integer" },
+                        "size": { "type": "integer" }
                       }
-                    ],
-                    "total": 100,
-                    "current": 1,
-                    "size": 10
+                    }
                   }
                 }
               }
-            },
-            "headers": {}
+            }
+          },
+          "401": {
+            "description": "未登录访问关注流",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": { "type": "integer", "example": 40101 },
+                    "message": { "type": "string", "example": "请先登录" },
+                    "data": { "type": "null" }
+                  }
+                },
+                "example": {
+                  "code": 40101,
+                  "message": "请先登录",
+                  "data": null
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "服务器内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": { "type": "integer", "example": 50001 },
+                    "message": { "type": "string", "example": "服务器开小差了" },
+                    "data": { "type": "null" }
+                  }
+                },
+                "example": {
+                  "code": 50001,
+                  "message": "服务器开小差了",
+                  "data": null
+                }
+              }
+            }
           }
-        },
-        "security": []
+        }
       }
     },
     "/api/post/search": {

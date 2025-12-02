@@ -6,6 +6,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.List;
 
 @Repository
@@ -29,4 +30,8 @@ public interface PostRepository extends MongoRepository<PostDoc, String> {
 
     // 5. 根据 ID 列表批量查询 (用于收藏列表回显)
     List<PostDoc> findAllById(Iterable<String> ids);
+
+    // 6. 关注流：查询指定用户列表(关注的人)发布的帖子
+    // SQL类似: SELECT * FROM posts WHERE user_id IN (1, 2, 3) AND status=1 AND is_deleted=0
+    Page<PostDoc> findByUserIdInAndStatusAndIsDeleted(Collection<Long> userIds, Integer status, Integer isDeleted, Pageable pageable);
 }
