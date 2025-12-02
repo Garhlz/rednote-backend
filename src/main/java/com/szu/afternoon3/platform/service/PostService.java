@@ -13,4 +13,6 @@ public interface PostService {
      * @return 包含分页信息的 Map
      */
     Map<String, Object> getPostList(Integer page, Integer size, String tab, String tag);
+
+    Map<String, Object> searchPosts(String keyword, Integer page, Integer size);
 }

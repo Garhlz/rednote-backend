@@ -19,10 +19,6 @@ public class PostController {
 
     /**
      * 获取首页帖子流
-     * @param page 页码 (默认1)
-     * @param size 每页数量 (默认20)
-     * @param tab  "recommend" 或 "follow"
-     * @param tag  标签筛选 (如果存在则忽略 tab)
      */
     @GetMapping("/list")
     public Result<Map<String, Object>> getPostList(
@@ -32,6 +28,20 @@ public class PostController {
             @RequestParam(required = false) String tag
     ) {
         Map<String, Object> data = postService.getPostList(page, size, tab, tag);
+        return Result.success(data);
+    }
+
+    /**
+     * [新增] 搜索帖子
+     * 对应 Apifox 接口: /api/post/search (GET)
+     */
+    @GetMapping("/search")
+    public Result<Map<String, Object>> searchPosts(
+            @RequestParam String keyword,
+            @RequestParam(required = false, defaultValue = "1") Integer page,
+            @RequestParam(required = false, defaultValue = "20") Integer size
+    ) {
+        Map<String, Object> data = postService.searchPosts(keyword, page, size);
         return Result.success(data);
     }
 }

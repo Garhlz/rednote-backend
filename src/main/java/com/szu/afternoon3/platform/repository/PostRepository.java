@@ -4,6 +4,7 @@ import com.szu.afternoon3.platform.entity.mongo.PostDoc;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.mongodb.repository.MongoRepository;
+import org.springframework.data.mongodb.repository.Query;
 import org.springframework.stereotype.Repository;
 
 import java.util.Collection;
@@ -34,4 +35,9 @@ public interface PostRepository extends MongoRepository<PostDoc, String> {
     // 6. 关注流：查询指定用户列表(关注的人)发布的帖子
     // SQL类似: SELECT * FROM posts WHERE user_id IN (1, 2, 3) AND status=1 AND is_deleted=0
     Page<PostDoc> findByUserIdInAndStatusAndIsDeleted(Collection<Long> userIds, Integer status, Integer isDeleted, Pageable pageable);
+
+    // [新增] 搜索方法：同时搜索标题和内容，且状态必须正常(status=1, isDeleted=0)
+    // $regex: ?0 表示使用第一个参数作为正则，$options: 'i' 表示忽略大小写
+    @Query("{ '$and': [ { 'isDeleted': 0 }, { 'status': 1 }, { '$or': [ { 'title': { '$regex': ?0, '$options': 'i' } }, { 'content': { '$regex': ?0, '$options': 'i' } } ] } ] }")
+    Page<PostDoc> searchByKeyword(String keyword, Pageable pageable);
 }

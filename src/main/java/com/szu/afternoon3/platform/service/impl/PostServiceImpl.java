@@ -57,7 +57,7 @@ public class PostServiceImpl implements PostService {
         else if ("follow".equalsIgnoreCase(tab)) {
             Long currentUserId = UserContext.getUserId();
 
-            // 【关键修改】如果未登录却请求关注流，抛出 401 异常
+            // 如果未登录却请求关注流，抛出 401 异常
             if (currentUserId == null) {
                 throw new AppException(ResultCode.UNAUTHORIZED);
             }
@@ -80,17 +80,50 @@ public class PostServiceImpl implements PostService {
             postDocPage = postRepository.findByStatusAndIsDeleted(1, 0, pageable);
         }
 
-        // 3. 转换为 VO
-        List<PostVO> records = postDocPage.getContent().stream()
+        // 3. 调用统一的构建方法返回
+        return buildResultMap(postDocPage);
+    }
+
+    /**
+     * [新增] 搜索帖子接口实现
+     */
+    @Override
+    public Map<String, Object> searchPosts(String keyword, Integer page, Integer size) {
+        // 1. 处理分页
+        int pageNum = (page == null || page < 1) ? 0 : page - 1;
+        int pageSize = (size == null || size < 1) ? 20 : size;
+
+        // 搜索结果按时间倒序
+        Pageable pageable = PageRequest.of(pageNum, pageSize, Sort.by(Sort.Direction.DESC, "createdAt"));
+
+        // 2. 判空兜底
+        if (StrUtil.isBlank(keyword)) {
+            return buildResultMap(Page.empty(pageable));
+        }
+
+        // 3. 调用 Repository 自定义搜索方法
+        // 注意：需确保 PostRepository 中已经定义了 searchByKeyword 方法
+        Page<PostDoc> postDocPage = postRepository.searchByKeyword(keyword, pageable);
+
+        // 4. 构建返回结果
+        return buildResultMap(postDocPage);
+    }
+
+    /**
+     * [重构] 统一封装返回 Map，避免代码重复
+     * 将 Page<PostDoc> 转换为 API 要求的 Map 结构
+     */
+    private Map<String, Object> buildResultMap(Page<PostDoc> pageData) {
+        // 转换 Entity -> VO
+        List<PostVO> records = pageData.getContent().stream()
                 .map(this::convertToVO)
                 .collect(Collectors.toList());
 
-        // 4. 封装返回格式
         Map<String, Object> result = new HashMap<>();
         result.put("records", records);
-        result.put("total", postDocPage.getTotalElements());
-        result.put("current", postDocPage.getNumber() + 1); // 还原为 1-based
-        result.put("size", postDocPage.getSize());
+        result.put("total", pageData.getTotalElements());
+        result.put("current", pageData.getNumber() + 1); // 还原为 1-based
+        result.put("size", pageData.getSize());
 
         return result;
     }
