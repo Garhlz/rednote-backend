@@ -1,6 +1,8 @@
 package com.szu.afternoon3.platform.repository;
 
 import com.szu.afternoon3.platform.entity.mongo.UserFollowDoc;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.data.mongodb.repository.Query;
 import org.springframework.stereotype.Repository;
@@ -24,4 +26,8 @@ public interface UserFollowRepository extends MongoRepository<UserFollowDoc, Str
     // 但是users表位于pg部分中
     long countByUserId(Long userId);       // 我的关注数
     long countByTargetUserId(Long targetUserId); // 我的粉丝数
+
+    // --- 分页查询某人的关注列表 ---
+    // 根据 userId 查询，返回该用户关注了哪些人 (UserFollowDoc 中的 targetUser 系列字段)
+    Page<UserFollowDoc> findByUserId(Long userId, Pageable pageable);
 }

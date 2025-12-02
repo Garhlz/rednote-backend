@@ -77,4 +77,18 @@ public class UserController {
         userService.changePassword(dto);
         return Result.success(null);
     }
+
+    /**
+     * 获取关注列表
+     * 对应 Apifox 接口: /api/user/follows/{userId} (GET)
+     */
+    @GetMapping("/follows/{userId}")
+    public Result<Map<String, Object>> getFollows(
+            @PathVariable String userId,
+            @RequestParam(required = false, defaultValue = "1") Integer page,
+            @RequestParam(required = false, defaultValue = "20") Integer size
+    ) {
+        Map<String, Object> data = userService.getFollowList(userId, page, size);
+        return Result.success(data);
+    }
 }

@@ -32,4 +32,7 @@ public interface UserService {
      * 修改密码 (验证旧密码)
      */
     void changePassword(UserPasswordChangeDTO dto);
+
+    // --- 获取关注列表 ---
+    Map<String, Object> getFollowList(String userId, Integer page, Integer size);
 }

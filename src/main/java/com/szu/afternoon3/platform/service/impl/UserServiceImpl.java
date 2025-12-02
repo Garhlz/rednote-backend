@@ -9,6 +9,7 @@ import com.szu.afternoon3.platform.entity.User;
 import com.szu.afternoon3.platform.exception.AppException;
 import com.szu.afternoon3.platform.exception.ResultCode;
 import com.szu.afternoon3.platform.mapper.UserMapper;
+import com.szu.afternoon3.platform.repository.UserFollowRepository;
 import com.szu.afternoon3.platform.service.UserService;
 import com.szu.afternoon3.platform.vo.UserProfileVO;
 import lombok.extern.slf4j.Slf4j;
@@ -16,11 +17,18 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import com.szu.afternoon3.platform.entity.mongo.UserFollowDoc;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @Slf4j
@@ -31,6 +39,9 @@ public class UserServiceImpl implements UserService {
 
     @Autowired
     private StringRedisTemplate redisTemplate;
+
+    @Autowired
+    private UserFollowRepository userFollowRepository;
 
     @Override
     public UserProfileVO getUserProfile() {
@@ -152,6 +163,51 @@ public class UserServiceImpl implements UserService {
         String hashed = BCrypt.hashpw(dto.getNewPassword());
         user.setPassword(hashed);
         userMapper.updateById(user);
+    }
+
+    /**
+     * 新增实现：获取关注列表
+     */
+    @Override
+    public Map<String, Object> getFollowList(String userIdStr, Integer page, Integer size) {
+        // 1. 参数处理
+        long userId;
+        try {
+            userId = Long.parseLong(userIdStr);
+        } catch (NumberFormatException e) {
+            throw new AppException(ResultCode.PARAM_ERROR, "用户ID格式错误");
+        }
+
+        int pageNum = (page == null || page < 1) ? 0 : page - 1;
+        int pageSize = (size == null || size < 1) ? 20 : size;
+
+        // 2. 构建分页请求，按关注时间倒序 (最新关注的在最前)
+        Pageable pageable = PageRequest.of(pageNum, pageSize, Sort.by(Sort.Direction.DESC, "createdAt"));
+
+        // 3. 查询 MongoDB
+        Page<UserFollowDoc> docPage = userFollowRepository.findByUserId(userId, pageable);
+
+        // 4. 转换数据格式
+        // UserFollowDoc 中：userId 是"我"，targetUserId 是"我关注的人"
+        // 我们需要返回 targetUser 的信息
+        List<Map<String, String>> records = docPage.getContent().stream().map(doc -> {
+            Map<String, String> item = new HashMap<>();
+            // 转 String 防止前端精度丢失
+            item.put("userId", String.valueOf(doc.getTargetUserId()));
+            // 使用 Mongo 中的冗余字段，避免回查 Postgres，提高性能
+            item.put("nickname", doc.getTargetUserNickname());
+            item.put("avatar", doc.getTargetUserAvatar());
+            return item;
+        }).collect(Collectors.toList());
+
+        // 5. 构建返回体
+        Map<String, Object> result = new HashMap<>();
+        result.put("records", records);
+        result.put("total", docPage.getTotalElements());
+        // result.put("current", docPage.getNumber() + 1); // 可选
+        // result.put("size", docPage.getSize()); // 可选
+
+        return result;
     }
 
     // Private Helpers
