@@ -27,7 +27,11 @@ public interface UserFollowRepository extends MongoRepository<UserFollowDoc, Str
     long countByUserId(Long userId);       // 我的关注数
     long countByTargetUserId(Long targetUserId); // 我的粉丝数
 
-    // --- 分页查询某人的关注列表 ---
+    // 分页查询某人的关注列表
     // 根据 userId 查询，返回该用户关注了哪些人 (UserFollowDoc 中的 targetUser 系列字段)
     Page<UserFollowDoc> findByUserId(Long userId, Pageable pageable);
+
+    // 分页查询某人的粉丝列表
+    // 查询条件：targetUserId = 传入的ID (即查询谁关注了这个目标用户)
+    Page<UserFollowDoc> findByTargetUserId(Long targetUserId, Pageable pageable);
 }

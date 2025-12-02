@@ -166,7 +166,7 @@ public class UserServiceImpl implements UserService {
     }
 
     /**
-     * 新增实现：获取关注列表
+     * 获取关注列表
      */
     @Override
     public Map<String, Object> getFollowList(String userIdStr, Integer page, Integer size) {
@@ -206,6 +206,49 @@ public class UserServiceImpl implements UserService {
         result.put("total", docPage.getTotalElements());
         // result.put("current", docPage.getNumber() + 1); // 可选
         // result.put("size", docPage.getSize()); // 可选
+
+        return result;
+    }
+
+    /**
+     * 获取粉丝列表实现
+     */
+    @Override
+    public Map<String, Object> getFanList(String userIdStr, Integer page, Integer size) {
+        // 1. 参数处理
+        long userId;
+        try {
+            userId = Long.parseLong(userIdStr);
+        } catch (NumberFormatException e) {
+            throw new AppException(ResultCode.PARAM_ERROR, "用户ID格式错误");
+        }
+
+        int pageNum = (page == null || page < 1) ? 0 : page - 1;
+        int pageSize = (size == null || size < 1) ? 20 : size;
+
+        // 2. 构建分页请求，按关注时间倒序 (最新关注的粉丝在最前)
+        Pageable pageable = PageRequest.of(pageNum, pageSize, Sort.by(Sort.Direction.DESC, "createdAt"));
+
+        // 3. 查询 MongoDB (查找 targetUserId 为当前用户ID 的记录)
+        Page<UserFollowDoc> docPage = userFollowRepository.findByTargetUserId(userId, pageable);
+
+        // 4. 转换数据格式
+        // UserFollowDoc 中：targetUserId 是"我"，userId 是"关注我的人(粉丝)"
+        // 所以这里我们需要返回 userId, userNickname, userAvatar
+        List<Map<String, String>> records = docPage.getContent().stream().map(doc -> {
+            Map<String, String> item = new HashMap<>();
+            // 转 String 防止前端精度丢失
+            item.put("userId", String.valueOf(doc.getUserId()));
+            // 粉丝的信息存储在 user系列字段中 (因为是他发起的关注)
+            item.put("nickname", doc.getUserNickname());
+            item.put("avatar", doc.getUserAvatar());
+            return item;
+        }).collect(Collectors.toList());
+
+        // 5. 构建返回体
+        Map<String, Object> result = new HashMap<>();
+        result.put("records", records);
+        result.put("total", docPage.getTotalElements());
 
         return result;
     }

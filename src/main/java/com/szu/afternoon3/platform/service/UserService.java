@@ -33,6 +33,9 @@ public interface UserService {
      */
     void changePassword(UserPasswordChangeDTO dto);
 
-    // --- 获取关注列表 ---
+    // 获取关注列表
     Map<String, Object> getFollowList(String userId, Integer page, Integer size);
+
+    // 获取粉丝列表
+    Map<String, Object> getFanList(String userId, Integer page, Integer size);
 }

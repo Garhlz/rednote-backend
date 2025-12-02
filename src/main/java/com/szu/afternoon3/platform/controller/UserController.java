@@ -91,4 +91,18 @@ public class UserController {
         Map<String, Object> data = userService.getFollowList(userId, page, size);
         return Result.success(data);
     }
+
+    /**
+     * 获取粉丝列表
+     * 对应 Apifox 接口: /api/user/fans/{userId} (GET)
+     */
+    @GetMapping("/fans/{userId}")
+    public Result<Map<String, Object>> getFans(
+            @PathVariable String userId,
+            @RequestParam(required = false, defaultValue = "1") Integer page,
+            @RequestParam(required = false, defaultValue = "20") Integer size
+    ) {
+        Map<String, Object> data = userService.getFanList(userId, page, size);
+        return Result.success(data);
+    }
 }
