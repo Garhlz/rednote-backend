@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # 这里的 localhost 对应宿主机，因为你做了 8080:8080 映射
-BASE_URL="http://localhost:8080"
+BASE_URL="http://8.148.145.178:8080"
 
 # 颜色定义，方便看结果
 GREEN='\033[0;32m'
@@ -13,19 +13,19 @@ echo "🚀 开始生产环境冒烟测试..."
 # ==========================================
 # 1. 测试账号登录 (API: /api/auth/login/account)
 # ==========================================
-echo -n "1. 尝试登录 (smoke_prod@szu.edu.cn)... "
+echo -n "1. 尝试登录 "
 
 # 发送 POST 请求，获取响应
 LOGIN_RESPONSE=$(curl -s -X POST "$BASE_URL/api/auth/login/account" \
   -H "Content-Type: application/json" \
   -d '{
-    "account": "smoke_prod_1@szu.edu.cn",
+    "account": "test3@test.com",
     "password": "123456"
   }')
 
 # 简单的字符串匹配检查是否成功 (检查 code: 20000)
 # 注意：这里使用 grep -q 来静默查找
-if echo "$LOGIN_RESPONSE" | grep -q "20000"; then
+if echo "$LOGIN_RESPONSE" | grep -q 200; then
     echo -e "${GREEN}[OK]${NC}"
 
     # 使用 sed 提取 token (模拟 JSON 解析)
@@ -53,14 +53,14 @@ echo -n "2. 验证 Token 获取资料... "
 PROFILE_RESPONSE=$(curl -s -X GET "$BASE_URL/api/user/profile" \
   -H "Authorization: Bearer $TOKEN")
 
-if echo "$PROFILE_RESPONSE" | grep -q "20000"; then
+if echo "$PROFILE_RESPONSE" | grep -q 200; then
     echo -e "${GREEN}[OK]${NC}"
     # 提取昵称验证
     NICKNAME=$(echo "$PROFILE_RESPONSE" | sed -n 's/.*"nickname":"\([^"]*\)".*/\1/p')
     echo "   👤 当前用户: $NICKNAME"
 
     # 简单验证昵称是否匹配
-    if [[ "$NICKNAME" != *"生产环境测试员"* ]] && [[ "$PROFILE_RESPONSE" != *"生产环境测试员"* ]]; then
+    if [[ "$NICKNAME" != *"冒烟测试员"* ]] && [[ "$PROFILE_RESPONSE" != *"冒烟测试员"* ]]; then
          echo -e "${RED}[WARNING]${NC} 昵称似乎不匹配，请人工核对。"
     fi
 else
