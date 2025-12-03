@@ -18,26 +18,27 @@ public class PostDoc {
     @Indexed // 加索引，方便查询某人的所有帖子
     private Long userId;
 
-    // 冗余作者信息（避免列表页每次都查 Postgres）
+    // 冗余作者信息
     private String userNickname;
     private String userAvatar;
 
-    @TextIndexed(weight = 2) // 权重2
+    @TextIndexed(weight = 2) // 权重2：标题匹配
     private String title;
 
-    @TextIndexed(weight = 1) // 权重1
+    @TextIndexed(weight = 1) // 权重1：内容匹配
     private String content;
+
     private Integer type; // 0:图文, 1:视频
 
-    // 资源列表：因为一般只有9张图，适合内嵌，不需要分表
     private List<Resource> resources;
 
-    // 标签列表：一般几个标签，适合内嵌
-    @Indexed // 方便按标签搜索
+    // 【关键修改】给标签加全文索引，权重设为 3 (最高优先级)
+    // 这样搜 "美食" 时，打标了 "美食" 的帖子会排在最前面
+    @Indexed           // 保留普通索引，用于精确筛选 (getPostList)
+    @TextIndexed(weight = 3) // 新增全文索引，用于模糊搜索 (searchPosts)
     private List<String> tags;
 
-    // 统计数据（这是扁平化设计的关键：把计数和具体名单分开）
-    // 具体的点赞人名单在 PostLikeDoc 里，这里只存总数
+    // 统计数据
     private Integer viewCount = 0;
     private Integer likeCount = 0;
     private Integer collectCount = 0;
@@ -45,11 +46,11 @@ public class PostDoc {
 
     private Integer status; // 0:审核中, 1:发布, 2: 审核失败
 
-    // [建议] 显式初始化，防止插入时为 null
     private LocalDateTime createdAt = LocalDateTime.now();
     private LocalDateTime updatedAt = LocalDateTime.now();
 
     private Integer isDeleted = 0;
+
     @Data
     public static class Resource {
         private String url;
