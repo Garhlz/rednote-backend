@@ -29,11 +29,12 @@ public class WebMvcConfig implements WebMvcConfigurer {
                         "/api/auth/**",      // 登录注册
                         "/api/common/**",    // 公共接口
 
+                        // TODO 当前逻辑是从token中获取userId,如果直接放行就无法从上下文获取userId。之后加入柔性放行策略
                         // --- 新增：放行内容浏览类接口 ---
-                        "/api/post/list",    // 首页列表
-                        "/api/post/search",  // 搜索
-                        "/api/post/*",       // 帖子详情 (匹配 /api/post/xxxx)
-                        "/api/tag/**",       // 标签相关
+//                        "/api/post/list",    // 首页列表
+//                        "/api/post/search",  // 搜索
+//                        "/api/post/*",       // 帖子详情 (匹配 /api/post/xxxx)
+//                        "/api/tag/**",       // 标签相关
 
                         // --- Swagger/静态资源 ---
                         "/doc.html",

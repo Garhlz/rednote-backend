@@ -1,8 +1,8 @@
 {
   "openapi": "3.0.1",
   "info": {
-    "title": "默认模块",
-    "description": "",
+    "title": "api模块",
+    "description": "这是评论相关的接口定义。",
     "version": "1.0.0"
   },
   "tags": [
@@ -16,10 +16,16 @@
       "name": "/api/common/"
     },
     {
-      "name": "/api/post"
+      "name": "/api/post/"
     },
     {
       "name": "/api/tag/"
+    },
+    {
+      "name": "/api/comment/"
+    },
+    {
+      "name": "/api/post"
     }
   ],
   "paths": {
@@ -234,7 +240,7 @@
                   "password"
                 ]
               },
-              "example": "{\n  \"account\": \"test@qq.com\", // 邮箱或用户名\n  \"password\": \"password123\"\n}"
+              "example": "{\n  \"account\": \"garhlz257@163.com\", // 邮箱或用户名\n  \"password\": \"123456\"\n}"
             }
           },
           "required": true
@@ -446,7 +452,7 @@
                 ]
               },
               "example": {
-                "email": "test@qq.com"
+                "email": "garhlz257@163.com"
               }
             }
           },
@@ -649,9 +655,9 @@
                 ]
               },
               "example": {
-                "email": "l7nrqi.q8t@163.com",
-                "code": "66",
-                "newPassword": "WQcy_AOnfZMoBP5"
+                "email": "garhlz257@163.com",
+                "code": "595335",
+                "newPassword": "123456"
               }
             }
           },
@@ -766,18 +772,7 @@
         "tags": [
           "/api/user/"
         ],
-        "parameters": [
-          {
-            "name": "Authorization",
-            "in": "header",
-            "description": "",
-            "required": true,
-            "example": "Bearer <jwt_token>",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
+        "parameters": [],
         "requestBody": {
           "content": {
             "application/json": {
@@ -797,8 +792,8 @@
                 ]
               },
               "example": {
-                "email": "qingxi@szu.edu.cn",
-                "code": "123456"
+                "email": "garhlz257@163.com",
+                "code": "992636"
               }
             }
           },
@@ -945,7 +940,11 @@
             "headers": {}
           }
         },
-        "security": []
+        "security": [
+          {
+            "jwt": []
+          }
+        ]
       }
     },
     "/api/user/profile": {
@@ -956,18 +955,7 @@
         "tags": [
           "/api/user/"
         ],
-        "parameters": [
-          {
-            "name": "Authorization",
-            "in": "header",
-            "description": "",
-            "required": true,
-            "example": "Bearer <jwt_token>",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
+        "parameters": [],
         "responses": {
           "200": {
             "description": "",
@@ -1056,7 +1044,11 @@
             "headers": {}
           }
         },
-        "security": []
+        "security": [
+          {
+            "jwt": []
+          }
+        ]
       },
       "put": {
         "summary": "修改个人资料",
@@ -1065,18 +1057,7 @@
         "tags": [
           "/api/user/"
         ],
-        "parameters": [
-          {
-            "name": "Authorization",
-            "in": "header",
-            "description": "",
-            "required": true,
-            "example": "Bearer <jwt_token>",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
+        "parameters": [],
         "requestBody": {
           "content": {
             "application/json": {
@@ -1117,7 +1098,7 @@
                   "region"
                 ]
               },
-              "example": "{\n  \"nickname\": \"Elaine\",         // 选填\n  \"avatar\": \"https://oss...\",   // 选填 (上传接口返回的URL)\n  \"bio\": \"新的简介...\",          // 选填\n  \"gender\": 2,                  // 选填 (0, 1, 2)\n  \"birthday\": \"2003-05-20\",     // 选填 (yyyy-MM-dd)\n  \"region\": \"广东 深圳\"          // 选填\n}"
+              "example": "{\n  \"nickname\": \"Elaine\",         // 选填\n  \"avatar\": \"https://afternoon3-rednote.oss-cn-shenzhen.aliyuncs.com/shadow.jpg\",   // 选填 (上传接口返回的URL)\n  \"bio\": \"Elaine的测试账号\",          // 选填\n  \"gender\": 2,                  // 选填 (0, 1, 2)\n  \"birthday\": \"2005-08-21\",     // 选填 (yyyy-MM-dd)\n  \"region\": \"广东 深圳\"          // 选填\n}"
             }
           },
           "required": true
@@ -1189,7 +1170,11 @@
             "headers": {}
           }
         },
-        "security": []
+        "security": [
+          {
+            "jwt": []
+          }
+        ]
       }
     },
     "/api/user/password/set": {
@@ -1200,18 +1185,7 @@
         "tags": [
           "/api/user/"
         ],
-        "parameters": [
-          {
-            "name": "Authorization",
-            "in": "header",
-            "description": "",
-            "required": true,
-            "example": "Bearer <jwt_token>",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
+        "parameters": [],
         "requestBody": {
           "content": {
             "application/json": {
@@ -1335,7 +1309,11 @@
             "headers": {}
           }
         },
-        "security": []
+        "security": [
+          {
+            "jwt": []
+          }
+        ]
       }
     },
     "/api/user/password/change": {
@@ -1346,18 +1324,7 @@
         "tags": [
           "/api/user/"
         ],
-        "parameters": [
-          {
-            "name": "Authorization",
-            "in": "header",
-            "description": "",
-            "required": true,
-            "example": "Bearer <jwt_token>",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
+        "parameters": [],
         "requestBody": {
           "content": {
             "application/json": {
@@ -1449,7 +1416,11 @@
             "headers": {}
           }
         },
-        "security": []
+        "security": [
+          {
+            "jwt": []
+          }
+        ]
       }
     },
     "/api/user/follows/{userId}": {
@@ -1466,6 +1437,7 @@
             "in": "path",
             "description": "",
             "required": true,
+            "example": 3,
             "schema": {
               "type": "integer"
             }
@@ -1531,7 +1503,8 @@
                       "required": [
                         "records",
                         "total"
-                      ]
+                      ],
+                      "nullable": true
                     }
                   },
                   "required": [
@@ -1559,7 +1532,11 @@
             "headers": {}
           }
         },
-        "security": []
+        "security": [
+          {
+            "jwt": []
+          }
+        ]
       }
     },
     "/api/user/fans/{userId}": {
@@ -1576,6 +1553,7 @@
             "in": "path",
             "description": "",
             "required": true,
+            "example": "3",
             "schema": {
               "type": "string"
             }
@@ -1642,7 +1620,8 @@
                       "required": [
                         "records",
                         "total"
-                      ]
+                      ],
+                      "nullable": true
                     }
                   },
                   "required": [
@@ -1670,7 +1649,111 @@
             "headers": {}
           }
         },
-        "security": []
+        "security": [
+          {
+            "jwt": []
+          }
+        ]
+      }
+    },
+    "/api/user/follow": {
+      "post": {
+        "summary": "关注用户",
+        "deprecated": false,
+        "description": "",
+        "tags": [
+          "/api/user/"
+        ],
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "targetUserId": {
+                    "type": "string",
+                    "description": "被关注者的ID"
+                  }
+                },
+                "required": [
+                  "targetUserId"
+                ]
+              },
+              "example": {
+                "targetUserId": "5"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {}
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "jwt": []
+          }
+        ]
+      }
+    },
+    "/api/user/unfollow": {
+      "post": {
+        "summary": "取消关注用户",
+        "deprecated": false,
+        "description": "",
+        "tags": [
+          "/api/user/"
+        ],
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "targetUserId": {
+                    "type": "string",
+                    "description": "被关注者的ID"
+                  }
+                },
+                "required": [
+                  "targetUserId"
+                ]
+              },
+              "examples": {}
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {}
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "jwt": []
+          }
+        ]
       }
     },
     "/api/common/upload": {
@@ -1681,18 +1764,7 @@
         "tags": [
           "/api/common/"
         ],
-        "parameters": [
-          {
-            "name": "Authorization",
-            "in": "header",
-            "description": "",
-            "required": false,
-            "example": "Bearer <jwt_token>",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
+        "parameters": [],
         "requestBody": {
           "content": {
             "multipart/form-data": {
@@ -1700,12 +1772,15 @@
                 "type": "object",
                 "properties": {
                   "file": {
-                    "description": "图片/视频文件二进制流",
-                    "example": "",
+                    "format": "binary",
                     "type": "string",
-                    "format": "binary"
+                    "description": "图片/视频文件二进制流",
+                    "example": "cmMtdXBsb2FkLTE3NjQ1ODMyMjk1NzItNg==/pasted file.png"
                   }
-                }
+                },
+                "required": [
+                  "file"
+                ]
               },
               "examples": {}
             }
@@ -1819,26 +1894,16 @@
         "deprecated": false,
         "description": "获取首页推荐、关注或标签筛选的帖子列表。支持分页。",
         "tags": [
-          "/api/post"
+          "/api/post/"
         ],
         "parameters": [
-          {
-            "name": "Authorization",
-            "in": "header",
-            "description": "Bearer Token (查看关注流时必填)",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
           {
             "name": "page",
             "in": "query",
             "description": "页码",
             "required": false,
             "schema": {
-              "type": "integer",
-              "default": 1
+              "type": "integer"
             }
           },
           {
@@ -1859,16 +1924,16 @@
             "schema": {
               "type": "string",
               "enum": [
-                "recommend",
-                "follow"
+                "\"recommend\"",
+                "\"follow\""
               ],
-              "default": "recommend"
+              "default": "\"recommend\""
             }
           },
           {
             "name": "tag",
             "in": "query",
-            "description": "标签筛选（选填）。如果用户点击了具体的标签，则传此参数，此时忽略 tab 参数",
+            "description": "标签筛选（选填）。如果用户点击了具体的标签（如'美食'），则传此参数，此时忽略 tab 参数",
             "required": false,
             "schema": {
               "type": "string"
@@ -1877,19 +1942,17 @@
         ],
         "responses": {
           "200": {
-            "description": "成功获取列表",
+            "description": "",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "properties": {
                     "code": {
-                      "type": "integer",
-                      "example": 20000
+                      "type": "integer"
                     },
                     "message": {
-                      "type": "string",
-                      "example": "操作成功"
+                      "type": "string"
                     },
                     "data": {
                       "type": "object",
@@ -1899,48 +1962,143 @@
                           "items": {
                             "type": "object",
                             "properties": {
-                              "id": { "type": "string" },
+                              "id": {
+                                "type": "string"
+                              },
                               "author": {
                                 "type": "object",
                                 "properties": {
-                                  "userId": { "type": "string" },
-                                  "nickname": { "type": "string" },
-                                  "avatar": { "type": "string" }
+                                  "userId": {
+                                    "type": "string"
+                                  },
+                                  "nickname": {
+                                    "type": "string"
+                                  },
+                                  "avatar": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "userId",
+                                  "nickname",
+                                  "avatar"
+                                ]
+                              },
+                              "title": {
+                                "type": "string"
+                              },
+                              "content": {
+                                "type": "string"
+                              },
+                              "type": {
+                                "type": "integer"
+                              },
+                              "images": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
                                 }
                               },
-                              "title": { "type": "string" },
-                              "content": { "type": "string" },
-                              "type": { "type": "integer" },
-                              "images": { "type": "array", "items": { "type": "string" } },
-                              "likeCount": { "type": "integer" },
-                              "collectCount": { "type": "integer" },
-                              "isLiked": { "type": "boolean" },
-                              "isCollected": { "type": "boolean" },
-                              "createdAt": { "type": "string" }
+                              "likeCount": {
+                                "type": "integer"
+                              },
+                              "collectCount": {
+                                "type": "integer"
+                              },
+                              "isLiked": {
+                                "type": "boolean"
+                              },
+                              "isCollected": {
+                                "type": "boolean"
+                              },
+                              "createdAt": {
+                                "type": "string"
+                              }
                             }
                           }
                         },
-                        "total": { "type": "integer" },
-                        "current": { "type": "integer" },
-                        "size": { "type": "integer" }
-                      }
+                        "total": {
+                          "type": "integer"
+                        },
+                        "current": {
+                          "type": "integer"
+                        },
+                        "size": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "records",
+                        "total",
+                        "current",
+                        "size"
+                      ]
                     }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                },
+                "example": {
+                  "code": 20000,
+                  "message": "获取成功",
+                  "data": {
+                    "records": [
+                      {
+                        "id": "656e12...",
+                        "author": {
+                          "userId": "10086",
+                          "nickname": "小青",
+                          "avatar": "http://..."
+                        },
+                        "title": "Arch Linux折腾笔记",
+                        "content": "今天安装了KDE...",
+                        "type": 0,
+                        "images": [
+                          "http://..."
+                        ],
+                        "likeCount": 102,
+                        "collectCount": 20,
+                        "isLiked": true,
+                        "isCollected": false,
+                        "createdAt": "2023-11-02 12:00:00"
+                      }
+                    ],
+                    "total": 100,
+                    "current": 1,
+                    "size": 10
                   }
                 }
               }
-            }
+            },
+            "headers": {}
           },
           "401": {
-            "description": "未登录访问关注流",
+            "description": "",
             "content": {
               "application/json": {
                 "schema": {
+                  "title": "",
                   "type": "object",
                   "properties": {
-                    "code": { "type": "integer", "example": 40101 },
-                    "message": { "type": "string", "example": "请先登录" },
-                    "data": { "type": "null" }
-                  }
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {}
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
                 },
                 "example": {
                   "code": 40101,
@@ -1948,19 +2106,33 @@
                   "data": null
                 }
               }
-            }
+            },
+            "headers": {}
           },
           "500": {
-            "description": "服务器内部错误",
+            "description": "",
             "content": {
               "application/json": {
                 "schema": {
+                  "title": "",
                   "type": "object",
                   "properties": {
-                    "code": { "type": "integer", "example": 50001 },
-                    "message": { "type": "string", "example": "服务器开小差了" },
-                    "data": { "type": "null" }
-                  }
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {}
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
                 },
                 "example": {
                   "code": 50001,
@@ -1968,9 +2140,15 @@
                   "data": null
                 }
               }
-            }
+            },
+            "headers": {}
           }
-        }
+        },
+        "security": [
+          {
+            "jwt": []
+          }
+        ]
       }
     },
     "/api/post/search": {
@@ -1979,7 +2157,7 @@
         "deprecated": false,
         "description": "根据关键词模糊搜索标题和内容",
         "tags": [
-          "/api/post"
+          "/api/post/"
         ],
         "parameters": [
           {
@@ -1987,6 +2165,7 @@
             "in": "query",
             "description": "搜索关键词",
             "required": true,
+            "example": "123",
             "schema": {
               "type": "string"
             }
@@ -2148,7 +2327,11 @@
             "headers": {}
           }
         },
-        "security": []
+        "security": [
+          {
+            "jwt": []
+          }
+        ]
       }
     },
     "/api/post/{id}": {
@@ -2157,7 +2340,7 @@
         "deprecated": false,
         "description": "进入帖子详情页时调用。包含完整的正文内容和高精度的图片/视频。",
         "tags": [
-          "/api/post"
+          "/api/post/"
         ],
         "parameters": [
           {
@@ -2165,6 +2348,7 @@
             "in": "path",
             "description": "帖子ID (Mongo ObjectId)",
             "required": true,
+            "example": "1",
             "schema": {
               "type": "string"
             }
@@ -2263,7 +2447,8 @@
                         "isCollected",
                         "isFollowed",
                         "createdAt"
-                      ]
+                      ],
+                      "nullable": true
                     }
                   },
                   "required": [
@@ -2308,7 +2493,492 @@
             "headers": {}
           }
         },
-        "security": []
+        "security": [
+          {
+            "jwt": []
+          }
+        ]
+      },
+      "delete": {
+        "summary": "删除帖子",
+        "deprecated": false,
+        "description": "仅限作者本人或管理员调用。后端需要检查权限",
+        "tags": [
+          "/api/post/"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "需要删除的帖子id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {},
+                      "description": "数据"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                },
+                "example": {
+                  "code": 200,
+                  "message": "success",
+                  "data": {}
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "jwt": []
+          }
+        ]
+      }
+    },
+    "/api/post/{userId}": {
+      "get": {
+        "summary": "获取用户的帖子",
+        "deprecated": false,
+        "description": "",
+        "tags": [
+          "/api/post/"
+        ],
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "description": "",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {}
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "jwt": []
+          }
+        ]
+      }
+    },
+    "/api/post": {
+      "post": {
+        "summary": "发布帖子",
+        "deprecated": false,
+        "description": "发布图文或视频笔记。前端需先调用文件上传接口获取URL，再填入images或video字段。",
+        "tags": [
+          "/api/post/"
+        ],
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "description": "标题"
+                  },
+                  "content": {
+                    "type": "string",
+                    "description": "正文内容"
+                  },
+                  "type": {
+                    "type": "integer",
+                    "description": "0:图文, 1:视频"
+                  },
+                  "images": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "图片URL列表 (type=0时必填)"
+                  },
+                  "videos": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "视频URL列表 (type=1时必填)"
+                  },
+                  "tags": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "标签列表，如 ['美食', '探店']"
+                  }
+                },
+                "required": [
+                  "title",
+                  "content",
+                  "type"
+                ]
+              },
+              "example": {
+                "title": {
+                  "type": "string",
+                  "description": "标题"
+                },
+                "content": {
+                  "type": "string",
+                  "description": "正文内容"
+                },
+                "type": {
+                  "type": "integer",
+                  "description": "0:图文, 1:视频"
+                },
+                "images": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "图片URL列表 (type=0时必填)"
+                },
+                "videos": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "视频URL列表 (type=1时必填)"
+                },
+                "tags": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "标签列表，如 ['美食', '探店']"
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "description": "帖子id"
+                        }
+                      },
+                      "required": [
+                        "id"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                },
+                "example": {
+                  "code": 200,
+                  "message": "发布成功",
+                  "data": {
+                    "id": "656e..."
+                  }
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "jwt": []
+          }
+        ]
+      }
+    },
+    "/api/post/like": {
+      "post": {
+        "summary": "点赞帖子",
+        "deprecated": false,
+        "description": "",
+        "tags": [
+          "/api/post/"
+        ],
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "postId": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "postId"
+                ]
+              },
+              "examples": {}
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {}
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "jwt": []
+          }
+        ]
+      }
+    },
+    "/api/post/unlike": {
+      "post": {
+        "summary": "取消点赞帖子",
+        "deprecated": false,
+        "description": "",
+        "tags": [
+          "/api/post/"
+        ],
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "postId": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "postId"
+                ]
+              },
+              "examples": {}
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                },
+                "example": {
+                  "code": 200,
+                  "message": "success",
+                  "data": null
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "jwt": []
+          }
+        ]
+      }
+    },
+    "/api/post/collect": {
+      "post": {
+        "summary": "收藏帖子",
+        "deprecated": false,
+        "description": "",
+        "tags": [
+          "/api/post/"
+        ],
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "postId": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "postId"
+                ]
+              },
+              "examples": {}
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {}
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "jwt": []
+          }
+        ]
+      }
+    },
+    "/api/post/uncollect": {
+      "post": {
+        "summary": "取消收藏帖子",
+        "deprecated": false,
+        "description": "",
+        "tags": [
+          "/api/post/"
+        ],
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "postId": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "postId"
+                ]
+              },
+              "examples": {}
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {}
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "jwt": []
+          }
+        ]
       }
     },
     "/api/tag/hot": {
@@ -2368,15 +3038,344 @@
             "headers": {}
           }
         },
-        "security": []
+        "security": [
+          {
+            "jwt": []
+          }
+        ]
+      }
+    },
+    "/api/comment/list": {
+      "get": {
+        "summary": "获取评论列表",
+        "deprecated": false,
+        "description": "获取某个帖子的评论，默认按时间倒序。支持分页。",
+        "tags": [
+          "/api/comment/",
+          "/api/post"
+        ],
+        "parameters": [
+          {
+            "name": "postId",
+            "in": "query",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "description": "",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "records": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "content": {
+                                "type": "string"
+                              },
+                              "userNickname": {
+                                "type": "string"
+                              },
+                              "userAvatar": {
+                                "type": "string"
+                              },
+                              "createdAt": {
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "total": {
+                          "type": "integer"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "jwt": []
+          }
+        ]
+      }
+    },
+    "/api/comment": {
+      "post": {
+        "summary": "发表评论",
+        "deprecated": false,
+        "description": "",
+        "tags": [
+          "/api/comment/",
+          "/api/post"
+        ],
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "postId": {
+                    "type": "string"
+                  },
+                  "content": {
+                    "type": "string"
+                  },
+                  "parentId": {
+                    "type": "string",
+                    "description": "可选，若为回复评论则填父评论ID"
+                  }
+                },
+                "required": [
+                  "postId",
+                  "content"
+                ]
+              },
+              "examples": {}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {}
+                },
+                "example": {
+                  "code": 20000,
+                  "message": "评论成功"
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "jwt": []
+          }
+        ]
+      }
+    },
+    "/api/comment/{id}": {
+      "delete": {
+        "summary": "删除评论",
+        "deprecated": false,
+        "description": "",
+        "tags": [
+          "/api/comment/",
+          "/api/post"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "example": "",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {}
+                },
+                "example": {
+                  "code": 20000,
+                  "message": "删除成功"
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "jwt": []
+          }
+        ]
       }
     }
   },
   "components": {
     "schemas": {},
-    "responses": {},
-    "securitySchemes": {}
+    "responses": {
+      "成功": {
+        "description": "",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "code": {
+                  "type": "integer"
+                },
+                "message": {
+                  "type": "string"
+                },
+                "data": {
+                  "type": "object",
+                  "properties": {}
+                }
+              },
+              "required": [
+                "code",
+                "message",
+                "data"
+              ]
+            },
+            "examples": {
+              "示例 1": {
+                "summary": "示例 1",
+                "value": {
+                  "code": 200,
+                  "message": "success",
+                  "data": null
+                }
+              }
+            }
+          }
+        }
+      },
+      "请求参数错误": {
+        "description": "",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "code": {
+                  "type": "integer"
+                },
+                "message": {
+                  "description": "description: 必填项缺失、格式不对（如邮箱格式错）",
+                  "type": "string"
+                },
+                "data": {
+                  "type": "null"
+                }
+              },
+              "required": [
+                "code",
+                "message",
+                "data"
+              ]
+            },
+            "examples": {
+              "示例 1": {
+                "summary": "示例 1",
+                "value": {
+                  "code": 40001,
+                  "message": "请求参数错误",
+                  "data": null
+                }
+              }
+            }
+          }
+        }
+      },
+      "验证码错误或已失效": {
+        "description": "",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "code": {
+                  "type": "integer"
+                },
+                "message": {
+                  "description": "description: 绑定邮箱/重置密码时，验证码输错",
+                  "type": "string"
+                },
+                "data": {
+                  "type": "null"
+                }
+              },
+              "required": [
+                "code",
+                "message",
+                "data"
+              ]
+            },
+            "examples": {
+              "示例 1": {
+                "summary": "示例 1",
+                "value": {
+                  "code": 40002,
+                  "message": "验证码错误或已失效",
+                  "data": null
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "jwt": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
   },
   "servers": [],
-  "security": []
+  "security": [
+    {
+      "jwt": []
+    }
+  ]
 }

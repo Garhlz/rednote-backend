@@ -16,10 +16,12 @@ import com.szu.afternoon3.platform.service.PostService;
 import com.szu.afternoon3.platform.vo.PostVO;
 import com.szu.afternoon3.platform.vo.UserInfo;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
+import org.springframework.data.domain.*;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.mongodb.core.query.TextCriteria;
+import org.springframework.data.mongodb.core.query.TextQuery;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -37,6 +39,8 @@ public class PostServiceImpl implements PostService {
     @Autowired
     private PostCollectRepository postCollectRepository;
 
+    @Autowired
+    private MongoTemplate mongoTemplate;
     @Override
     public Map<String, Object> getPostList(Integer page, Integer size, String tab, String tag) {
         // 1. 处理分页参数 (Spring Data 是从 0 开始，前端是从 1 开始)
@@ -84,27 +88,30 @@ public class PostServiceImpl implements PostService {
         return buildResultMap(postDocPage);
     }
 
-    /**
-     * [新增] 搜索帖子接口实现
-     */
     @Override
     public Map<String, Object> searchPosts(String keyword, Integer page, Integer size) {
-        // 1. 处理分页
+        // 1. 分页
         int pageNum = (page == null || page < 1) ? 0 : page - 1;
         int pageSize = (size == null || size < 1) ? 20 : size;
-
-        // 搜索结果按时间倒序
         Pageable pageable = PageRequest.of(pageNum, pageSize, Sort.by(Sort.Direction.DESC, "createdAt"));
 
-        // 2. 判空兜底
-        if (StrUtil.isBlank(keyword)) {
-            return buildResultMap(Page.empty(pageable));
-        }
+        // 2. 构建查询
+        // 文本搜索条件
+        TextCriteria textCriteria = TextCriteria.forDefaultLanguage().matching(keyword);
 
-        // 3. 调用 Repository 自定义搜索方法
-        Page<PostDoc> postDocPage = postRepository.searchByKeyword(keyword, pageable);
+        Query query = TextQuery.queryText(textCriteria)
+                .sortByScore() // 按匹配度排序，或者用 pageable 的时间排序
+                .addCriteria(Criteria.where("isDeleted").is(0)) // 过滤已删除
+                .addCriteria(Criteria.where("status").is(1))    // 过滤未发布
+                .with(pageable);
 
-        // 4. 构建返回结果
+        // 3. 执行查询
+        long total = mongoTemplate.count(query, PostDoc.class);
+        List<PostDoc> list = mongoTemplate.find(query, PostDoc.class);
+
+        // 4. 手动封装 Page 对象以便复用 buildResultMap
+        Page<PostDoc> postDocPage = new PageImpl<>(list, pageable, total);
+
         return buildResultMap(postDocPage);
     }
 
@@ -117,7 +124,8 @@ public class PostServiceImpl implements PostService {
         PostDoc doc = postRepository.findById(postId).orElse(null);
 
         // 2. 校验是否存在或已删除
-        if (doc == null || (doc.getIsDeleted() != null && doc.getIsDeleted() == 1)) {
+        // TODO 如果你是作者本人(currentUserId == doc.userId)，可以看审核中的贴，这里暂简化为只能看已发布
+        if (doc == null || doc.getIsDeleted() == 1 || doc.getStatus() != 1) {
             throw new AppException(ResultCode.RESOURCE_NOT_FOUND);
         }
 

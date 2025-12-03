@@ -29,7 +29,8 @@ public class CommentDoc {
 
     // 如果是回复，指向被回复的用户ID，方便前端显示 "回复 @某某"
     private Long replyToUserId;
-    private String replyToUserName;
+    private String replyToUserNickname; // 冗余
+    private String replyToUserAvatar;   // 冗余
 
     private LocalDateTime createdAt;
 }

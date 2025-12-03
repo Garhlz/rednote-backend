@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.szu.afternoon3.platform.common.UserContext;
 import com.szu.afternoon3.platform.dto.*;
 import com.szu.afternoon3.platform.entity.User;
+import com.szu.afternoon3.platform.event.UserUpdateEvent;
 import com.szu.afternoon3.platform.exception.AppException;
 import com.szu.afternoon3.platform.exception.ResultCode;
 import com.szu.afternoon3.platform.mapper.UserMapper;
@@ -14,6 +15,7 @@ import com.szu.afternoon3.platform.service.UserService;
 import com.szu.afternoon3.platform.vo.UserProfileVO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -42,6 +44,10 @@ public class UserServiceImpl implements UserService {
 
     @Autowired
     private UserFollowRepository userFollowRepository;
+
+    // 注入事件发布器
+    @Autowired
+    private ApplicationEventPublisher eventPublisher;
 
     @Override
     public UserProfileVO getUserProfile() {
@@ -84,6 +90,14 @@ public class UserServiceImpl implements UserService {
             }
         }
 
+        // 发布事件 (如果改了昵称或头像)
+        if (dto.getNickname() != null || dto.getAvatar() != null) {
+            eventPublisher.publishEvent(new UserUpdateEvent(
+                    user.getId(),
+                    user.getNickname(),
+                    user.getAvatar()
+            ));
+        }
         if (changed) {
             userMapper.updateById(user);
         }

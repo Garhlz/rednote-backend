@@ -17,7 +17,8 @@ public class JwtUtil {
     public String createToken(Long userId) {
         return JWT.create()
                 .setPayload("userId", userId)
-                .setExpiresAt(new Date(System.currentTimeMillis() + 1000 * 60 * 60 * 24 * 7)) // 7天
+//                .setExpiresAt(new Date(System.currentTimeMillis() + 1000 * 60 * 60 * 24 * 7)) // 7天?
+                .setExpiresAt(null) // TODO 开发阶段设置为不过期好了
                 .setKey(secretKey.getBytes(StandardCharsets.UTF_8))
                 .sign();
     }

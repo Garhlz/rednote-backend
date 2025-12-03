@@ -3,6 +3,7 @@ package com.szu.afternoon3.platform.entity.mongo;
 import lombok.Data;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.index.Indexed;
+import org.springframework.data.mongodb.core.index.TextIndexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.time.LocalDateTime;
@@ -21,7 +22,10 @@ public class PostDoc {
     private String userNickname;
     private String userAvatar;
 
+    @TextIndexed(weight = 2) // 权重2
     private String title;
+
+    @TextIndexed(weight = 1) // 权重1
     private String content;
     private Integer type; // 0:图文, 1:视频
 
@@ -39,7 +43,7 @@ public class PostDoc {
     private Integer collectCount = 0;
     private Integer commentCount = 0;
 
-    private Integer status; // 0:审核中, 1:发布
+    private Integer status; // 0:审核中, 1:发布, 2: 审核失败
 
     // [建议] 显式初始化，防止插入时为 null
     private LocalDateTime createdAt = LocalDateTime.now();

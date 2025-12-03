@@ -36,8 +36,9 @@ public interface PostRepository extends MongoRepository<PostDoc, String> {
     // SQL类似: SELECT * FROM posts WHERE user_id IN (1, 2, 3) AND status=1 AND is_deleted=0
     Page<PostDoc> findByUserIdInAndStatusAndIsDeleted(Collection<Long> userIds, Integer status, Integer isDeleted, Pageable pageable);
 
-    // [新增] 搜索方法：同时搜索标题和内容，且状态必须正常(status=1, isDeleted=0)
-    // $regex: ?0 表示使用第一个参数作为正则，$options: 'i' 表示忽略大小写
-    @Query("{ '$and': [ { 'isDeleted': 0 }, { 'status': 1 }, { '$or': [ { 'title': { '$regex': ?0, '$options': 'i' } }, { 'content': { '$regex': ?0, '$options': 'i' } } ] } ] }")
-    Page<PostDoc> searchByKeyword(String keyword, Pageable pageable);
+    // 修改为使用MongoDB 全文索引 (Text Index)进行搜索
+//    // [新增] 搜索方法：同时搜索标题和内容，且状态必须正常(status=1, isDeleted=0)
+//    // $regex: ?0 表示使用第一个参数作为正则，$options: 'i' 表示忽略大小写
+//    @Query("{ '$and': [ { 'isDeleted': 0 }, { 'status': 1 }, { '$or': [ { 'title': { '$regex': ?0, '$options': 'i' } }, { 'content': { '$regex': ?0, '$options': 'i' } } ] } ] }")
+//    Page<PostDoc> searchByKeyword(String keyword, Pageable pageable);
 }
