@@ -9,7 +9,9 @@ import com.szu.afternoon3.platform.exception.ResultCode;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.HandlerInterceptor;
@@ -19,9 +21,13 @@ import java.nio.charset.StandardCharsets;
 @Slf4j
 @Component
 public class TokenInterceptor implements HandlerInterceptor {
+    @Autowired
+    private StringRedisTemplate redisTemplate; // [新增] 注入 Redis
 
     @Value("${szu.jwt.secret}")
     private String secretKey;
+
+    private static final String TOKEN_BLOCK_PREFIX = "auth:token:block:";
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
@@ -41,6 +47,13 @@ public class TokenInterceptor implements HandlerInterceptor {
 
         // 4. 截取 Token
         String token = authHeader.substring(7);
+
+        // [新增] 检查 Redis 黑名单
+        // 如果 Redis 里有这个 Key，说明用户已经登出了
+        Boolean isBlocked = redisTemplate.hasKey(TOKEN_BLOCK_PREFIX + token);
+        if (isBlocked) {
+            throw new AppException(ResultCode.TOKEN_EXPIRED, "登录已注销");
+        }
 
         try {
             // 5. 校验 Token 签名 (Hutool)

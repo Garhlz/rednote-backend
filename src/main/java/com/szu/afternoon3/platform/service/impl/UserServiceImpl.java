@@ -308,9 +308,7 @@ public class UserServiceImpl implements UserService {
             throw new AppException(ResultCode.VERIFY_CODE_ERROR);
         }
 
-        // [修复]验证成功后，不要立即删除！
-        // 因为后续的 bindEmail 或 setPassword 逻辑可能会因为"邮箱已存在"等原因失败。
-        // 如果这里删了，用户想重试就必须重新发送验证码，体验很差。
-        // redisTemplate.delete(redisKey);
+        // 还是删除好了
+        redisTemplate.delete(redisKey);
     }
 }

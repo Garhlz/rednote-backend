@@ -3,7 +3,10 @@ package com.szu.afternoon3.platform.service.impl;
 import cn.hutool.core.util.RandomUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.crypto.digest.BCrypt; // 引入 Hutool 加密工具
+import cn.hutool.jwt.JWT;
+import cn.hutool.jwt.JWTUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.szu.afternoon3.platform.dto.TestUserCreateDTO;
 import com.szu.afternoon3.platform.dto.UserPasswordResetDTO;
 import com.szu.afternoon3.platform.exception.ResultCode;
 import com.szu.afternoon3.platform.exception.AppException;
@@ -196,6 +199,67 @@ public class AuthServiceImpl implements AuthService {
         userMapper.updateById(user);
 
         // 4. (可选) 删除验证码，防止二次使用
-//        redisTemplate.delete(redisKey);
+        redisTemplate.delete(redisKey);
+    }
+
+    // 定义 Redis Key 前缀
+    private static final String TOKEN_BLOCK_PREFIX = "auth:token:block:";
+
+    @Override
+    public void logout(String token) {
+        try {
+            // 1. 解析 Token
+            JWT jwt = JWTUtil.parseToken(token);
+
+            // 2. 获取过期时间 (exp 是秒级时间戳)
+            Object expObj = jwt.getPayload("exp");
+            if (expObj == null) {
+                return; // 没有过期时间，或者已经非法，直接忽略
+            }
+
+            long expTs = Long.parseLong(expObj.toString());
+            long nowTs = System.currentTimeMillis() / 1000;
+            long ttl = expTs - nowTs;
+
+            // 3. 如果 Token 还没过期，就把它加入黑名单
+            // Key: auth:token:block:{token_string}
+            // Value: 1
+            // Time: 剩余有效期 (ttl)
+            if (ttl > 0) {
+                redisTemplate.opsForValue().set(TOKEN_BLOCK_PREFIX + token, "1", ttl, TimeUnit.SECONDS);
+                log.info("Token 已加入黑名单，剩余有效期: {}秒", ttl);
+            }
+
+        } catch (Exception e) {
+            log.warn("退出登录处理失败: {}", e.getMessage());
+            // 退出登录即使失败也不阻断用户，通常静默处理
+        }
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Long createTestUser(TestUserCreateDTO dto) {
+        // 1. 查重
+        Long count = userMapper.selectCount(new LambdaQueryWrapper<User>()
+                .eq(User::getEmail, dto.getEmail()));
+        if (count > 0) {
+            throw new AppException(ResultCode.EMAIL_ALREADY_EXISTS, "该测试邮箱已存在");
+        }
+
+        // 2. 插入用户
+        User user = new User();
+        user.setEmail(dto.getEmail());
+        user.setNickname(dto.getNickname());
+        // 务必加密密码
+        user.setPassword(BCrypt.hashpw(dto.getPassword()));
+        user.setAvatar(DEFAULT_AVATAR);
+        user.setRole("USER");
+        user.setStatus(1);
+
+        // 为了测试方便，随便给个 openid，防止唯一索引冲突
+        user.setOpenid("test_openid_" + System.currentTimeMillis());
+
+        userMapper.insert(user);
+        return user.getId();
     }
 }
