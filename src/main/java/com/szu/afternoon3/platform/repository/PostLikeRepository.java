@@ -6,6 +6,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -27,4 +29,7 @@ public interface PostLikeRepository extends MongoRepository<PostLikeDoc, String>
 
     // 5. 级联删除：如果帖子被删了，清理掉所有相关的点赞记录
     void deleteByPostId(String postId);
+
+    // 【新增】批量查询：查某人对一堆帖子中的哪些点过赞
+    List<PostLikeDoc> findByUserIdAndPostIdIn(Long userId, Collection<String> postIds);
 }

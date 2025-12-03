@@ -1,6 +1,8 @@
 package com.szu.afternoon3.platform.service;
 
 import com.szu.afternoon3.platform.vo.PostVO;
+
+import java.util.List;
 import java.util.Map;
 
 public interface PostService {
@@ -18,4 +20,11 @@ public interface PostService {
 
     // 获取帖子详情
     PostVO getPostDetail(String postId);
+
+    /**
+     * 获取中文搜索候选词
+     * @param keyword 关键词
+     * @return 建议列表 (Tags + Titles)
+     */
+    List<String> getSearchSuggestions(String keyword);
 }

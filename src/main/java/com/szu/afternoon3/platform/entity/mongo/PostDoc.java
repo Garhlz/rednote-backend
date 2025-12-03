@@ -22,20 +22,19 @@ public class PostDoc {
     private String userNickname;
     private String userAvatar;
 
-    @TextIndexed(weight = 2) // 权重2：标题匹配
+//    @TextIndexed(weight = 2) // 权重2：标题匹配
+//    @Indexed
     private String title;
 
-    @TextIndexed(weight = 1) // 权重1：内容匹配
+//    @TextIndexed(weight = 1) // 权重1：内容匹配
     private String content;
 
     private Integer type; // 0:图文, 1:视频
 
     private List<Resource> resources;
 
-    // 【关键修改】给标签加全文索引，权重设为 3 (最高优先级)
-    // 这样搜 "美食" 时，打标了 "美食" 的帖子会排在最前面
+//    @TextIndexed(weight = 3) // 新增全文索引，用于模糊搜索 (searchPosts)
     @Indexed           // 保留普通索引，用于精确筛选 (getPostList)
-    @TextIndexed(weight = 3) // 新增全文索引，用于模糊搜索 (searchPosts)
     private List<String> tags;
 
     // 统计数据

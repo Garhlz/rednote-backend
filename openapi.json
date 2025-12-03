@@ -232,7 +232,8 @@
                     "type": "string"
                   },
                   "password": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "密码"
                   }
                 },
                 "required": [
@@ -240,7 +241,7 @@
                   "password"
                 ]
               },
-              "example": "{\n  \"account\": \"garhlz257@163.com\", // 邮箱或用户名\n  \"password\": \"123456\"\n}"
+              "example": "{\n  \"account\": \"test5@test.com\", // 邮箱或用户名\n  \"password\": \"123456\"\n}"
             }
           },
           "required": true
@@ -444,7 +445,8 @@
                 "type": "object",
                 "properties": {
                   "email": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "邮箱"
                   }
                 },
                 "required": [
@@ -639,13 +641,16 @@
                 "type": "object",
                 "properties": {
                   "email": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "邮箱"
                   },
                   "code": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "验证码"
                   },
                   "newPassword": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "新密码"
                   }
                 },
                 "required": [
@@ -764,6 +769,100 @@
         "security": []
       }
     },
+    "/api/auth/logout": {
+      "post": {
+        "summary": "退出登录",
+        "deprecated": false,
+        "description": "将当前 Token 加入 Redis 黑名单，使其立即失效。",
+        "tags": [
+          "/api/auth/"
+        ],
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "",
+            "required": false,
+            "example": "Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VySWQiOjE3LCJleHAiOjE3NjUzNjgxOTR9.xw6MB38cRtlf6DTwyJkApxKPG2Q006p5TbH7623MRQ0",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {}
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/auth/test/register": {
+      "post": {
+        "summary": "测试：创建用户",
+        "deprecated": false,
+        "description": "快速创建一个带有密码的用户，用于测试登录。",
+        "tags": [
+          "/api/auth/"
+        ],
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "nickname": {
+                    "type": "string"
+                  },
+                  "password": {
+                    "type": "string"
+                  },
+                  "email": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "nickname",
+                  "password",
+                  "email"
+                ]
+              },
+              "example": {
+                "nickname": "所天娇",
+                "password": "123456",
+                "email": "test5@test.com"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {}
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": []
+      }
+    },
     "/api/user/bind-email": {
       "post": {
         "summary": "绑定邮箱",
@@ -780,10 +879,12 @@
                 "type": "object",
                 "properties": {
                   "email": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "邮箱"
                   },
                   "code": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "验证码"
                   }
                 },
                 "required": [
@@ -2155,7 +2256,7 @@
       "get": {
         "summary": "搜索帖子",
         "deprecated": false,
-        "description": "根据关键词模糊搜索标题和内容",
+        "description": "根据关键词模糊搜索标题和内容，支持按照tag、标题、内容模糊搜索",
         "tags": [
           "/api/post/"
         ],
@@ -2165,7 +2266,7 @@
             "in": "query",
             "description": "搜索关键词",
             "required": true,
-            "example": "123",
+            "example": "深圳",
             "schema": {
               "type": "string"
             }
@@ -2348,7 +2449,7 @@
             "in": "path",
             "description": "帖子ID (Mongo ObjectId)",
             "required": true,
-            "example": "1",
+            "example": "6930742153ba2a0fa835a811",
             "schema": {
               "type": "string"
             }
@@ -2547,6 +2648,75 @@
                   "code": 200,
                   "message": "success",
                   "data": {}
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "jwt": []
+          }
+        ]
+      }
+    },
+    "/api/post/search/suggest": {
+      "get": {
+        "summary": "获取搜索候选词",
+        "deprecated": false,
+        "description": "通过正则表达式，从title和tag中匹配搜索关键词，支持中文",
+        "tags": [
+          "/api/post/"
+        ],
+        "parameters": [
+          {
+            "name": "keyword",
+            "in": "query",
+            "description": "用户输入的关键词",
+            "required": true,
+            "example": "深圳",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                },
+                "example": {
+                  "code": 20000,
+                  "message": "操作成功",
+                  "data": [
+                    "深圳大学",
+                    "深圳美食",
+                    "深圳周末去哪儿",
+                    "深入浅出Java"
+                  ]
                 }
               }
             },
@@ -2782,7 +2952,8 @@
                 "type": "object",
                 "properties": {
                   "postId": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "帖子ID"
                   }
                 },
                 "required": [
@@ -2831,7 +3002,8 @@
                 "type": "object",
                 "properties": {
                   "postId": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "帖子ID"
                   }
                 },
                 "required": [
@@ -2900,7 +3072,8 @@
                 "type": "object",
                 "properties": {
                   "postId": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "帖子ID"
                   }
                 },
                 "required": [
@@ -2949,7 +3122,8 @@
                 "type": "object",
                 "properties": {
                   "postId": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "帖子ID"
                   }
                 },
                 "required": [
@@ -2971,7 +3145,8 @@
                   "properties": {}
                 }
               }
-            }
+            },
+            "headers": {}
           }
         },
         "security": [

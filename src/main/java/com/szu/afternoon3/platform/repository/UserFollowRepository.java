@@ -7,6 +7,7 @@ import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.data.mongodb.repository.Query;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.List;
 
 @Repository
@@ -34,4 +35,7 @@ public interface UserFollowRepository extends MongoRepository<UserFollowDoc, Str
     // 分页查询某人的粉丝列表
     // 查询条件：targetUserId = 传入的ID (即查询谁关注了这个目标用户)
     Page<UserFollowDoc> findByTargetUserId(Long targetUserId, Pageable pageable);
+
+    // 【新增】批量查询：查某人是否关注了一堆作者
+    List<UserFollowDoc> findByUserIdAndTargetUserIdIn(Long userId, Collection<Long> targetUserIds);
 }

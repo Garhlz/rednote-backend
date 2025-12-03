@@ -27,5 +27,6 @@ public class PostVO {
     private Boolean isFollowed;  // 我是否关注了作者
 
     private String createdAt;    // 格式化后的时间
-
+    // 【新增】标签列表
+    private List<String> tags;
 }

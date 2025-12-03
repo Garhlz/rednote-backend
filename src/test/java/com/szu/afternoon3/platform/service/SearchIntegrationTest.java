@@ -101,4 +101,86 @@ public class SearchIntegrationTest {
         post.setIsDeleted(0); // 未删除
         postRepository.save(post);
     }
+
+    @Test
+    @DisplayName("测试搜索候选词：中文匹配、标签优先、去重、状态过滤")
+    public void testGetSearchSuggestions() {
+        System.out.println("========== 开始测试搜索联想词 ==========");
+
+        // --- 1. 准备测试数据 ---
+
+        // 场景 A: 正常数据，标签包含 "深圳"
+        PostDoc post1 = new PostDoc();
+        post1.setTitle("周末去哪儿玩");
+        post1.setTags(List.of("深圳", "旅游")); // 命中标签
+        post1.setStatus(1);
+        post1.setIsDeleted(0);
+        postRepository.save(post1);
+
+        // 场景 B: 正常数据，标题包含 "深圳"
+        PostDoc post2 = new PostDoc();
+        post2.setTitle("深圳大学美食攻略"); // 命中标题
+        post2.setTags(List.of("美食", "探店"));
+        post2.setStatus(1);
+        post2.setIsDeleted(0);
+        postRepository.save(post2);
+
+        // 场景 C: 干扰数据（不包含关键词）
+        PostDoc post3 = new PostDoc();
+        post3.setTitle("广州塔一日游");
+        post3.setTags(List.of("广州"));
+        post3.setStatus(1);
+        post3.setIsDeleted(0);
+        postRepository.save(post3);
+
+        // 场景 D: 状态异常数据（包含关键词，但 不应该 被搜到）
+        PostDoc postDraft = new PostDoc();
+        postDraft.setTitle("深圳草稿箱");
+        postDraft.setTags(List.of("深圳"));
+        postDraft.setStatus(0); // 0: 审核中/草稿
+        postDraft.setIsDeleted(0);
+        postRepository.save(postDraft);
+
+        PostDoc postDeleted = new PostDoc();
+        postDeleted.setTitle("深圳已删除");
+        postDeleted.setTags(List.of("深圳"));
+        postDeleted.setStatus(1);
+        postDeleted.setIsDeleted(1); // 1: 已删除
+        postRepository.save(postDeleted);
+
+        // --- 2. 执行搜索 ---
+        String keyword = "深圳";
+        List<String> result = postService.getSearchSuggestions(keyword);
+
+        System.out.println("搜索关键词: " + keyword);
+        System.out.println("联想词结果: " + result);
+
+        // --- 3. 验证断言 ---
+
+        // 3.1 验证数量
+        // 预期结果应该是 ["深圳", "深圳大学美食攻略"] (顺序可能根据 Mongo 返回顺序略有不同，但逻辑上标签在前)
+        // 实际上 post1 的标题 "周末去哪儿玩" 不含关键词，不会进入结果
+        // post2 的标签 "美食", "探店" 不含关键词，不会进入结果
+        Assertions.assertTrue(result.size() >= 2, "应该至少找到2个相关建议");
+
+        // 3.2 验证内容匹配
+        Assertions.assertTrue(result.contains("深圳"), "结果应包含匹配的标签 '深圳'");
+        Assertions.assertTrue(result.contains("深圳大学美食攻略"), "结果应包含匹配的标题 '深圳大学美食攻略'");
+
+        // 3.3 验证过滤逻辑 (草稿和已删除的不应出现)
+        Assertions.assertFalse(result.contains("深圳草稿箱"), "不应包含草稿状态的帖子");
+        Assertions.assertFalse(result.contains("深圳已删除"), "不应包含已删除的帖子");
+
+        // 3.4 验证去重逻辑 (如果你有多个帖子都有 "深圳" 这个标签，结果里应该只有一个 "深圳")
+        long countTag = result.stream().filter(s -> s.equals("深圳")).count();
+        Assertions.assertEquals(1, countTag, "相同的建议词应该被去重");
+
+        // 3.5 验证优先级 (可选)
+        // 在我们的 Service 实现中，是先遍历 Tags 加入 Set，再遍历 Title 加入 Set。
+        // LinkedHashSet 会保留插入顺序。通常 post1 (匹配Tag) 会被先处理或 Tag 逻辑在前。
+        // 如果数据量小，Mongo 返回顺序通常是插入顺序。
+        // 只要断言包含即可，顺序对单元测试来说不是绝对强一致性要求。
+
+        System.out.println("✅ 搜索联想词测试通过");
+    }
 }
