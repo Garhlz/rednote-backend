@@ -50,8 +50,8 @@ public class AuthServiceImpl implements AuthService {
 
     // todo 优化默认头像路径
     // 可在 application.yml 配置 oss.default-avatar，这里先定义为常量
-    // 也可以使用 @Value("${szu.oss.default-avatar}") private String defaultAvatar;
-    private static final String DEFAULT_AVATAR = "https://szu-redbook.oss-cn-shenzhen.aliyuncs.com/default_avatar.png";
+    @Value("${szu.oss.default-avatar}") private String defaultAvatar;
+//    private static final String DEFAULT_AVATAR = "https://afternoon3-rednote.oss-cn-shenzhen.aliyuncs.com/default_avatar.jpg";
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -70,7 +70,7 @@ public class AuthServiceImpl implements AuthService {
             user = new User();
             user.setOpenid(openid);
             user.setNickname("微信用户");
-            user.setAvatar(DEFAULT_AVATAR);
+            user.setAvatar(defaultAvatar);
             user.setRole("USER");
             user.setStatus(1); // 1:正常
 
@@ -252,7 +252,7 @@ public class AuthServiceImpl implements AuthService {
         user.setNickname(dto.getNickname());
         // 务必加密密码
         user.setPassword(BCrypt.hashpw(dto.getPassword()));
-        user.setAvatar(DEFAULT_AVATAR);
+        user.setAvatar(defaultAvatar);
         user.setRole("USER");
         user.setStatus(1);
 

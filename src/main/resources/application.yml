@@ -59,3 +59,5 @@ szu:
   jwt:
     secret: ${JWT_SECRET:defaultSecretForDevOnly123456} # 支持读取环境变量，读不到就用默认值
     expiration: 604800 # 7天
+  oss:
+    default-avatar: https://afternoon3-rednote.oss-cn-shenzhen.aliyuncs.com/default_avatar.jpg
