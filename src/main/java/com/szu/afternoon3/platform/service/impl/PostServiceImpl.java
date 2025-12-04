@@ -3,6 +3,7 @@ package com.szu.afternoon3.platform.service.impl;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.date.DateUtil;
 import cn.hutool.core.util.StrUtil;
+import cn.hutool.json.JSONUtil;
 import com.szu.afternoon3.platform.common.UserContext;
 import com.szu.afternoon3.platform.entity.mongo.PostCollectDoc;
 import com.szu.afternoon3.platform.entity.mongo.PostDoc;
@@ -20,11 +21,15 @@ import com.szu.afternoon3.platform.vo.UserInfo;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.*;
 import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.aggregation.Aggregation;
+import org.springframework.data.mongodb.core.aggregation.AggregationResults;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 @Service
@@ -44,6 +49,7 @@ public class PostServiceImpl implements PostService {
 
     @Override
     public Map<String, Object> getPostList(Integer page, Integer size, String tab, String tag) {
+        // TODO 需要处理首页流只返回一个图片/视频的问题，可能还需要压缩精度
         // 1. 处理分页参数 (Spring Data 是从 0 开始)
         int pageNum = (page == null || page < 1) ? 0 : page - 1;
         int pageSize = (size == null || size < 1) ? 20 : size;
@@ -213,6 +219,102 @@ public class PostServiceImpl implements PostService {
         }
 
         return new ArrayList<>(suggestions);
+    }
+    @Autowired
+    private StringRedisTemplate redisTemplate;
+    /**
+     * 获取热门标签 (Redis缓存 + Mongo聚合)
+     * 策略：
+     * 1. 先查 Redis，有则直接返回
+     * 2. 无缓存则查 Mongo 聚合：筛选->拆分->分组计数->排序->截取
+     * 3. 结果混入默认标签兜底
+     * 4. 写入 Redis (有效期30分钟)
+     */
+    @Override
+    public List<String> getHotTags(int limit) {
+        // 定义 Redis Key
+        String cacheKey = "rednote:tags:hot";
+
+        // =================================================
+        // 1. 【缓存层】尝试从 Redis 读取
+        // =================================================
+        String jsonStr = redisTemplate.opsForValue().get(cacheKey);
+        if (StrUtil.isNotBlank(jsonStr)) {
+            // 命中缓存，直接反序列化返回
+            return JSONUtil.toList(jsonStr, String.class);
+        }
+
+        // =================================================
+        // 2. 【数据层】缓存未命中，执行 MongoDB 聚合统计
+        // =================================================
+
+        // 构建聚合管道
+        Aggregation aggregation = Aggregation.newAggregation(
+                // A. 筛选：只统计状态正常(已发布且未删除)的帖子
+                Aggregation.match(Criteria.where("isDeleted").is(0).and("status").is(1)),
+
+                // B. 拆分(Unwind)：将 tags 数组拆解为单条记录
+                // { tags: ["A", "B"] } -> { tags: "A" }, { tags: "B" }
+                Aggregation.unwind("tags"),
+
+                // C. 分组(Group)：按 tags 字段分组，统计出现次数
+                Aggregation.group("tags").count().as("count"),
+
+                // D. 排序(Sort)：按 count 倒序
+                Aggregation.sort(Sort.Direction.DESC, "count"),
+
+                // E. 截取(Limit)：取前 N 个 (稍微多取一点，防止后面有空字符串被过滤掉)
+                Aggregation.limit(limit + 5),
+
+                // F. 投影(Project)：只保留 _id (即标签名)
+                Aggregation.project("_id")
+        );
+
+        // 执行查询
+        // 结果映射为 Map，其中 _id 是标签名
+        AggregationResults<Map> results = mongoTemplate.aggregate(aggregation, PostDoc.class, Map.class);
+
+        // =================================================
+        // 3. 【业务层】结果处理与兜底
+        // =================================================
+        List<String> hotTags = new ArrayList<>();
+
+        // 3.1 固定首位："推荐" (前端通常需要这个作为默认 Tab)
+        hotTags.add("推荐");
+
+        // 3.2 填充聚合结果
+        for (Map row : results.getMappedResults()) {
+            String tag = (String) row.get("_id");
+            // 简单清洗：非空且不等于"推荐"（防止重复）
+            if (StrUtil.isNotBlank(tag) && !"推荐".equals(tag)) {
+                hotTags.add(tag);
+            }
+            // 够数就停
+            if (hotTags.size() >= limit + 1) break;
+        }
+
+        // 3.3 兜底逻辑：如果数据库没帖子，或者聚合出来的标签太少，用默认词填充
+        // 保证首页 Tab 栏看起来是满的
+        if (hotTags.size() < limit) {
+            List<String> defaults = Arrays.asList(
+                    "美食", "穿搭", "彩妆", "影视", "职场",
+                    "情感", "家居", "游戏", "旅行", "健身", "科技", "学习"
+            );
+            for (String def : defaults) {
+                if (!hotTags.contains(def)) {
+                    hotTags.add(def);
+                }
+                if (hotTags.size() >= limit + 1) break;
+            }
+        }
+
+        // =================================================
+        // 4. 【缓存回写】存入 Redis
+        // =================================================
+        // 热门标签不需要实时更新，30分钟更新一次足够了
+        redisTemplate.opsForValue().set(cacheKey, JSONUtil.toJsonStr(hotTags), 10, TimeUnit.SECONDS);
+
+        return hotTags;
     }
     // --- Private Methods ---
 

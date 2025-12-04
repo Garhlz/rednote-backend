@@ -27,4 +27,11 @@ public interface PostService {
      * @return 建议列表 (Tags + Titles)
      */
     List<String> getSearchSuggestions(String keyword);
+
+    /**
+     * 获取热门标签
+     * @param limit 获取数量
+     * @return 标签列表
+     */
+    List<String> getHotTags(int limit);
 }
