@@ -55,4 +55,12 @@ public class PostDoc {
         private String url;
         private String type; // IMAGE, VIDEO
     }
+
+    // 平均分 (默认 0.0)
+    // 前端展示时通常保留一位小数，如 4.5
+    private Double ratingAverage = 0.0;
+
+    // 评分总人数
+    // 用于显示 "100人已评" 以及计算加权平均
+    private Integer ratingCount = 0;
 }

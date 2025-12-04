@@ -7,25 +7,13 @@
   },
   "tags": [
     {
-      "name": "/api/auth/"
-    },
-    {
       "name": "/api/user/"
     },
     {
-      "name": "/api/common/"
-    },
-    {
-      "name": "/api/post/"
-    },
-    {
-      "name": "/api/tag/"
-    },
-    {
-      "name": "/api/comment/"
-    },
-    {
       "name": "/api/post"
+    },
+    {
+      "name": "/api/interaction"
     }
   ],
   "paths": {
@@ -34,9 +22,7 @@
         "summary": "微信一键登陆",
         "deprecated": false,
         "description": "1. 前端调用 wx.login 获取 code。\n2. 后端调用 code2Session 获取 openid。\n3. 后端查库：\n- 若存在： 返回用户信息。\n- 若不存在： 自动注册，写入默认昵称(\"微信用户\")和默认头像，返回 isNewUser: true。\n4. 注意： 前端收到 isNewUser: true 后，必须跳转到“完善资料页”，调用上传接口和更新资料接口，完成头像昵称的收集。",
-        "tags": [
-          "/api/auth/"
-        ],
+        "tags": [],
         "parameters": [],
         "requestBody": {
           "content": {
@@ -46,7 +32,8 @@
                 "properties": {
                   "code": {
                     "description": "必填，小程序端通过 wx.login 获取的临时凭证",
-                    "type": "string"
+                    "type": "string",
+                    "title": "微信临时登录凭证"
                   }
                 },
                 "required": [
@@ -217,9 +204,7 @@
         "summary": "账号密码登陆",
         "deprecated": false,
         "description": "可在登录页点击账户登录，输入账户和密码，若不匹配弹出提示",
-        "tags": [
-          "/api/auth/"
-        ],
+        "tags": [],
         "parameters": [],
         "requestBody": {
           "content": {
@@ -229,11 +214,13 @@
                 "properties": {
                   "account": {
                     "description": "邮箱或用户名",
-                    "type": "string"
+                    "type": "string",
+                    "title": "邮箱或用户名"
                   },
                   "password": {
                     "type": "string",
-                    "description": "密码"
+                    "description": "密码",
+                    "title": "用户密码"
                   }
                 },
                 "required": [
@@ -434,9 +421,7 @@
         "summary": "发送邮箱验证码",
         "deprecated": false,
         "description": "点击验证码输入框右侧的“发送验证码”按键\n这个接口仅用于绑定邮箱",
-        "tags": [
-          "/api/auth/"
-        ],
+        "tags": [],
         "parameters": [],
         "requestBody": {
           "content": {
@@ -446,7 +431,8 @@
                 "properties": {
                   "email": {
                     "type": "string",
-                    "description": "邮箱"
+                    "description": "邮箱",
+                    "title": "用户邮箱"
                   }
                 },
                 "required": [
@@ -630,9 +616,7 @@
         "summary": "重置密码/忘记密码（用户未登录）",
         "deprecated": false,
         "description": "用户未登录的时候忘记密码，需要输入邮箱和验证码\n前端在调用的时候需要先向邮箱发送验证码",
-        "tags": [
-          "/api/auth/"
-        ],
+        "tags": [],
         "parameters": [],
         "requestBody": {
           "content": {
@@ -642,15 +626,18 @@
                 "properties": {
                   "email": {
                     "type": "string",
-                    "description": "邮箱"
+                    "description": "邮箱",
+                    "title": "邮箱地址"
                   },
                   "code": {
                     "type": "string",
-                    "description": "验证码"
+                    "description": "验证码",
+                    "title": "邮箱验证码"
                   },
                   "newPassword": {
                     "type": "string",
-                    "description": "新密码"
+                    "description": "新密码",
+                    "title": "新密码"
                   }
                 },
                 "required": [
@@ -774,16 +761,14 @@
         "summary": "退出登录",
         "deprecated": false,
         "description": "将当前 Token 加入 Redis 黑名单，使其立即失效。",
-        "tags": [
-          "/api/auth/"
-        ],
+        "tags": [],
         "parameters": [
           {
             "name": "Authorization",
             "in": "header",
             "description": "",
             "required": false,
-            "example": "Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VySWQiOjE3LCJleHAiOjE3NjUzNjgxOTR9.xw6MB38cRtlf6DTwyJkApxKPG2Q006p5TbH7623MRQ0",
+            "example": "Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VySWQiOjksImV4cCI6MTc2NTM3MDI0MX0.dDZCXGx1YBlu3-ky-Et5Y2lwJefEjfEhARnVuMmN56A",
             "schema": {
               "type": "string"
             }
@@ -811,9 +796,7 @@
         "summary": "测试：创建用户",
         "deprecated": false,
         "description": "快速创建一个带有密码的用户，用于测试登录。",
-        "tags": [
-          "/api/auth/"
-        ],
+        "tags": [],
         "parameters": [],
         "requestBody": {
           "content": {
@@ -822,13 +805,16 @@
                 "type": "object",
                 "properties": {
                   "nickname": {
-                    "type": "string"
+                    "type": "string",
+                    "title": "用户昵称"
                   },
                   "password": {
-                    "type": "string"
+                    "type": "string",
+                    "title": "用户密码"
                   },
                   "email": {
-                    "type": "string"
+                    "type": "string",
+                    "title": "用户邮箱地址"
                   }
                 },
                 "required": [
@@ -868,9 +854,7 @@
         "summary": "绑定邮箱",
         "deprecated": false,
         "description": "微信登录用户的补充动作，前端需要根据isNewUser字段判断是否要弹出窗口",
-        "tags": [
-          "/api/user/"
-        ],
+        "tags": [],
         "parameters": [],
         "requestBody": {
           "content": {
@@ -880,11 +864,13 @@
                 "properties": {
                   "email": {
                     "type": "string",
-                    "description": "邮箱"
+                    "description": "邮箱",
+                    "title": "邮箱地址"
                   },
                   "code": {
                     "type": "string",
-                    "description": "验证码"
+                    "description": "验证码",
+                    "title": "邮箱验证码"
                   }
                 },
                 "required": [
@@ -1053,9 +1039,7 @@
         "summary": "获取个人资料",
         "deprecated": false,
         "description": "这是进入“我的”页面时调用的接口，返回所有展示需要的数据。\n从携带的token获取用户id",
-        "tags": [
-          "/api/user/"
-        ],
+        "tags": [],
         "parameters": [],
         "responses": {
           "200": {
@@ -1155,9 +1139,7 @@
         "summary": "修改个人资料",
         "deprecated": false,
         "description": "这是一个聚合更新接口。前端只传需要修改的字段，不想改的字段不传，或传原值",
-        "tags": [
-          "/api/user/"
-        ],
+        "tags": [],
         "parameters": [],
         "requestBody": {
           "content": {
@@ -1167,27 +1149,33 @@
                 "properties": {
                   "nickname": {
                     "description": "选填",
-                    "type": "string"
+                    "type": "string",
+                    "title": "用户昵称"
                   },
                   "avatar": {
                     "description": "选填 (上传接口返回的URL)",
-                    "type": "string"
+                    "type": "string",
+                    "title": "用户头像URL"
                   },
                   "bio": {
                     "description": "选填",
-                    "type": "string"
+                    "type": "string",
+                    "title": "用户个人简介"
                   },
                   "gender": {
                     "description": "选填 (0, 1, 2)",
-                    "type": "integer"
+                    "type": "integer",
+                    "title": "用户性别"
                   },
                   "birthday": {
                     "description": "选填 (yyyy-MM-dd)",
-                    "type": "string"
+                    "type": "string",
+                    "title": "用户生日"
                   },
                   "region": {
                     "description": "选填",
-                    "type": "string"
+                    "type": "string",
+                    "title": "用户所在地区"
                   }
                 },
                 "required": [
@@ -1199,7 +1187,14 @@
                   "region"
                 ]
               },
-              "example": "{\n  \"nickname\": \"Elaine\",         // 选填\n  \"avatar\": \"https://afternoon3-rednote.oss-cn-shenzhen.aliyuncs.com/shadow.jpg\",   // 选填 (上传接口返回的URL)\n  \"bio\": \"Elaine的测试账号\",          // 选填\n  \"gender\": 2,                  // 选填 (0, 1, 2)\n  \"birthday\": \"2005-08-21\",     // 选填 (yyyy-MM-dd)\n  \"region\": \"广东 深圳\"          // 选填\n}"
+              "example": {
+                "nickname": "杜沐阳",
+                "avatar": "https://avatars.githubusercontent.com/u/68831312",
+                "bio": "钟爱好者，玩家🇩🇯",
+                "gender": 1,
+                "birthday": "2024-12-10",
+                "region": "华南"
+              }
             }
           },
           "required": true
@@ -1283,9 +1278,7 @@
         "summary": "首次设置密码 (验证邮箱)",
         "deprecated": false,
         "description": "未设置过密码的用户，在输入邮箱验证码后，再输入两次密码，完成密码设置",
-        "tags": [
-          "/api/user/"
-        ],
+        "tags": [],
         "parameters": [],
         "requestBody": {
           "content": {
@@ -1295,11 +1288,13 @@
                 "properties": {
                   "code": {
                     "description": "邮箱验证码 (调用 /api/auth/send-code 获取)",
-                    "type": "string"
+                    "type": "string",
+                    "title": "邮箱验证码"
                   },
                   "password": {
                     "description": "新密码",
-                    "type": "string"
+                    "type": "string",
+                    "title": "新密码"
                   }
                 },
                 "required": [
@@ -1422,9 +1417,7 @@
         "summary": "修改密码 (验证旧密码)",
         "deprecated": false,
         "description": "已设置过密码的用户，输入一次原密码进行身份验证，再输入新密码",
-        "tags": [
-          "/api/user/"
-        ],
+        "tags": [],
         "parameters": [],
         "requestBody": {
           "content": {
@@ -1434,11 +1427,13 @@
                 "properties": {
                   "oldPassword": {
                     "description": "旧密码",
-                    "type": "string"
+                    "type": "string",
+                    "title": "旧密码"
                   },
                   "newPassword": {
                     "description": "新密码",
-                    "type": "string"
+                    "type": "string",
+                    "title": "新密码"
                   }
                 },
                 "required": [
@@ -1529,9 +1524,7 @@
         "summary": "获取关注列表",
         "deprecated": false,
         "description": "根据userId获取某人的关注列表，支持分页查询",
-        "tags": [
-          "/api/user/"
-        ],
+        "tags": [],
         "parameters": [
           {
             "name": "userId",
@@ -1645,9 +1638,7 @@
         "summary": "获取粉丝列表",
         "deprecated": false,
         "description": "根据userId获取某人的粉丝列表，支持分页查询",
-        "tags": [
-          "/api/user/"
-        ],
+        "tags": [],
         "parameters": [
           {
             "name": "userId",
@@ -1762,9 +1753,7 @@
         "summary": "关注用户",
         "deprecated": false,
         "description": "",
-        "tags": [
-          "/api/user/"
-        ],
+        "tags": [],
         "parameters": [],
         "requestBody": {
           "content": {
@@ -1774,7 +1763,8 @@
                 "properties": {
                   "targetUserId": {
                     "type": "string",
-                    "description": "被关注者的ID"
+                    "description": "被关注者的ID",
+                    "title": "被关注者的用户ID"
                   }
                 },
                 "required": [
@@ -1798,7 +1788,8 @@
                   "properties": {}
                 }
               }
-            }
+            },
+            "headers": {}
           }
         },
         "security": [
@@ -1813,9 +1804,7 @@
         "summary": "取消关注用户",
         "deprecated": false,
         "description": "",
-        "tags": [
-          "/api/user/"
-        ],
+        "tags": [],
         "parameters": [],
         "requestBody": {
           "content": {
@@ -1825,7 +1814,8 @@
                 "properties": {
                   "targetUserId": {
                     "type": "string",
-                    "description": "被关注者的ID"
+                    "description": "被关注者的ID",
+                    "title": "被关注者的用户ID"
                   }
                 },
                 "required": [
@@ -1847,7 +1837,305 @@
                   "properties": {}
                 }
               }
+            },
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "jwt": []
+          }
+        ]
+      }
+    },
+    "/api/user/posts": {
+      "get": {
+        "summary": "获取我的帖子列表",
+        "deprecated": false,
+        "description": "查询当前登录用户发布的帖子，支持按类型筛选（相册/视频）。用于个人主页下方展示。",
+        "tags": [
+          "/api/user/"
+        ],
+        "parameters": [
+          {
+            "name": "type",
+            "in": "query",
+            "description": "帖子类型：0-图文(相册)，1-视频。不传则返回全部。",
+            "required": false,
+            "schema": {
+              "type": "integer"
             }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "description": "",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {}
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "jwt": []
+          }
+        ]
+      }
+    },
+    "/api/user/likes": {
+      "get": {
+        "summary": "获取我的点赞列表",
+        "deprecated": false,
+        "description": "查询当前用户点赞过的帖子列表，按点赞时间倒序排列。支持取消点赞操作（调用 /api/interaction/unlike/post）。",
+        "tags": [
+          "/api/user/"
+        ],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "description": "",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "description": "",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {}
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "jwt": []
+          }
+        ]
+      }
+    },
+    "/api/user/collects": {
+      "get": {
+        "summary": "获取我的收藏列表",
+        "deprecated": false,
+        "description": "查询当前用户收藏过的帖子列表，按收藏时间倒序排列。",
+        "tags": [
+          "/api/user/"
+        ],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "description": "",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "description": "",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {}
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "jwt": []
+          }
+        ]
+      }
+    },
+    "/api/user/ratings": {
+      "get": {
+        "summary": "获取我的评分列表",
+        "deprecated": false,
+        "description": "查询当前用户评分过的帖子列表，包含用户的打分值。",
+        "tags": [
+          "/api/user/"
+        ],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "description": "",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "description": "",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "example": 20000
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "records": {
+                          "type": "array",
+                          "items": {
+                            "allOf": [
+                              {
+                                "type": "object",
+                                "properties": {}
+                              },
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "myScore": {
+                                    "type": "number",
+                                    "description": "我给出的评分"
+                                  }
+                                }
+                              }
+                            ]
+                          }
+                        },
+                        "total": {
+                          "type": "integer"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "jwt": []
+          }
+        ]
+      }
+    },
+    "/api/user/history": {
+      "get": {
+        "summary": "获取我的浏览历史",
+        "deprecated": false,
+        "description": "获取用户的浏览记录（需后端实现记录逻辑，通常在获取详情页时异步写入）。",
+        "tags": [
+          "/api/user/"
+        ],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "description": "",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "description": "",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {}
+                }
+              }
+            },
+            "headers": {}
           }
         },
         "security": [
@@ -1862,9 +2150,7 @@
         "summary": "文件上传(OSS)",
         "deprecated": false,
         "description": "通用的文件上传接口，前端上传文件，后端存入OSS服务器，返回UUID生成的url",
-        "tags": [
-          "/api/common/"
-        ],
+        "tags": [],
         "parameters": [],
         "requestBody": {
           "content": {
@@ -1994,9 +2280,7 @@
         "summary": "获取首页帖子流",
         "deprecated": false,
         "description": "获取首页推荐、关注或标签筛选的帖子列表。支持分页。",
-        "tags": [
-          "/api/post/"
-        ],
+        "tags": [],
         "parameters": [
           {
             "name": "page",
@@ -2256,17 +2540,15 @@
       "get": {
         "summary": "搜索帖子",
         "deprecated": false,
-        "description": "根据关键词模糊搜索标题和内容，支持按照tag、标题、内容模糊搜索",
-        "tags": [
-          "/api/post/"
-        ],
+        "description": "根据关键词，从tag、标题、内容中模糊搜索，直接使用正则表达式，支持中文",
+        "tags": [],
         "parameters": [
           {
             "name": "keyword",
             "in": "query",
             "description": "搜索关键词",
             "required": true,
-            "example": "深圳",
+            "example": "编程",
             "schema": {
               "type": "string"
             }
@@ -2440,16 +2722,14 @@
         "summary": "获取帖子详情",
         "deprecated": false,
         "description": "进入帖子详情页时调用。包含完整的正文内容和高精度的图片/视频。",
-        "tags": [
-          "/api/post/"
-        ],
+        "tags": [],
         "parameters": [
           {
             "name": "id",
             "in": "path",
             "description": "帖子ID (Mongo ObjectId)",
             "required": true,
-            "example": "6930742153ba2a0fa835a811",
+            "example": "post_test_004",
             "schema": {
               "type": "string"
             }
@@ -2604,9 +2884,7 @@
         "summary": "删除帖子",
         "deprecated": false,
         "description": "仅限作者本人或管理员调用。后端需要检查权限",
-        "tags": [
-          "/api/post/"
-        ],
+        "tags": [],
         "parameters": [
           {
             "name": "id",
@@ -2659,23 +2937,88 @@
             "jwt": []
           }
         ]
+      },
+      "put": {
+        "summary": "修改帖子",
+        "deprecated": false,
+        "description": "作者修改自己的帖子内容。提交后可能需要重新审核（取决于业务逻辑）。",
+        "tags": [
+          "/api/post"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "example": "",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string"
+                  },
+                  "content": {
+                    "type": "string"
+                  },
+                  "images": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "videos": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "tags": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              "examples": {}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "修改成功",
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "jwt": []
+          }
+        ]
       }
     },
     "/api/post/search/suggest": {
       "get": {
         "summary": "获取搜索候选词",
         "deprecated": false,
-        "description": "通过正则表达式，从title和tag中匹配搜索关键词，支持中文",
-        "tags": [
-          "/api/post/"
-        ],
+        "description": "从title和tag中匹配搜索关键词，直接通过正则表达式实现，支持中文",
+        "tags": [],
         "parameters": [
           {
             "name": "keyword",
             "in": "query",
             "description": "用户输入的关键词",
             "required": true,
-            "example": "深圳",
+            "example": "编程",
             "schema": {
               "type": "string"
             }
@@ -2735,9 +3078,7 @@
         "summary": "获取用户的帖子",
         "deprecated": false,
         "description": "",
-        "tags": [
-          "/api/post/"
-        ],
+        "tags": [],
         "parameters": [
           {
             "name": "userId",
@@ -2795,9 +3136,7 @@
         "summary": "发布帖子",
         "deprecated": false,
         "description": "发布图文或视频笔记。前端需先调用文件上传接口获取URL，再填入images或video字段。",
-        "tags": [
-          "/api/post/"
-        ],
+        "tags": [],
         "parameters": [],
         "requestBody": {
           "content": {
@@ -2807,36 +3146,42 @@
                 "properties": {
                   "title": {
                     "type": "string",
-                    "description": "标题"
+                    "description": "标题",
+                    "title": "帖子标题"
                   },
                   "content": {
                     "type": "string",
-                    "description": "正文内容"
+                    "description": "正文内容",
+                    "title": "正文内容"
                   },
                   "type": {
                     "type": "integer",
-                    "description": "0:图文, 1:视频"
+                    "description": "0:图文, 1:视频",
+                    "title": "帖子类型"
                   },
                   "images": {
                     "type": "array",
                     "items": {
                       "type": "string"
                     },
-                    "description": "图片URL列表 (type=0时必填)"
+                    "description": "图片URL列表 (type=0时必填)",
+                    "title": "图片URL列表"
                   },
                   "videos": {
                     "type": "array",
                     "items": {
                       "type": "string"
                     },
-                    "description": "视频URL列表 (type=1时必填)"
+                    "description": "视频URL列表 (type=1时必填)",
+                    "title": "视频URL列表"
                   },
                   "tags": {
                     "type": "array",
                     "items": {
                       "type": "string"
                     },
-                    "description": "标签列表，如 ['美食', '探店']"
+                    "description": "标签列表，如 ['美食', '探店']",
+                    "title": "标签列表"
                   }
                 },
                 "required": [
@@ -2936,234 +3281,12 @@
         ]
       }
     },
-    "/api/post/like": {
-      "post": {
-        "summary": "点赞帖子",
-        "deprecated": false,
-        "description": "",
-        "tags": [
-          "/api/post/"
-        ],
-        "parameters": [],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "postId": {
-                    "type": "string",
-                    "description": "帖子ID"
-                  }
-                },
-                "required": [
-                  "postId"
-                ]
-              },
-              "examples": {}
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {}
-                }
-              }
-            },
-            "headers": {}
-          }
-        },
-        "security": [
-          {
-            "jwt": []
-          }
-        ]
-      }
-    },
-    "/api/post/unlike": {
-      "post": {
-        "summary": "取消点赞帖子",
-        "deprecated": false,
-        "description": "",
-        "tags": [
-          "/api/post/"
-        ],
-        "parameters": [],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "postId": {
-                    "type": "string",
-                    "description": "帖子ID"
-                  }
-                },
-                "required": [
-                  "postId"
-                ]
-              },
-              "examples": {}
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    },
-                    "data": {
-                      "type": "null"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message",
-                    "data"
-                  ]
-                },
-                "example": {
-                  "code": 200,
-                  "message": "success",
-                  "data": null
-                }
-              }
-            },
-            "headers": {}
-          }
-        },
-        "security": [
-          {
-            "jwt": []
-          }
-        ]
-      }
-    },
-    "/api/post/collect": {
-      "post": {
-        "summary": "收藏帖子",
-        "deprecated": false,
-        "description": "",
-        "tags": [
-          "/api/post/"
-        ],
-        "parameters": [],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "postId": {
-                    "type": "string",
-                    "description": "帖子ID"
-                  }
-                },
-                "required": [
-                  "postId"
-                ]
-              },
-              "examples": {}
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {}
-                }
-              }
-            },
-            "headers": {}
-          }
-        },
-        "security": [
-          {
-            "jwt": []
-          }
-        ]
-      }
-    },
-    "/api/post/uncollect": {
-      "post": {
-        "summary": "取消收藏帖子",
-        "deprecated": false,
-        "description": "",
-        "tags": [
-          "/api/post/"
-        ],
-        "parameters": [],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "postId": {
-                    "type": "string",
-                    "description": "帖子ID"
-                  }
-                },
-                "required": [
-                  "postId"
-                ]
-              },
-              "examples": {}
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {}
-                }
-              }
-            },
-            "headers": {}
-          }
-        },
-        "security": [
-          {
-            "jwt": []
-          }
-        ]
-      }
-    },
     "/api/tag/hot": {
       "get": {
-        "summary": "获取热门/推荐标签",
+        "summary": "获取热门标签",
         "deprecated": false,
-        "description": "用于首页顶部的横向滚动标签栏",
-        "tags": [
-          "/api/tag/"
-        ],
+        "description": "获取热门标签，直接通过统计标签数量进行排序，使用redis进行缓存。用于首页顶部的横向滚动标签栏",
+        "tags": [],
         "parameters": [],
         "responses": {
           "200": {
@@ -3220,13 +3343,336 @@
         ]
       }
     },
+    "/api/interaction/like/post": {
+      "post": {
+        "summary": "点赞帖子",
+        "deprecated": false,
+        "description": "",
+        "tags": [],
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "postId": {
+                    "type": "string",
+                    "description": "帖子ID",
+                    "title": "帖子ID"
+                  }
+                },
+                "required": [
+                  "postId"
+                ]
+              },
+              "examples": {}
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {}
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "jwt": []
+          }
+        ]
+      }
+    },
+    "/api/interaction/unilke/post": {
+      "post": {
+        "summary": "取消点赞帖子",
+        "deprecated": false,
+        "description": "",
+        "tags": [],
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "postId": {
+                    "type": "string",
+                    "description": "帖子ID",
+                    "title": "帖子ID"
+                  }
+                },
+                "required": [
+                  "postId"
+                ]
+              },
+              "examples": {}
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                },
+                "example": {
+                  "code": 200,
+                  "message": "success",
+                  "data": null
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "jwt": []
+          }
+        ]
+      }
+    },
+    "/api/interaction/collect/post": {
+      "post": {
+        "summary": "收藏帖子",
+        "deprecated": false,
+        "description": "",
+        "tags": [],
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "postId": {
+                    "type": "string",
+                    "description": "帖子ID",
+                    "title": "帖子ID"
+                  }
+                },
+                "required": [
+                  "postId"
+                ]
+              },
+              "examples": {}
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {}
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "jwt": []
+          }
+        ]
+      }
+    },
+    "/api/interaction/uncollect/post": {
+      "post": {
+        "summary": "取消收藏帖子",
+        "deprecated": false,
+        "description": "",
+        "tags": [],
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "postId": {
+                    "type": "string",
+                    "description": "帖子ID",
+                    "title": "帖子ID"
+                  }
+                },
+                "required": [
+                  "postId"
+                ]
+              },
+              "examples": {}
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {}
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "jwt": []
+          }
+        ]
+      }
+    },
+    "/api/interaction/rate/post": {
+      "post": {
+        "summary": "评分帖子",
+        "deprecated": false,
+        "description": "",
+        "tags": [],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {}
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "jwt": []
+          }
+        ]
+      }
+    },
+    "/api/interaction/like/comment": {
+      "post": {
+        "summary": "点赞评论",
+        "deprecated": false,
+        "description": "",
+        "tags": [
+          "/api/interaction"
+        ],
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "commentId": {
+                    "type": "string",
+                    "description": "评论ID"
+                  }
+                },
+                "required": [
+                  "commentId"
+                ]
+              },
+              "examples": {}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "jwt": []
+          }
+        ]
+      }
+    },
+    "/api/interaction/unlike/comment": {
+      "post": {
+        "summary": "取消点赞评论",
+        "deprecated": false,
+        "description": "",
+        "tags": [
+          "/api/interaction"
+        ],
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "commentId": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "commentId"
+                ]
+              },
+              "examples": {}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "jwt": []
+          }
+        ]
+      }
+    },
     "/api/comment/list": {
       "get": {
         "summary": "获取评论列表",
         "deprecated": false,
         "description": "获取某个帖子的评论，默认按时间倒序。支持分页。",
         "tags": [
-          "/api/comment/",
           "/api/post"
         ],
         "parameters": [
@@ -3322,7 +3768,6 @@
         "deprecated": false,
         "description": "",
         "tags": [
-          "/api/comment/",
           "/api/post"
         ],
         "parameters": [],
@@ -3333,14 +3778,17 @@
                 "type": "object",
                 "properties": {
                   "postId": {
-                    "type": "string"
+                    "type": "string",
+                    "title": "帖子ID"
                   },
                   "content": {
-                    "type": "string"
+                    "type": "string",
+                    "title": "评论内容"
                   },
                   "parentId": {
                     "type": "string",
-                    "description": "可选，若为回复评论则填父评论ID"
+                    "description": "可选，若为回复评论则填父评论ID",
+                    "title": "若为回复评论则填父评论ID"
                   }
                 },
                 "required": [
@@ -3383,7 +3831,6 @@
         "deprecated": false,
         "description": "",
         "tags": [
-          "/api/comment/",
           "/api/post"
         ],
         "parameters": [
@@ -3413,6 +3860,64 @@
                 }
               }
             },
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "jwt": []
+          }
+        ]
+      }
+    },
+    "/api/search/history": {
+      "get": {
+        "summary": "获取搜索历史",
+        "deprecated": false,
+        "description": "获取当前用户的最近搜索记录（通常显示前10条）。",
+        "tags": [
+          "/api/post"
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {}
+                },
+                "example": {
+                  "code": 20000,
+                  "data": [
+                    "Java",
+                    "深圳美食",
+                    "Arch Linux"
+                  ]
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "jwt": []
+          }
+        ]
+      },
+      "delete": {
+        "summary": "清空搜索历史",
+        "deprecated": false,
+        "description": "删除当前用户的所有搜索记录。",
+        "tags": [
+          "/api/post"
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
             "headers": {}
           }
         },

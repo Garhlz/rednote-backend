@@ -33,4 +33,7 @@ public class CommentDoc {
     private String replyToUserAvatar;   // 冗余
 
     private LocalDateTime createdAt;
+
+    // [新增] 点赞数
+    private Integer likeCount = 0;
 }
