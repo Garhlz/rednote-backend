@@ -34,4 +34,12 @@ public interface PostService {
      * @return 标签列表
      */
     List<String> getHotTags(int limit);
+
+    /**
+     * 获取用户的帖子列表
+     * @param userId 用户ID
+     * @param page 页码
+     * @param size 每页数量
+     */
+    Map<String, Object> getUserPostList(String userId, Integer page, Integer size);
 }

@@ -41,4 +41,7 @@ public interface PostRepository extends MongoRepository<PostDoc, String> {
 //    // $regex: ?0 表示使用第一个参数作为正则，$options: 'i' 表示忽略大小写
 //    @Query("{ '$and': [ { 'isDeleted': 0 }, { 'status': 1 }, { '$or': [ { 'title': { '$regex': ?0, '$options': 'i' } }, { 'content': { '$regex': ?0, '$options': 'i' } } ] } ] }")
 //    Page<PostDoc> searchByKeyword(String keyword, Pageable pageable);
+
+    // 查询某人特定状态的帖子 (用于查看他人主页，只展示 Status=1 已发布的)
+    Page<PostDoc> findByUserIdAndStatusAndIsDeleted(Long userId, Integer status, Integer isDeleted, Pageable pageable);
 }

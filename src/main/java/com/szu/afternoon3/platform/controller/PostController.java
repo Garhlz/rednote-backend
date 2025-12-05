@@ -51,12 +51,24 @@ public class PostController {
     }
 
     /**
-     * 获取帖子详情
-     * 对应接口: GET /api/post/{id}
+     * 获取用户的帖子
+     * 正则表达式 {userId:\\d+} 确保只有纯数字ID才会进入此方法。
      */
-    @GetMapping("/{id}")
-    public Result<PostVO> getPostDetail(@PathVariable String id) {
-        PostVO vo = postService.getPostDetail(id);
+    @GetMapping("/user/{userId}")
+    public Result<Map<String, Object>> getUserPosts(
+            @PathVariable String userId,
+            @RequestParam(required = false, defaultValue = "1") Integer page,
+            @RequestParam(required = false, defaultValue = "20") Integer size) {
+        Map<String, Object> data = postService.getUserPostList(userId, page, size);
+        return Result.success(data);
+    }
+
+    /**
+     * 获取帖子详情
+     */
+    @GetMapping("/{postId}")
+    public Result<PostVO> getPostDetail(@PathVariable String postId) {
+        PostVO vo = postService.getPostDetail(postId);
         return Result.success(vo);
     }
 

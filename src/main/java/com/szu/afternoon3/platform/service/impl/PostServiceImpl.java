@@ -28,6 +28,7 @@ import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -316,6 +317,32 @@ public class PostServiceImpl implements PostService {
 
         return hotTags;
     }
+
+    /**
+     * 获取用户的帖子列表
+     */
+    @Override
+    public Map<String, Object> getUserPostList(String userIdStr, Integer page, Integer size) {
+        // 1. 参数校验
+        long targetUserId;
+        try {
+            targetUserId = Long.parseLong(userIdStr);
+        } catch (NumberFormatException e) {
+            throw new AppException(ResultCode.PARAM_ERROR, "用户ID格式错误");
+        }
+
+        int pageNum = (page == null || page < 1) ? 0 : page - 1;
+        int pageSize = (size == null || size < 1) ? 20 : size;
+
+        Pageable pageable = PageRequest.of(pageNum, pageSize, Sort.by(Sort.Direction.DESC, "createdAt"));
+
+        // 2. 统一查询该用户所有未被删除的帖子
+        Page<PostDoc> postDocPage = postRepository.findByUserIdAndIsDeleted(targetUserId, 0, pageable);
+
+        // 3. 构建结果 (复用现有逻辑)
+        return buildResultMap(postDocPage);
+    }
+
     // --- Private Methods ---
 
     // 1. 修改 buildResultMap 方法
@@ -445,7 +472,7 @@ public class PostServiceImpl implements PostService {
         vo.setCommentCount(doc.getCommentCount());
 
         if (doc.getCreatedAt() != null) {
-            vo.setCreatedAt(DateUtil.format(doc.getCreatedAt(), "yyyy-MM-dd HH:mm:ss"));
+            vo.setCreatedAt(doc.getCreatedAt().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
         }
 
         return vo;
