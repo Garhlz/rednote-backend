@@ -4,6 +4,8 @@ import cn.hutool.core.util.StrUtil;
 import com.szu.afternoon3.platform.common.Result;
 import com.szu.afternoon3.platform.service.PostService;
 import com.szu.afternoon3.platform.vo.PostVO;
+import com.szu.afternoon3.platform.dto.PostCreateDTO;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -12,6 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -85,5 +88,19 @@ public class PostController {
         // 2. 调用服务
         List<String> list = postService.getSearchSuggestions(keyword);
         return Result.success(list);
+    }
+
+    /**
+     * 发布帖子
+     * 对应 Apifox 接口: /api/post (POST)
+     */
+    @PostMapping
+    public Result<Map<String, String>> createPost(@RequestBody @Valid PostCreateDTO dto) {
+        String postId = postService.createPost(dto);
+
+        Map<String, String> data = new HashMap<>();
+        data.put("id", postId);
+
+        return Result.success(data);
     }
 }

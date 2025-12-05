@@ -1,6 +1,7 @@
 package com.szu.afternoon3.platform.service;
 
 import com.szu.afternoon3.platform.vo.PostVO;
+import com.szu.afternoon3.platform.dto.PostCreateDTO;
 
 import java.util.List;
 import java.util.Map;
@@ -42,4 +43,11 @@ public interface PostService {
      * @param size 每页数量
      */
     Map<String, Object> getUserPostList(String userId, Integer page, Integer size);
+
+    /**
+     * 发布帖子
+     * @param dto 创建参数
+     * @return 生成的帖子ID
+     */
+    String createPost(PostCreateDTO dto);
 }

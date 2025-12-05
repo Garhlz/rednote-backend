@@ -18,6 +18,9 @@ import com.szu.afternoon3.platform.repository.UserFollowRepository;
 import com.szu.afternoon3.platform.service.PostService;
 import com.szu.afternoon3.platform.vo.PostVO;
 import com.szu.afternoon3.platform.vo.UserInfo;
+import com.szu.afternoon3.platform.dto.PostCreateDTO;
+import com.szu.afternoon3.platform.entity.User;
+import com.szu.afternoon3.platform.mapper.UserMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.*;
 import org.springframework.data.mongodb.core.MongoTemplate;
@@ -44,9 +47,10 @@ public class PostServiceImpl implements PostService {
     private PostLikeRepository postLikeRepository;
     @Autowired
     private PostCollectRepository postCollectRepository;
-
     @Autowired
     private MongoTemplate mongoTemplate;
+    @Autowired
+    private UserMapper userMapper;
 
     @Override
     public Map<String, Object> getPostList(Integer page, Integer size, String tab, String tag) {
@@ -341,6 +345,84 @@ public class PostServiceImpl implements PostService {
 
         // 3. 构建结果 (复用现有逻辑)
         return buildResultMap(postDocPage);
+    }
+
+    @Override
+    public String createPost(PostCreateDTO dto) {
+        // 1. 获取当前登录用户ID
+        Long userId = UserContext.getUserId();
+        if (userId == null) {
+            throw new AppException(ResultCode.UNAUTHORIZED);
+        }
+
+        // 2. 校验资源文件 (根据 type 判断)
+        List<PostDoc.Resource> resources = new ArrayList<>();
+        if (dto.getType() == 0) {
+            // 图文模式：图片不能为空
+            if (CollUtil.isEmpty(dto.getImages())) {
+                throw new AppException(ResultCode.PARAM_ERROR, "图文帖子必须上传图片");
+            }
+            for (String url : dto.getImages()) {
+                PostDoc.Resource res = new PostDoc.Resource();
+                res.setUrl(url);
+                res.setType("IMAGE");
+                resources.add(res);
+            }
+        } else if (dto.getType() == 1) {
+            // 视频模式：视频不能为空
+            if (CollUtil.isEmpty(dto.getVideos())) {
+                throw new AppException(ResultCode.PARAM_ERROR, "视频帖子必须上传视频");
+            }
+            for (String url : dto.getVideos()) {
+                PostDoc.Resource res = new PostDoc.Resource();
+                res.setUrl(url);
+                res.setType("VIDEO");
+                resources.add(res);
+            }
+        } else {
+            throw new AppException(ResultCode.PARAM_ERROR, "未知的帖子类型");
+        }
+
+        // 3. 获取用户详细信息 (用于 MongoDB 冗余存储)
+        User user = userMapper.selectById(userId);
+        if (user == null) {
+            throw new AppException(ResultCode.USER_NOT_FOUND);
+        }
+
+        // 4. 构建 MongoDB 文档对象
+        PostDoc post = new PostDoc();
+        post.setUserId(userId);
+
+        // --- 冗余字段填充 (保证创建时的一致性) ---
+        post.setUserNickname(user.getNickname());
+        post.setUserAvatar(user.getAvatar());
+        // -------------------------------------
+
+        post.setTitle(dto.getTitle());
+        post.setContent(dto.getContent());
+        post.setType(dto.getType());
+        post.setResources(resources);
+        post.setTags(dto.getTags());
+
+        // 初始化统计数据
+        post.setViewCount(0);
+        post.setLikeCount(0);
+        post.setCollectCount(0);
+        post.setCommentCount(0);
+        post.setRatingAverage(0.0);
+        post.setRatingCount(0);
+
+        // 设置状态 (直接发布)
+        post.setStatus(1);
+        post.setIsDeleted(0);
+
+        post.setCreatedAt(java.time.LocalDateTime.now());
+        post.setUpdatedAt(java.time.LocalDateTime.now());
+
+        // 5. 保存到 MongoDB
+        postRepository.save(post);
+
+        return post.getId();
     }
 
     // --- Private Methods ---
