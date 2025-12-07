@@ -2,6 +2,7 @@ package com.szu.afternoon3.platform.controller;
 
 import cn.hutool.core.util.StrUtil;
 import com.szu.afternoon3.platform.common.Result;
+import com.szu.afternoon3.platform.dto.PostUpdateDTO;
 import com.szu.afternoon3.platform.service.PostService;
 import com.szu.afternoon3.platform.vo.PostVO;
 import com.szu.afternoon3.platform.dto.PostCreateDTO;
@@ -111,6 +112,15 @@ public class PostController {
     @DeleteMapping("/{id}")
     public Result<Void> deletePost(@PathVariable("id") String postId) {
         postService.deletePost(postId);
+        return Result.success();
+    }
+
+    @PutMapping("/{id}")
+    public Result<Void> updatePost(
+            @PathVariable("id") String postId,
+            @RequestBody PostUpdateDTO dto
+    ) {
+        postService.updatePost(postId, dto);
         return Result.success();
     }
 }

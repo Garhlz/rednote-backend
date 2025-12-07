@@ -1,5 +1,6 @@
 package com.szu.afternoon3.platform.service;
 
+import com.szu.afternoon3.platform.dto.PostUpdateDTO;
 import com.szu.afternoon3.platform.vo.PostVO;
 import com.szu.afternoon3.platform.dto.PostCreateDTO;
 
@@ -52,4 +53,11 @@ public interface PostService {
     String createPost(PostCreateDTO dto);
 
     void deletePost(String postId);
+
+    /**
+     * 修改帖子
+     * @param postId 帖子ID
+     * @param dto 修改参数
+     */
+    void updatePost(String postId, PostUpdateDTO dto);
 }

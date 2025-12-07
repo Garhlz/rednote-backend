@@ -5,12 +5,14 @@ import cn.hutool.core.date.DateUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONUtil;
 import com.szu.afternoon3.platform.common.UserContext;
+import com.szu.afternoon3.platform.dto.PostUpdateDTO;
 import com.szu.afternoon3.platform.entity.mongo.PostCollectDoc;
 import com.szu.afternoon3.platform.entity.mongo.PostDoc;
 import com.szu.afternoon3.platform.entity.mongo.PostLikeDoc;
 import com.szu.afternoon3.platform.entity.mongo.UserFollowDoc;
 import com.szu.afternoon3.platform.event.PostCreateEvent;
 import com.szu.afternoon3.platform.event.PostDeleteEvent;
+import com.szu.afternoon3.platform.event.PostUpdateEvent;
 import com.szu.afternoon3.platform.exception.AppException;
 import com.szu.afternoon3.platform.exception.ResultCode;
 import com.szu.afternoon3.platform.repository.PostCollectRepository;
@@ -615,5 +617,92 @@ public class PostServiceImpl implements PostService {
         // 5. 发布事件 (Spring Event)
         // 解耦：Service 只管改状态，后续的 Redis 清理、关联数据删除交给 Listener
         eventPublisher.publishEvent(new PostDeleteEvent(postId, currentUserId));
+    }
+
+    @Override
+    public void updatePost(String postId, PostUpdateDTO dto) {
+        // 1. 获取当前用户
+        Long currentUserId = UserContext.getUserId();
+        if (currentUserId == null) {
+            throw new AppException(ResultCode.UNAUTHORIZED);
+        }
+
+        // 2. 查找帖子
+        PostDoc post = postRepository.findById(postId).orElse(null);
+        if (post == null || (post.getIsDeleted() != null && post.getIsDeleted() == 1)) {
+            throw new AppException(ResultCode.RESOURCE_NOT_FOUND);
+        }
+
+        // 3. 权限校验：只能修改自己的帖子
+        if (!post.getUserId().equals(currentUserId)) {
+            throw new AppException(ResultCode.UNAUTHORIZED, "无权修改他人帖子");
+        }
+
+        // 4. 更新字段 (如果不为 null 则更新)
+        boolean needAudit = false;
+
+        if (StrUtil.isNotBlank(dto.getTitle())) {
+            post.setTitle(dto.getTitle());
+            needAudit = true;
+        }
+        if (StrUtil.isNotBlank(dto.getContent())) {
+            post.setContent(dto.getContent());
+            needAudit = true;
+        }
+        if (dto.getTags() != null) {
+            post.setTags(dto.getTags());
+            needAudit = true; // 标签变了也建议重审
+        }
+
+        // 5. 重建资源列表 (图片/视频)
+        // 逻辑：如果前端传了 images 列表，则覆盖旧的资源；videos 同理
+        // 注意：PostDoc 中是一个 List<Resource>，需要根据 post.getType() 或参数来组装
+        List<PostDoc.Resource> newResources = new ArrayList<>();
+
+        // 如果 DTO 携带了新的媒体信息，我们需要处理
+        boolean mediaChanged = false;
+        if (CollUtil.isNotEmpty(dto.getImages())) {
+            for (String url : dto.getImages()) {
+                PostDoc.Resource res = new PostDoc.Resource();
+                res.setUrl(url);
+                res.setType("IMAGE");
+                newResources.add(res);
+            }
+            mediaChanged = true;
+        }
+
+        if (CollUtil.isNotEmpty(dto.getVideos())) {
+            // 如果是视频贴，且传了视频链接
+            for (String url : dto.getVideos()) {
+                PostDoc.Resource res = new PostDoc.Resource();
+                res.setUrl(url);
+                res.setType("VIDEO");
+                newResources.add(res);
+            }
+            mediaChanged = true;
+        }
+
+        // 如果发生了媒体变更，替换原有资源
+        if (mediaChanged) {
+            post.setResources(newResources);
+            needAudit = true;
+        }
+
+        // 6. 状态处理
+        // 关键逻辑：一旦内容修改，必须重置为"审核中"，防止逃避监管
+        if (needAudit) {
+            post.setStatus(0); // 0: 审核中
+        }
+
+        post.setUpdatedAt(java.time.LocalDateTime.now());
+
+        // 7. 保存到 MongoDB
+        postRepository.save(post);
+
+        // 8. 发布异步事件
+        // PostAuditListener 监听到此事件后，应重新调用 AI 审核接口
+        if (needAudit) {
+            eventPublisher.publishEvent(new PostUpdateEvent(post.getId(), post.getTitle(), post.getContent()));
+        }
     }
 }
