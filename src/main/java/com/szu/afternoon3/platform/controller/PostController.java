@@ -57,7 +57,7 @@ public class PostController {
      * 获取用户的帖子
      * 正则表达式 {userId:\\d+} 确保只有纯数字ID才会进入此方法。
      */
-    @GetMapping("/user/{userId}")
+    @GetMapping("/user/{userId:\\d+}")
     public Result<Map<String, Object>> getUserPosts(
             @PathVariable String userId,
             @RequestParam(required = false, defaultValue = "1") Integer page,

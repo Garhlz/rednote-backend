@@ -6,15 +6,12 @@ services:
     container_name: afternoon3-backend
     ports:
       - "8080:8080"
-    # 【修改点 1】: 加载 .env 文件
-    # 这会将 .env 里的所有 KEY=VALUE 注入到容器的环境变量中
+    # 加载 .env 文件
     env_file:
       - .env
     environment:
-      # 【修改点 2】: 强制激活 prod 配置
+      # 强制激活 prod 配置
       - SPRING_PROFILES_ACTIVE=prod
-      # 下面这些如果 .env 里有定义，可以不用在这里重复写，
-      # 但如果为了覆盖默认值，可以保留。建议敏感信息都走 .env
     depends_on:
       - postgres
       - mongo
@@ -38,7 +35,7 @@ services:
       TZ: Asia/Shanghai
     volumes:
       - ./pg_data:/var/lib/postgresql/data
-      # 【修改点 3】: 将 init-mongodb.sql 挂载进去，但容器内名字仍叫 init.sql 方便自动执行
+      # 将 init-mongodb.sql 挂载进去，但容器内名字仍叫 init.sql 方便自动执行
       - ./init-mongodb.sql:/docker-entrypoint-initdb.d/init.sql
     ports:
       - "5432:5432"

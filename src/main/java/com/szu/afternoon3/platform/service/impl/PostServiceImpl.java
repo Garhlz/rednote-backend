@@ -9,6 +9,7 @@ import com.szu.afternoon3.platform.entity.mongo.PostCollectDoc;
 import com.szu.afternoon3.platform.entity.mongo.PostDoc;
 import com.szu.afternoon3.platform.entity.mongo.PostLikeDoc;
 import com.szu.afternoon3.platform.entity.mongo.UserFollowDoc;
+import com.szu.afternoon3.platform.event.PostCreateEvent;
 import com.szu.afternoon3.platform.exception.AppException;
 import com.szu.afternoon3.platform.exception.ResultCode;
 import com.szu.afternoon3.platform.repository.PostCollectRepository;
@@ -22,6 +23,7 @@ import com.szu.afternoon3.platform.dto.PostCreateDTO;
 import com.szu.afternoon3.platform.entity.User;
 import com.szu.afternoon3.platform.mapper.UserMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.*;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.aggregation.Aggregation;
@@ -52,6 +54,8 @@ public class PostServiceImpl implements PostService {
     @Autowired
     private UserMapper userMapper;
 
+    @Autowired
+    private ApplicationEventPublisher eventPublisher;
     @Override
     public Map<String, Object> getPostList(Integer page, Integer size, String tab, String tag) {
         // TODO 需要处理首页流只返回一个图片/视频的问题，可能还需要压缩精度
@@ -340,10 +344,21 @@ public class PostServiceImpl implements PostService {
 
         Pageable pageable = PageRequest.of(pageNum, pageSize, Sort.by(Sort.Direction.DESC, "createdAt"));
 
-        // 2. 统一查询该用户所有未被删除的帖子
-        Page<PostDoc> postDocPage = postRepository.findByUserIdAndIsDeleted(targetUserId, 0, pageable);
+        // 2. 权限判断
+        Long currentUserId = UserContext.getUserId();
+        Page<PostDoc> postDocPage;
 
-        // 3. 构建结果 (复用现有逻辑)
+        // 【修改逻辑】：判断是否是“我看自己”
+        if (currentUserId != null && currentUserId.equals(targetUserId)) {
+            // A. 看自己：查询该用户所有“未逻辑删除”的帖子
+            // 包含：Status=0 (审核中/草稿), Status=1 (已发布), Status=2 (被退回)
+            postDocPage = postRepository.findByUserIdAndIsDeleted(targetUserId, 0, pageable);
+        } else {
+            // B. 看别人：只允许查询 Status=1 (已发布) 的帖子
+            // 必须过滤掉审核中和审核失败的，否则会泄露隐私
+            postDocPage = postRepository.findByUserIdAndStatusAndIsDeleted(targetUserId, 1, 0, pageable);
+        }
+
         return buildResultMap(postDocPage);
     }
 
@@ -413,7 +428,9 @@ public class PostServiceImpl implements PostService {
         post.setRatingCount(0);
 
         // 设置状态 (直接发布)
-        post.setStatus(1);
+        // 这里不可以直接发布，需要提交给管理端或者后续接入的ai
+        // 【修改】默认状态设为 0 (审核中)，而不是 1 (直接发布)
+        post.setStatus(0);
         post.setIsDeleted(0);
 
         post.setCreatedAt(java.time.LocalDateTime.now());
@@ -421,6 +438,9 @@ public class PostServiceImpl implements PostService {
 
         // 5. 保存到 MongoDB
         postRepository.save(post);
+
+        // TODO: 发送异步事件通知审核模块 (AI 或 管理端)
+        eventPublisher.publishEvent(new PostCreateEvent(post.getId(), post.getContent(), post.getTitle()));
 
         return post.getId();
     }
