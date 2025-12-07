@@ -50,4 +50,6 @@ public interface PostService {
      * @return 生成的帖子ID
      */
     String createPost(PostCreateDTO dto);
+
+    void deletePost(String postId);
 }

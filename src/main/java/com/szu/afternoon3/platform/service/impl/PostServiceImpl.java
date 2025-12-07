@@ -10,6 +10,7 @@ import com.szu.afternoon3.platform.entity.mongo.PostDoc;
 import com.szu.afternoon3.platform.entity.mongo.PostLikeDoc;
 import com.szu.afternoon3.platform.entity.mongo.UserFollowDoc;
 import com.szu.afternoon3.platform.event.PostCreateEvent;
+import com.szu.afternoon3.platform.event.PostDeleteEvent;
 import com.szu.afternoon3.platform.exception.AppException;
 import com.szu.afternoon3.platform.exception.ResultCode;
 import com.szu.afternoon3.platform.repository.PostCollectRepository;
@@ -578,5 +579,41 @@ public class PostServiceImpl implements PostService {
         }
 
         return vo;
+    }
+
+    @Override
+    public void deletePost(String postId) {
+        // 1. 获取当前登录用户
+        Long currentUserId = UserContext.getUserId();
+        if (currentUserId == null) {
+            throw new AppException(ResultCode.UNAUTHORIZED);
+        }
+
+        // 2. 查询帖子是否存在
+        PostDoc post = postRepository.findById(postId).orElse(null);
+        if (post == null || (post.getIsDeleted() != null && post.getIsDeleted() == 1)) {
+            throw new AppException(ResultCode.RESOURCE_NOT_FOUND, "帖子不存在或已删除");
+        }
+
+        // 3. 权限校验：必须是作者本人 OR 管理员
+        if (!post.getUserId().equals(currentUserId)) {
+            // 如果不是作者，查一下数据库看是不是管理员
+            User user = userMapper.selectById(currentUserId);
+            if (user == null || !"ADMIN".equalsIgnoreCase(user.getRole())) {
+                throw new AppException(ResultCode.UNAUTHORIZED, "无权删除他人帖子");
+            }
+        }
+
+        // 4. 执行逻辑删除 (Soft Delete)
+        // 我们只标记帖子为删除，关联数据的清理交给 Listener 异步处理
+        post.setIsDeleted(1);
+        post.setStatus(2); // 可选：标记状态为审核失败或特定状态，防止被搜索出来
+        post.setUpdatedAt(java.time.LocalDateTime.now());
+
+        postRepository.save(post);
+
+        // 5. 发布事件 (Spring Event)
+        // 解耦：Service 只管改状态，后续的 Redis 清理、关联数据删除交给 Listener
+        eventPublisher.publishEvent(new PostDeleteEvent(postId, currentUserId));
     }
 }

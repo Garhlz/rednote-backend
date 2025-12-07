@@ -103,4 +103,14 @@ public class PostController {
 
         return Result.success(data);
     }
+
+    /**
+     * 删除帖子
+     * 对应 Apifox 接口: /api/post/{id} (DELETE)
+     */
+    @DeleteMapping("/{id}")
+    public Result<Void> deletePost(@PathVariable("id") String postId) {
+        postService.deletePost(postId);
+        return Result.success();
+    }
 }
