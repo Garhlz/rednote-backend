@@ -51,28 +51,30 @@ graph TD
 ```
 
 ## 核心架构设计亮点
-1.  **混合存储策略 (Polyglot Persistence)**
-    -   **PostgreSQL**: 作为 Source of Truth，存储核心用户账号、关系型强事务数据。
-    -   **MongoDB**: 存储帖子(Post)、评论(Comment)及海量交互数据。利用其 Schema-free 特性冗余用户信息(Nickname/Avatar)，避免 N+1 查询问题。
+1. **混合存储策略 (Polyglot Persistence)**
+    - **PostgreSQL**: 作为 Source of Truth，存储核心用户账号、关系型强事务数据。
+    - **MongoDB**: 存储帖子(Post)、评论(Comment)及海量交互数据。利用其 Schema-free 特性冗余用户信息(Nickname/Avatar)，避免 N+1 查询问题。
 
-2.  **异步事件驱动 (Event-Driven Consistency)**
-    -   利用 `Spring Events` + `@Async` 实现业务解耦。
-    -   **写缓冲 (Write-Behind)**: 点赞、收藏等高频互动先写入 Redis，随后通过事件异步落库 MongoDB，削峰填谷。
-    -   **最终一致性**: 用户修改资料后，通过 `UserUpdateEvent` 异步触发 MongoDB 中冗余数据的批量更新。
+2. **异步事件驱动 (Event-Driven Consistency)**
+   - 利用 `Spring Events` + `@Async` 实现业务解耦。
+   - **写缓冲 (Write-Behind)**: 点赞、收藏等高频互动先写入 Redis，随后通过事件异步落库 MongoDB，削峰填谷。
+   - **最终一致性**: 用户修改资料后，通过 `UserUpdateEvent` 异步触发 MongoDB 中冗余数据的批量更新。
 
 ## 核心模块划分
 
-    Auth 模块: 处理微信一键登录、账号注册、邮件验证码、JWT 签发。
+Auth 模块: 
+- 处理微信一键登录、账号注册、邮件验证码、JWT 签发。
 
-    User 模块: 用户信息管理、邮箱绑定、个人资料修改。
+User 模块: 
+- 用户信息管理、邮箱绑定、个人资料修改。
 
-    Post 模块: 
-    -   支持图文/视频混合发布流。
-    -   混合搜索: 集成 Jieba 分词构建 MongoDB Text Index，并提供 Regex 兜底策略，支持“联想词”推荐。
+Post 模块: 
+- 支持图文/视频混合发布流。
+- 混合搜索: 集成 Jieba 分词构建 MongoDB Text Index，并提供 Regex 兜底策略，支持“联想词”推荐。
 
-    Interaction 模块:
-    -   实现了 点赞/收藏/评分(Rating) 的全套逻辑。
-    -   基于 Redis Set/Hash 实现去重与快速计数，保障高并发下的数据准确性。
+Interaction 模块:
+- 实现了 点赞/收藏/评分(Rating) 的全套逻辑。
+- 基于 Redis Set/Hash 实现去重与快速计数，保障高并发下的数据准确性。
 
 ## 项目结构
 ```
@@ -224,13 +226,33 @@ chmod +x mvnw
 
 #### 4.2 业务逻辑集成测试 (推荐)
 
+4.2 业务逻辑集成测试 (核心推荐)
+
 这些测试模拟了真实的用户请求流程，且使用了 Mock 技术，不依赖外部第三方服务（如微信、OSS），非常适合开发时自测。
 
-- API 综合测试: controller/ApiIntegrationTest.java
+- API 综合流程测试: controller/ApiIntegrationTest.java
 
     - 内容: 模拟了“微信登录(Mock) -> 获取Token -> 修改个人资料”的全流程。
 
-    - 特点: 会自动回滚数据库，不会产生脏数据。
+    - 特点: 验证最基础的用户鉴权与资料管理，自动回滚数据。
+
+- 数据一致性测试 (架构核心): DataConsistencyTest.java
+
+    - 内容: 模拟用户在 PostgreSQL 修改昵称/头像后，验证 MongoDB 中的冗余数据（帖子、评论、关注列表）是否通过异步事件正确同步。
+
+    - 特点: 验证混合存储架构中最关键的“最终一致性”机制。
+
+- 交互闭环测试: controller/InteractionIntegrationTest.java
+
+    - 内容: 模拟用户对帖子进行“点赞 -> 取消点赞 -> 评分”的操作。
+
+    - 特点: 验证 Redis 缓存（去重/计数）与 MongoDB 落库之间的异步配合是否正常。
+
+- 搜索与分词测试: service/SearchIntegrationTest.java
+
+    - 内容: 验证 Jieba 中文分词是否生效，以及 MongoDB 的全文索引能否正确召回数据。
+
+    - 特点: 确保“搜关键词”能搜到对应的帖子，验证搜索引擎逻辑。
 
 - 文件上传测试: controller/CommonControllerTest.java
 
