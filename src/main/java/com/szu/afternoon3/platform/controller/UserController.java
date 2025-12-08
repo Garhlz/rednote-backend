@@ -186,4 +186,27 @@ public class UserController {
             @RequestParam(required = false, defaultValue = "20") Integer size) {
         return Result.success(userService.getMyRateList(page, size));
     }
+
+    /**
+     * 获取我的帖子列表 (支持按类型筛选)
+     * 对应接口: /api/user/posts
+     */
+    @GetMapping("/posts")
+    public Result<Map<String, Object>> getMyPosts(
+            @RequestParam(required = false) Integer type,
+            @RequestParam(required = false, defaultValue = "1") Integer page,
+            @RequestParam(required = false, defaultValue = "20") Integer size) {
+        return Result.success(userService.getMyPostList(type, page, size));
+    }
+
+    /**
+     * 获取浏览历史
+     * 对应接口: /api/user/history
+     */
+    @GetMapping("/history")
+    public Result<Map<String, Object>> getHistory(
+            @RequestParam(required = false, defaultValue = "1") Integer page,
+            @RequestParam(required = false, defaultValue = "20") Integer size) {
+        return Result.success(userService.getBrowsingHistory(page, size));
+    }
 }

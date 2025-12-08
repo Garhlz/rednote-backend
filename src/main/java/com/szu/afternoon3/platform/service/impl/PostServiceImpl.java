@@ -17,6 +17,7 @@ import com.szu.afternoon3.platform.exception.AppException;
 import com.szu.afternoon3.platform.exception.ResultCode;
 import com.szu.afternoon3.platform.repository.*;
 import com.szu.afternoon3.platform.service.PostService;
+import com.szu.afternoon3.platform.service.UserService;
 import com.szu.afternoon3.platform.vo.PostVO;
 import com.szu.afternoon3.platform.vo.UserInfo;
 import com.szu.afternoon3.platform.dto.PostCreateDTO;
@@ -55,6 +56,9 @@ public class PostServiceImpl implements PostService {
     private MongoTemplate mongoTemplate;
     @Autowired
     private UserMapper userMapper;
+
+    @Autowired
+    private UserService userService;
 
     @Autowired
     private ApplicationEventPublisher eventPublisher;
@@ -163,6 +167,13 @@ public class PostServiceImpl implements PostService {
             if (currentUserId == null || !currentUserId.equals(doc.getUserId())) {
                 throw new AppException(ResultCode.RESOURCE_NOT_FOUND);
             }
+        }
+
+        // 【新增】 记录浏览历史 (只有登录用户才记录)
+        Long currentUserId = UserContext.getUserId();
+        if (currentUserId != null) {
+            // 调用刚才在 UserService 写的异步方法
+            userService.recordBrowsingHistory(currentUserId, postId);
         }
 
         return convertToVO(doc, true);

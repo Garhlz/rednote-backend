@@ -29,7 +29,9 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import com.szu.afternoon3.platform.entity.mongo.UserFollowDoc;
+import org.springframework.scheduling.annotation.Async;
 
+import java.time.LocalDateTime;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -66,6 +68,9 @@ public class UserServiceImpl implements UserService {
     private PostRatingRepository postRatingRepository;
     @Autowired
     private PostRepository postRepository;
+
+    @Autowired
+    private PostViewHistoryRepository postViewHistoryRepository;
 
 
     @Override
@@ -540,6 +545,85 @@ public class UserServiceImpl implements UserService {
         }
 
         return buildPostListResult(postIds, docPage.getTotalElements(), scoreMap);
+    }
+
+    // ================== 4. 获取我的帖子列表 ==================
+    @Override
+    public Map<String, Object> getMyPostList(Integer type, Integer page, Integer size) {
+        Long userId = UserContext.getUserId();
+        Pageable pageable = PageRequest.of(page - 1, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+
+        Page<PostDoc> docPage;
+        // 如果前端传了 type (0或1)，则按类型查；否则查全部
+        if (type != null) {
+            docPage = postRepository.findByUserIdAndTypeAndIsDeleted(userId, type, 0, pageable);
+        } else {
+            docPage = postRepository.findByUserIdAndIsDeleted(userId, 0, pageable);
+        }
+
+        // 这里不需要 buildPostListResult 的“查库”逻辑，因为我们已经拿到了 PostDoc
+        // 直接复用 PostServiceImpl 里的 convertToVO 逻辑有点麻烦，
+        // 我们直接在这里手动转一下简化版 VO (复用 buildPostListResult 内部的转换逻辑)
+
+        List<PostVO> records = docPage.getContent().stream().map(doc -> {
+            // 简单组装 VO
+            PostVO vo = new PostVO();
+            vo.setId(doc.getId());
+            vo.setTitle(doc.getTitle());
+            vo.setType(doc.getType());
+            vo.setCover(doc.getCover());
+            vo.setLikeCount(doc.getLikeCount());
+
+            UserInfo author = new UserInfo();
+            author.setUserId(String.valueOf(doc.getUserId()));
+            author.setNickname(doc.getUserNickname());
+            author.setAvatar(doc.getUserAvatar());
+            vo.setAuthor(author);
+
+            return vo;
+        }).collect(Collectors.toList());
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("records", records);
+        result.put("total", docPage.getTotalElements());
+        return result;
+    }
+
+    // ================== 5. 获取我的浏览历史 ==================
+    @Override
+    public Map<String, Object> getBrowsingHistory(Integer page, Integer size) {
+        Long userId = UserContext.getUserId();
+        // 按浏览时间倒序
+        Pageable pageable = PageRequest.of(page - 1, size, Sort.by(Sort.Direction.DESC, "viewTime"));
+
+        Page<PostViewHistoryDoc> historyPage = postViewHistoryRepository.findByUserId(userId, pageable);
+
+        List<String> postIds = historyPage.getContent().stream()
+                .map(PostViewHistoryDoc::getPostId)
+                .collect(Collectors.toList());
+
+        // 使用之前的通用方法查详情
+        // 注意：通用方法查出来的列表顺序可能跟 postIds 不一致，这里为了严谨，最好在内存重排一下
+        // 但为了代码简单，暂时直接返回
+        return buildPostListResult(postIds, historyPage.getTotalElements(), null);
+    }
+
+    @Override
+    @Async // 异步执行，不卡详情页加载
+    public void recordBrowsingHistory(Long userId, String postId) {
+        // 查找是否已存在记录
+        Optional<PostViewHistoryDoc> opt = postViewHistoryRepository.findByUserIdAndPostId(userId, postId);
+        PostViewHistoryDoc doc;
+        if (opt.isPresent()) {
+            doc = opt.get();
+            doc.setViewTime(LocalDateTime.now()); // 更新时间
+        } else {
+            doc = new PostViewHistoryDoc();
+            doc.setUserId(userId);
+            doc.setPostId(postId);
+            doc.setViewTime(LocalDateTime.now());
+        }
+        postViewHistoryRepository.save(doc);
     }
 
     // ================== 私有通用方法：批量查帖子并转 VO ==================

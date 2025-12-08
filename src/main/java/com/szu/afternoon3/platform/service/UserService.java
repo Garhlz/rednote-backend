@@ -66,4 +66,13 @@ public interface UserService {
 
     // 获取我的评分列表
     Map<String, Object> getMyRateList(Integer page, Integer size);
+
+    // 【新增】获取我的帖子
+    Map<String, Object> getMyPostList(Integer type, Integer page, Integer size);
+
+    // 【新增】获取浏览历史
+    Map<String, Object> getBrowsingHistory(Integer page, Integer size);
+
+    // 【新增】记录浏览历史 (给 PostService 调用)
+    void recordBrowsingHistory(Long userId, String postId);
 }
