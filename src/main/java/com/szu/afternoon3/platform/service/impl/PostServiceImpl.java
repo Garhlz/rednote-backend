@@ -18,6 +18,8 @@ import com.szu.afternoon3.platform.exception.ResultCode;
 import com.szu.afternoon3.platform.repository.*;
 import com.szu.afternoon3.platform.service.PostService;
 import com.szu.afternoon3.platform.service.UserService;
+import com.szu.afternoon3.platform.util.SearchHelper;
+
 import com.szu.afternoon3.platform.vo.PostVO;
 import com.szu.afternoon3.platform.vo.UserInfo;
 import com.szu.afternoon3.platform.dto.PostCreateDTO;
@@ -31,6 +33,8 @@ import org.springframework.data.mongodb.core.aggregation.Aggregation;
 import org.springframework.data.mongodb.core.aggregation.AggregationResults;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.mongodb.core.query.TextCriteria;
+import org.springframework.data.mongodb.core.query.TextQuery;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
@@ -56,7 +60,8 @@ public class PostServiceImpl implements PostService {
     private MongoTemplate mongoTemplate;
     @Autowired
     private UserMapper userMapper;
-
+    @Autowired
+    private SearchHelper searchHelper; // 【注入 Helper】
     @Autowired
     private UserService userService;
 
@@ -102,53 +107,70 @@ public class PostServiceImpl implements PostService {
         return buildResultMap(postDocPage);
     }
 
-    // 因为text index对于中文支持不友好，还是换回了正则
     @Override
     public Map<String, Object> searchPosts(String keyword, Integer page, Integer size) {
         int pageNum = (page == null || page < 1) ? 0 : page - 1;
         int pageSize = (size == null || size < 1) ? 20 : size;
 
-        // 1. 如果关键词为空，返回空列表
         if (StrUtil.isBlank(keyword)) {
-            Pageable pageable = PageRequest.of(pageNum, pageSize, Sort.by(Sort.Direction.DESC, "createdAt"));
-            return buildResultMap(Page.empty(pageable));
+            return buildResultMap(Page.empty(PageRequest.of(pageNum, pageSize)));
         }
 
-        // 2. 关键词转义，防止正则报错
-        String safeKeyword = java.util.regex.Pattern.quote(keyword);
-        String regex = ".*" + safeKeyword + ".*";
+        // 1. 使用 Jieba 处理用户的搜索词
+        // 用户搜 "深大美食" -> 转换成 "深大 美食" (Mongo会理解为 OR 关系)
+        String searchString = searchHelper.analyzeKeyword(keyword);
 
-        // 3. 构建查询 Query
-        Query query = new Query();
+        // 兜底：如果分词后为空 (比如用户只输入了标点)，就用原词
+        if (StrUtil.isBlank(searchString)) {
+            searchString = keyword;
+        }
 
-        // 基础条件：未删除、已发布
+        // 2. 构建全文检索条件
+        // matching() 会自动去匹配 PostDoc 中带有 @TextIndexed 的字段 (即 searchTerms)
+        TextCriteria criteria = TextCriteria.forDefaultLanguage().matching(searchString);
+
+        // 3. 构建查询对象
+        // sortByScore: 按匹配度排序 (相关性高的在前，比如同时包含 "深大" 和 "美食" 的)
+        Query query = TextQuery.queryText(criteria).sortByScore();
+
+        // 4. 叠加状态过滤
         query.addCriteria(Criteria.where("isDeleted").is(0));
         query.addCriteria(Criteria.where("status").is(1));
 
-        // 核心匹配逻辑：(标题 包含 OR 内容 包含 OR 标签 包含)
-        // 注意：这里无法像 Text Index 那样自动计算 score 权重，
-        // 但对于大作业来说，能搜出来比搜得准更重要。
-        query.addCriteria(new Criteria().orOperator(
-                Criteria.where("title").regex(regex, "i"),
-                Criteria.where("content").regex(regex, "i"),
-                Criteria.where("tags").regex(regex, "i")
-        ));
-
-        // 4. 排序：按时间倒序（搜索结果通常也希望看新的）
-        // 如果想实现“匹配度排序”，在不使用搜索引擎(ES)的情况下比较复杂，
-        // 简单的做法是先按时间排，解决 90% 的需求。
-        Pageable pageable = PageRequest.of(pageNum, pageSize, Sort.by(Sort.Direction.DESC, "createdAt"));
+        // 5. 分页
+        Pageable pageable = PageRequest.of(pageNum, pageSize);
         query.with(pageable);
 
-        // 5. 执行查询
+        // 6. 执行
         long total = mongoTemplate.count(query, PostDoc.class);
         List<PostDoc> list = mongoTemplate.find(query, PostDoc.class);
 
-        // 6. 封装结果
-        Page<PostDoc> postDocPage = new PageImpl<>(list, pageable, total);
-        return buildResultMap(postDocPage);
-    }
+        // 降级逻辑,使用正则
+        if (total == 0) {
+            // log.info("Text Index 未命中，降级为 Regex 搜索: {}", keyword);
+            query = new Query();
+            String safeKeyword = java.util.regex.Pattern.quote(keyword);
+            String regex = ".*" + safeKeyword + ".*";
 
+            // 注意：这里要搜 title, content, tags，不要搜 searchTerms (因为 searchTerms 是切碎的)
+            query.addCriteria(new Criteria().orOperator(
+                    Criteria.where("title").regex(regex, "i"),
+                    Criteria.where("content").regex(regex, "i"),
+                    Criteria.where("tags").regex(regex, "i")
+            ));
+
+            query.addCriteria(Criteria.where("isDeleted").is(0));
+            query.addCriteria(Criteria.where("status").is(1));
+            query.with(pageable);
+
+            total = mongoTemplate.count(query, PostDoc.class);
+            list = mongoTemplate.find(query, PostDoc.class);
+        } else {
+            list = mongoTemplate.find(query, PostDoc.class);
+        }
+
+        return buildResultMap(new PageImpl<>(list, pageable, total));
+    }
     @Override
     public PostVO getPostDetail(String postId) {
         PostDoc doc = postRepository.findById(postId).orElse(null);
@@ -185,63 +207,53 @@ public class PostServiceImpl implements PostService {
             return new ArrayList<>();
         }
 
-        // --- 核心中文匹配逻辑 ---
+        // 【架构说明】
+        // 联想词 (Autocomplete) 需要 "前缀匹配" 或 "包含匹配" (如输入 "深" -> 提示 "深圳")。
+        // MongoDB 的 Text Index 是 "分词匹配" (输入 "深" 无法匹配 "深圳")。
+        // 因此，对于联想词功能，RegEx (正则) 依然是最佳选择。
+        // 我们只在 title 和 tags 上做正则，性能是可控的。
 
-        // 1. 转义关键词中的特殊字符
         String safeKeyword = java.util.regex.Pattern.quote(keyword);
-
-        // 2. 定义正则规则 (包含匹配)
         String regex = ".*" + safeKeyword + ".*";
 
-        // 3. 构建查询
         Query query = new Query();
         query.addCriteria(Criteria.where("isDeleted").is(0));
         query.addCriteria(Criteria.where("status").is(1));
 
-        // 4. OR 查询
+        // 只查 tags 和 title，不查 searchTerms (因为 searchTerms 太碎了)
         query.addCriteria(new Criteria().orOperator(
                 Criteria.where("tags").regex(regex, "i"),
                 Criteria.where("title").regex(regex, "i")
         ));
 
-        // 5. 优化查询字段
         query.limit(20);
         query.fields().include("title").include("tags");
 
-        // 6. 执行查询
         List<PostDoc> docs = mongoTemplate.find(query, PostDoc.class);
-
-        // 7. 数据清洗与排序
         Set<String> suggestions = new LinkedHashSet<>();
 
-        // 策略：优先展示匹配到的【标签】
         for (PostDoc doc : docs) {
+            // 优先推荐 Tag
             if (CollUtil.isNotEmpty(doc.getTags())) {
                 for (String tag : doc.getTags()) {
-                    // 【修改点 1】: 包含关键词 且 不完全等于关键词
                     if (StrUtil.contains(tag, keyword) && !StrUtil.equals(tag, keyword)) {
                         suggestions.add(tag);
                     }
                 }
             }
         }
-
-        // 策略：其次展示匹配到的【标题】
         for (PostDoc doc : docs) {
+            // 其次推荐标题
             String title = doc.getTitle();
-            // 【修改点 2】: 包含关键词 且 不完全等于关键词
             if (StrUtil.contains(title, keyword) && !StrUtil.equals(title, keyword)) {
-                // 这里暂不做截断
                 suggestions.add(title);
             }
-
-            if (suggestions.size() >= 15) {
-                break;
-            }
+            if (suggestions.size() >= 10) break;
         }
 
         return new ArrayList<>(suggestions);
     }
+
     @Autowired
     private StringRedisTemplate redisTemplate;
     /**
@@ -406,7 +418,11 @@ public class PostServiceImpl implements PostService {
         // 4. 严格互斥逻辑
         post.setType(dto.getType());
 
-        // --- 核心：资源与封面处理 ---
+        // 【核心修改】生成分词并存入
+        List<String> terms = searchHelper.generateSearchTerms(dto.getTitle(), dto.getContent(), dto.getTags());
+        post.setSearchTerms(terms);
+
+        // --- 资源与封面处理 ---
         List<String> finalResources = new ArrayList<>();
         String finalCover = "";
 
@@ -566,6 +582,9 @@ public class PostServiceImpl implements PostService {
 
         // 3. 状态重置与保存
         if (needAudit) {
+            // 如果文本变了，重新生成分词
+            List<String> terms = searchHelper.generateSearchTerms(post.getTitle(), post.getContent(), post.getTags());
+            post.setSearchTerms(terms);
             post.setStatus(0); // 重置为审核中
         }
         post.setUpdatedAt(java.time.LocalDateTime.now());

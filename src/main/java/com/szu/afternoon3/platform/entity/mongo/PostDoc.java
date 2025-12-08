@@ -5,6 +5,7 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.index.TextIndexed;
 import org.springframework.data.mongodb.core.mapping.Document;
+import org.springframework.data.mongodb.core.mapping.TextScore;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -22,16 +23,20 @@ public class PostDoc {
     private String userNickname;
     private String userAvatar;
 
-//    @TextIndexed(weight = 2) // 权重2：标题匹配
-//    @Indexed
+    // 标题和内容不需要 @TextIndexed 了，因为我们统一搜索 searchTerms
     private String title;
-
-//    @TextIndexed(weight = 1) // 权重1：内容匹配
     private String content;
 
-//    @TextIndexed(weight = 3) // 新增全文索引，用于模糊搜索 (searchPosts)
     @Indexed           // 保留普通索引，用于精确筛选 (getPostList)
     private List<String> tags;
+    // 【新增】搜索专用字段
+    // weight=5 表示匹配到这里的词，相关度得分很高
+    @TextIndexed(weight = 5)
+    private List<String> searchTerms;
+
+    // 【新增】用于接收查询时的匹配分数 (不会存入数据库)
+    @TextScore
+    private Float score;
 
     // 统计数据
     private Integer viewCount = 0;
