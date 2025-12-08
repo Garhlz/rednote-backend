@@ -15,6 +15,7 @@ import com.szu.afternoon3.platform.repository.UserFollowRepository;
 import com.szu.afternoon3.platform.service.UserService;
 import com.szu.afternoon3.platform.vo.UserInfo;
 import com.szu.afternoon3.platform.vo.UserProfileVO;
+import com.szu.afternoon3.platform.vo.UserSearchVO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEventPublisher;
@@ -29,10 +30,7 @@ import com.szu.afternoon3.platform.entity.mongo.UserFollowDoc;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -411,5 +409,70 @@ public class UserServiceImpl implements UserService {
 
         // 还是删除好了
         redisTemplate.delete(redisKey);
+    }
+
+    @Override
+    public List<UserSearchVO> searchUsers(String keyword) {
+        if (StrUtil.isBlank(keyword)) {
+            return new ArrayList<>();
+        }
+
+        // 1. [PostgreSQL] 模糊查询用户 (限制 20 条，防止返回过多数据)
+        // 逻辑：nickname LIKE %keyword% OR email LIKE %keyword%
+        List<User> users = userMapper.selectList(new LambdaQueryWrapper<User>()
+                .and(w -> w.like(User::getNickname, keyword)
+                        .or()
+                        .like(User::getEmail, keyword)) // 支持搜邮箱
+                .eq(User::getStatus, 1) // 只搜正常状态的用户
+                .last("LIMIT 20"));     // 硬限制数量
+
+        if (CollUtil.isEmpty(users)) {
+            return new ArrayList<>();
+        }
+
+        // 2. 准备 ID 列表
+        Long currentUserId = UserContext.getUserId();
+        List<Long> searchedUserIds = users.stream().map(User::getId).collect(Collectors.toList());
+
+        // 用于快速查找的 Set
+        Set<Long> myFollowingSet = new HashSet<>(); // 我关注了谁
+        Set<Long> myFansSet = new HashSet<>();      // 谁关注了我
+
+        // 3. [MongoDB] 批量查询关系状态 (只有登录用户才查)
+        if (currentUserId != null) {
+            // A. 查 "我关注了其中哪些人"
+            // userId = 我, targetUserId IN (搜索结果IDs)
+            List<UserFollowDoc> followings = userFollowRepository.findByUserIdAndTargetUserIdIn(currentUserId, searchedUserIds);
+            myFollowingSet = followings.stream().map(UserFollowDoc::getTargetUserId).collect(Collectors.toSet());
+
+            // B. 查 "其中哪些人关注了我"
+            // userId IN (搜索结果IDs), targetUserId = 我
+            List<UserFollowDoc> fans = userFollowRepository.findByUserIdInAndTargetUserId(searchedUserIds, currentUserId);
+            myFansSet = fans.stream().map(UserFollowDoc::getUserId).collect(Collectors.toSet());
+        }
+
+        // 4. 组装 VO
+        Set<Long> finalMyFollowingSet = myFollowingSet;
+        Set<Long> finalMyFansSet = myFansSet;
+
+        return users.stream().map(user -> {
+            UserSearchVO vo = new UserSearchVO();
+            // 基础信息
+            vo.setUserId(String.valueOf(user.getId()));
+            vo.setNickname(user.getNickname());
+            vo.setAvatar(user.getAvatar());
+            vo.setEmail(user.getEmail()); // 搜索结果通常可以展示邮箱辅助确认
+
+            // 关系状态
+            if (currentUserId != null && currentUserId.equals(user.getId())) {
+                // 搜到了自己
+                vo.setIsFollowed(false);
+                vo.setIsFollowingMe(false);
+            } else {
+                vo.setIsFollowed(finalMyFollowingSet.contains(user.getId()));
+                vo.setIsFollowingMe(finalMyFansSet.contains(user.getId()));
+            }
+            return vo;
+        }).collect(Collectors.toList());
     }
 }

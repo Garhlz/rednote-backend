@@ -3,6 +3,7 @@ package com.szu.afternoon3.platform.service;
 import com.szu.afternoon3.platform.dto.*;
 import com.szu.afternoon3.platform.vo.UserInfo;
 import com.szu.afternoon3.platform.vo.UserProfileVO;
+import com.szu.afternoon3.platform.vo.UserSearchVO;
 
 import java.util.List;
 import java.util.Map;
@@ -49,4 +50,11 @@ public interface UserService {
 
     // 获取好友列表 (互相关注)
     List<UserInfo> getFriendList();
+
+    /**
+     * 搜索用户
+     * @param keyword 昵称或邮箱关键词
+     * @return 包含双向关系状态的用户列表
+     */
+    List<UserSearchVO> searchUsers(String keyword);
 }

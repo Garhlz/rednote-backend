@@ -7,6 +7,7 @@ import com.szu.afternoon3.platform.exception.ResultCode;
 import com.szu.afternoon3.platform.service.UserService;
 import com.szu.afternoon3.platform.vo.UserInfo;
 import com.szu.afternoon3.platform.vo.UserProfileVO;
+import com.szu.afternoon3.platform.vo.UserSearchVO;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -143,6 +144,16 @@ public class UserController {
     @GetMapping("/friends")
     public Result<List<UserInfo>> getFriends() {
         List<UserInfo> list = userService.getFriendList();
+        return Result.success(list);
+    }
+
+    /**
+     * 搜索用户
+     * 对应接口: GET /api/user/search
+     */
+    @GetMapping("/search")
+    public Result<List<UserSearchVO>> searchUsers(@RequestParam String keyword) {
+        List<UserSearchVO> list = userService.searchUsers(keyword);
         return Result.success(list);
     }
 }

@@ -45,6 +45,9 @@ public class AuthServiceImpl implements AuthService {
     @Autowired
     private StringRedisTemplate redisTemplate; // 注入 Redis
 
+    @Autowired
+    private com.szu.afternoon3.platform.util.TencentImUtil tencentImUtil;
+
     @Value("${spring.mail.username}")
     private String fromEmail; // 发送人
 
@@ -134,6 +137,12 @@ public class AuthServiceImpl implements AuthService {
         info.setEmail(user.getEmail());
 
         vo.setUserInfo(info);
+
+        // 【新增】生成 UserSig
+        // 注意：将 Long 类型的 ID 转为 String，保证和前端传给 TIM 的 userID 一致
+        String userSig = tencentImUtil.genUserSig(user.getId().toString());
+        vo.setUserSig(userSig);
+
         return vo;
     }
 
