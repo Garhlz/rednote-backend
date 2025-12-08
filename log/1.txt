@@ -1,0 +1,250 @@
+commit a0d65ac36b52d98e490305e3bb910eab1c64b417
+Author: Royallseal <xu.xijia@outlook.com>
+Date:   Mon Dec 8 17:16:20 2025 +0800
+
+    feat: 实现用户互动记录列表接口(点赞/收藏/评分)
+    
+    1. Controller层:
+       - 新增 /api/user/likes (我的点赞)
+       - 新增 /api/user/collects (我的收藏)
+       - 新增 /api/user/ratings (我的评分)
+    2. Service层:
+       - 实现 UserServiceImpl 中的列表查询逻辑
+       - 封装 buildPostListResult 通用方法，实现从关系ID到帖子详情的转换
+    3. Repository层:
+       - 为点赞、收藏、评分的 Repository 添加 findByUserId 分页查询方法
+    4. Domain层:
+       - PostVO 新增 myScore 字段，用于返回用户给出的具体评分
+
+diff --git a/src/main/java/com/szu/afternoon3/platform/controller/UserController.java b/src/main/java/com/szu/afternoon3/platform/controller/UserController.java
+index dc2ef96..113713a 100644
+--- a/src/main/java/com/szu/afternoon3/platform/controller/UserController.java
++++ b/src/main/java/com/szu/afternoon3/platform/controller/UserController.java
+@@ -156,4 +156,34 @@ public class UserController {
+         List<UserSearchVO> list = userService.searchUsers(keyword);
+         return Result.success(list);
+     }
++
++    /**
++     * 获取我的点赞列表
++     */
++    @GetMapping("/likes")
++    public Result<Map<String, Object>> getMyLikes(
++            @RequestParam(required = false, defaultValue = "1") Integer page,
++            @RequestParam(required = false, defaultValue = "20") Integer size) {
++        return Result.success(userService.getMyLikeList(page, size));
++    }
++
++    /**
++     * 获取我的收藏列表
++     */
++    @GetMapping("/collects")
++    public Result<Map<String, Object>> getMyCollects(
++            @RequestParam(required = false, defaultValue = "1") Integer page,
++            @RequestParam(required = false, defaultValue = "20") Integer size) {
++        return Result.success(userService.getMyCollectList(page, size));
++    }
++
++    /**
++     * 获取我的评分列表
++     */
++    @GetMapping("/ratings")
++    public Result<Map<String, Object>> getMyRatings(
++            @RequestParam(required = false, defaultValue = "1") Integer page,
++            @RequestParam(required = false, defaultValue = "20") Integer size) {
++        return Result.success(userService.getMyRateList(page, size));
++    }
+ }
+diff --git a/src/main/java/com/szu/afternoon3/platform/repository/PostRatingRepository.java b/src/main/java/com/szu/afternoon3/platform/repository/PostRatingRepository.java
+index 6f5fd94..d0d97cd 100644
+--- a/src/main/java/com/szu/afternoon3/platform/repository/PostRatingRepository.java
++++ b/src/main/java/com/szu/afternoon3/platform/repository/PostRatingRepository.java
+@@ -3,6 +3,8 @@ package com.szu.afternoon3.platform.repository;
+ import com.szu.afternoon3.platform.entity.mongo.PostRatingDoc;
+ import org.springframework.data.mongodb.repository.MongoRepository;
+ import org.springframework.stereotype.Repository;
++import org.springframework.data.domain.Page;
++import org.springframework.data.domain.Pageable;
+ 
+ import java.util.Optional;
+ 
+@@ -14,4 +16,7 @@ public interface PostRatingRepository extends MongoRepository<PostRatingDoc, Str
+      * 用于判断是“新增评分”还是“修改评分”
+      */
+     Optional<PostRatingDoc> findByUserIdAndPostId(Long userId, String postId);
++
++    // 分页查询某人的评分记录
++    Page<PostRatingDoc> findByUserId(Long userId, Pageable pageable);
+ }
+\ No newline at end of file
+diff --git a/src/main/java/com/szu/afternoon3/platform/service/UserService.java b/src/main/java/com/szu/afternoon3/platform/service/UserService.java
+index c6e5951..a431ec8 100644
+--- a/src/main/java/com/szu/afternoon3/platform/service/UserService.java
++++ b/src/main/java/com/szu/afternoon3/platform/service/UserService.java
+@@ -57,4 +57,13 @@ public interface UserService {
+      * @return 包含双向关系状态的用户列表
+      */
+     List<UserSearchVO> searchUsers(String keyword);
++
++    // 获取我的点赞列表
++    Map<String, Object> getMyLikeList(Integer page, Integer size);
++
++    // 获取我的收藏列表
++    Map<String, Object> getMyCollectList(Integer page, Integer size);
++
++    // 获取我的评分列表
++    Map<String, Object> getMyRateList(Integer page, Integer size);
+ }
+diff --git a/src/main/java/com/szu/afternoon3/platform/service/impl/UserServiceImpl.java b/src/main/java/com/szu/afternoon3/platform/service/impl/UserServiceImpl.java
+index 94b2412..537cac6 100644
+--- a/src/main/java/com/szu/afternoon3/platform/service/impl/UserServiceImpl.java
++++ b/src/main/java/com/szu/afternoon3/platform/service/impl/UserServiceImpl.java
+@@ -7,15 +7,17 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+ import com.szu.afternoon3.platform.common.UserContext;
+ import com.szu.afternoon3.platform.dto.*;
+ import com.szu.afternoon3.platform.entity.User;
++import com.szu.afternoon3.platform.entity.mongo.*;
+ import com.szu.afternoon3.platform.event.UserUpdateEvent;
+ import com.szu.afternoon3.platform.exception.AppException;
+ import com.szu.afternoon3.platform.exception.ResultCode;
+ import com.szu.afternoon3.platform.mapper.UserMapper;
+-import com.szu.afternoon3.platform.repository.UserFollowRepository;
++import com.szu.afternoon3.platform.repository.*;
+ import com.szu.afternoon3.platform.service.UserService;
+ import com.szu.afternoon3.platform.vo.UserInfo;
+ import com.szu.afternoon3.platform.vo.UserProfileVO;
+ import com.szu.afternoon3.platform.vo.UserSearchVO;
++import com.szu.afternoon3.platform.vo.PostVO;
+ import lombok.extern.slf4j.Slf4j;
+ import org.springframework.beans.factory.annotation.Autowired;
+ import org.springframework.context.ApplicationEventPublisher;
+@@ -56,6 +58,16 @@ public class UserServiceImpl implements UserService {
+         return buildProfileVO(user);
+     }
+ 
++    @Autowired
++    private PostLikeRepository postLikeRepository;
++    @Autowired
++    private PostCollectRepository postCollectRepository;
++    @Autowired
++    private PostRatingRepository postRatingRepository;
++    @Autowired
++    private PostRepository postRepository;
++
++
+     @Override
+     @Transactional(rollbackFor = Exception.class)
+     public void updateProfile(UserProfileUpdateDTO dto) {
+@@ -475,4 +487,100 @@ public class UserServiceImpl implements UserService {
+             return vo;
+         }).collect(Collectors.toList());
+     }
++
++    // ================== 1. 获取我的点赞列表 ==================
++    @Override
++    public Map<String, Object> getMyLikeList(Integer page, Integer size) {
++        Long userId = UserContext.getUserId();
++        // 按时间倒序
++        Pageable pageable = PageRequest.of(page - 1, size, Sort.by(Sort.Direction.DESC, "createdAt"));
++
++        // 查关系表
++        Page<PostLikeDoc> docPage = postLikeRepository.findByUserId(userId, pageable);
++
++        // 提取 ID 列表
++        List<String> postIds = docPage.getContent().stream()
++                .map(PostLikeDoc::getPostId)
++                .collect(Collectors.toList());
++
++        // 转换并返回
++        return buildPostListResult(postIds, docPage.getTotalElements(), null);
++    }
++
++    // ================== 2. 获取我的收藏列表 ==================
++    @Override
++    public Map<String, Object> getMyCollectList(Integer page, Integer size) {
++        Long userId = UserContext.getUserId();
++        Pageable pageable = PageRequest.of(page - 1, size, Sort.by(Sort.Direction.DESC, "createdAt"));
++
++        Page<PostCollectDoc> docPage = postCollectRepository.findByUserId(userId, pageable);
++
++        List<String> postIds = docPage.getContent().stream()
++                .map(PostCollectDoc::getPostId)
++                .collect(Collectors.toList());
++
++        return buildPostListResult(postIds, docPage.getTotalElements(), null);
++    }
++
++    // ================== 3. 获取我的评分列表 ==================
++    @Override
++    public Map<String, Object> getMyRateList(Integer page, Integer size) {
++        Long userId = UserContext.getUserId();
++        Pageable pageable = PageRequest.of(page - 1, size, Sort.by(Sort.Direction.DESC, "createdAt"));
++
++        Page<PostRatingDoc> docPage = postRatingRepository.findByUserId(userId, pageable);
++
++        List<String> postIds = new ArrayList<>();
++        // 建立 postId -> score 的映射，方便后面填入 VO
++        Map<String, Double> scoreMap = new HashMap<>();
++
++        for (PostRatingDoc doc : docPage.getContent()) {
++            postIds.add(doc.getPostId());
++            scoreMap.put(doc.getPostId(), doc.getScore());
++        }
++
++        return buildPostListResult(postIds, docPage.getTotalElements(), scoreMap);
++    }
++
++    // ================== 私有通用方法：批量查帖子并转 VO ==================
++    private Map<String, Object> buildPostListResult(List<String> postIds, long total, Map<String, Double> scoreMap) {
++        if (CollUtil.isEmpty(postIds)) {
++            Map<String, Object> res = new HashMap<>();
++            res.put("records", Collections.emptyList());
++            res.put("total", 0);
++            return res;
++        }
++
++        // 1. 批量查帖子详情
++        List<PostDoc> posts = postRepository.findAllById(postIds);
++
++        // 2. 转 VO (简化版，列表页不需要所有资源，有 cover 就够了)
++        List<PostVO> voList = posts.stream().map(doc -> {
++            PostVO vo = new PostVO();
++            vo.setId(doc.getId());
++            vo.setTitle(doc.getTitle());
++            vo.setType(doc.getType());
++            vo.setCover(doc.getCover()); // 直接使用 PostDoc 里存好的封面
++            vo.setLikeCount(doc.getLikeCount());
++
++            // 填充作者
++            UserInfo author = new UserInfo();
++            author.setUserId(String.valueOf(doc.getUserId()));
++            author.setNickname(doc.getUserNickname());
++            author.setAvatar(doc.getUserAvatar());
++            vo.setAuthor(author);
++
++            // 如果有评分映射，填充评分
++            if (scoreMap != null && scoreMap.containsKey(doc.getId())) {
++                vo.setMyScore(scoreMap.get(doc.getId()));
++            }
++
++            return vo;
++        }).collect(Collectors.toList());
++
++        Map<String, Object> result = new HashMap<>();
++        result.put("records", voList);
++        result.put("total", total);
++        return result;
++    }
+ }
+diff --git a/src/main/java/com/szu/afternoon3/platform/vo/PostVO.java b/src/main/java/com/szu/afternoon3/platform/vo/PostVO.java
+index 21df538..98f6837 100644
+--- a/src/main/java/com/szu/afternoon3/platform/vo/PostVO.java
++++ b/src/main/java/com/szu/afternoon3/platform/vo/PostVO.java
+@@ -42,4 +42,6 @@ public class PostVO {
+     private String createdAt;    // 格式化后的时间
+     // 标签列表
+     private List<String> tags;
++
++    private Double myScore; // 我给出的评分
+ }
+\ No newline at end of file

@@ -21,6 +21,10 @@ import com.szu.afternoon3.platform.vo.PostVO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -72,6 +76,8 @@ public class UserServiceImpl implements UserService {
     @Autowired
     private PostViewHistoryRepository postViewHistoryRepository;
 
+    @Autowired
+    private MongoTemplate mongoTemplate;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -609,25 +615,27 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    @Async // 异步执行，不卡详情页加载
+    @Async // 异步执行
     public void recordBrowsingHistory(Long userId, String postId) {
-        // 查找是否已存在记录
-        Optional<PostViewHistoryDoc> opt = postViewHistoryRepository.findByUserIdAndPostId(userId, postId);
-        PostViewHistoryDoc doc;
-        if (opt.isPresent()) {
-            doc = opt.get();
-            doc.setViewTime(LocalDateTime.now()); // 更新时间
-        } else {
-            doc = new PostViewHistoryDoc();
-            doc.setUserId(userId);
-            doc.setPostId(postId);
-            doc.setViewTime(LocalDateTime.now());
-        }
-        postViewHistoryRepository.save(doc);
+        // 【新增修复】使用 MongoTemplate 的 Upsert (更新或插入) 原子操作
+        // 解决高并发下的 DuplicateKeyException 问题
+
+        // 1. 定义查询条件: userId + postId
+        Query query = new Query(Criteria.where("userId").is(userId).and("postId").is(postId));
+
+        // 2. 定义更新内容: 更新 viewTime 为当前时间
+        Update update = new Update();
+        update.set("viewTime", LocalDateTime.now());
+        // 如果想记录浏览次数，也可以加上: update.inc("viewCount", 1);
+
+        // 3. 执行 Upsert
+        // 如果记录存在，则更新 viewTime；如果不存在，则插入一条新记录
+        mongoTemplate.upsert(query, update, PostViewHistoryDoc.class);
     }
 
     // ================== 私有通用方法：批量查帖子并转 VO ==================
     private Map<String, Object> buildPostListResult(List<String> postIds, long total, Map<String, Double> scoreMap) {
+        // 1. 判空快速返回
         if (CollUtil.isEmpty(postIds)) {
             Map<String, Object> res = new HashMap<>();
             res.put("records", Collections.emptyList());
@@ -635,33 +643,80 @@ public class UserServiceImpl implements UserService {
             return res;
         }
 
-        // 1. 批量查帖子详情
+        // 2. 批量查帖子详情
         List<PostDoc> posts = postRepository.findAllById(postIds);
 
-        // 2. 转 VO (简化版，列表页不需要所有资源，有 cover 就够了)
-        List<PostVO> voList = posts.stream().map(doc -> {
-            PostVO vo = new PostVO();
-            vo.setId(doc.getId());
-            vo.setTitle(doc.getTitle());
-            vo.setType(doc.getType());
-            vo.setCover(doc.getCover()); // 直接使用 PostDoc 里存好的封面
-            vo.setLikeCount(doc.getLikeCount());
+        // 3. 将 List 转为 Map，解决 Mongo 返回乱序问题
+        Map<String, PostDoc> postMap = posts.stream()
+                .collect(Collectors.toMap(PostDoc::getId, p -> p));
 
-            // 填充作者
-            UserInfo author = new UserInfo();
-            author.setUserId(String.valueOf(doc.getUserId()));
-            author.setNickname(doc.getUserNickname());
-            author.setAvatar(doc.getUserAvatar());
-            vo.setAuthor(author);
+        // 4. 批量查询交互状态 (点赞/收藏)
+        // 避免在循环中查库 (N+1问题)，一次性查出这批帖子中我点赞/收藏了哪些
+        Set<String> likedPostIds = new HashSet<>();
+        Set<String> collectedPostIds = new HashSet<>();
+        Long currentUserId = UserContext.getUserId();
 
-            // 如果有评分映射，填充评分
-            if (scoreMap != null && scoreMap.containsKey(doc.getId())) {
-                vo.setMyScore(scoreMap.get(doc.getId()));
-            }
+        if (currentUserId != null) {
+            // 查点赞
+            List<PostLikeDoc> likes = postLikeRepository.findByUserIdAndPostIdIn(currentUserId, postIds);
+            likedPostIds = likes.stream().map(PostLikeDoc::getPostId).collect(Collectors.toSet());
 
-            return vo;
-        }).collect(Collectors.toList());
+            // 查收藏
+            List<PostCollectDoc> collects = postCollectRepository.findByUserIdAndPostIdIn(currentUserId, postIds);
+            collectedPostIds = collects.stream().map(PostCollectDoc::getPostId).collect(Collectors.toSet());
+        }
 
+        // 5. 组装 VO 列表 (保持 postIds 的原始时间顺序)
+        // 为了 Lambda 表达式能访问非 final 变量，这里使用临时变量
+        Set<String> finalLikedIds = likedPostIds;
+        Set<String> finalCollectedIds = collectedPostIds;
+
+        List<PostVO> voList = postIds.stream()
+                .map(postMap::get) // 从 Map 取值
+                .filter(Objects::nonNull) // 过滤物理删除
+                .filter(doc -> {
+                    // 过滤逻辑删除
+                    return doc.getIsDeleted() == null || doc.getIsDeleted() == 0;
+                })
+                .map(doc -> {
+                    PostVO vo = new PostVO();
+                    vo.setId(doc.getId());
+                    vo.setTitle(doc.getTitle());
+                    vo.setType(doc.getType());
+                    vo.setCover(doc.getCover()); // 使用封面
+
+                    // 填充计数
+                    vo.setLikeCount(doc.getLikeCount());
+                    vo.setCollectCount(doc.getCollectCount());
+                    // 如果需要 commentCount 也在这里设置
+
+                    // 【新增修复】填充交互状态
+                    vo.setIsLiked(finalLikedIds.contains(doc.getId()));
+                    vo.setIsCollected(finalCollectedIds.contains(doc.getId()));
+                    // 关注状态(isFollowed) 如果需要也可以在这里批量查，方法同上
+
+                    // 填充作者
+                    UserInfo author = new UserInfo();
+                    author.setUserId(String.valueOf(doc.getUserId()));
+                    author.setNickname(doc.getUserNickname());
+                    author.setAvatar(doc.getUserAvatar());
+                    vo.setAuthor(author);
+
+                    // 填充我的评分
+                    if (scoreMap != null && scoreMap.containsKey(doc.getId())) {
+                        vo.setMyScore(scoreMap.get(doc.getId()));
+                    }
+
+                    // 填充时间
+                    if (doc.getCreatedAt() != null) {
+                        vo.setCreatedAt(doc.getCreatedAt().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
+                    }
+
+                    return vo;
+                })
+                .collect(Collectors.toList());
+
+        // 6. 组装返回
         Map<String, Object> result = new HashMap<>();
         result.put("records", voList);
         result.put("total", total);
