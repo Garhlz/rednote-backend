@@ -15,21 +15,14 @@ public class PostCreateDTO {
     @NotBlank(message = "内容不能为空")
     private String content;
 
-    /**
-     * 0:图文, 1:视频
-     */
     @NotNull(message = "帖子类型不能为空")
-    private Integer type;
+    private Integer type; // 0:图文, 1:视频, 2:纯文字
 
-    /**
-     * 图片URL列表 (type=0时必填)
-     */
+    // 统一用 images 接收图片（图文、纯文字背景图）
     private List<String> images;
 
-    /**
-     * 视频URL列表 (type=1时必填)
-     */
-    private List<String> videos;
+    // 单独接收视频（只有 type=1 时传，且只是一个字符串）
+    private String video;
 
     /**
      * 标签列表

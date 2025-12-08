@@ -41,10 +41,11 @@ public class PostEventListener {
 
         long start = System.currentTimeMillis();
 
+        // TODO 这里暂时不需要加入缓存（创建帖子的时候也没有使用缓存），后续可以缓存热门/推荐榜单
         // 1. 清理 Redis 缓存 (Cache Aside Pattern)
         // 假设你缓存了帖子详情，Key 格式如 "post:detail:{id}"
-        String cacheKey = "post:detail:" + postId;
-        redisTemplate.delete(cacheKey);
+//        String cacheKey = "post:detail:" + postId;
+//        redisTemplate.delete(cacheKey);
         // 如果有热门榜单缓存，可能也需要处理，或者等待其自动过期
         // redisTemplate.delete("rednote:tags:hot"); // 可选
 

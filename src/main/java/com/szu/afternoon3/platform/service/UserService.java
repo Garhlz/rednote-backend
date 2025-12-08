@@ -1,8 +1,10 @@
 package com.szu.afternoon3.platform.service;
 
 import com.szu.afternoon3.platform.dto.*;
+import com.szu.afternoon3.platform.vo.UserInfo;
 import com.szu.afternoon3.platform.vo.UserProfileVO;
 
+import java.util.List;
 import java.util.Map;
 
 public interface UserService {
@@ -38,4 +40,13 @@ public interface UserService {
 
     // 获取粉丝列表
     Map<String, Object> getFanList(String userId, Integer page, Integer size);
+
+    // 关注用户
+    void followUser(String targetUserId);
+
+    // 取消关注
+    void unfollowUser(String targetUserId);
+
+    // 获取好友列表 (互相关注)
+    List<UserInfo> getFriendList();
 }

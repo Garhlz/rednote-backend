@@ -12,21 +12,34 @@ public class PostVO {
 
     private String title;
     private String content;      // 列表页只返回前50字摘要，详情页返回全部
-    private Integer type;        // 0:图文, 1:视频
-    private List<String> images; // 列表页可能只返回封面(第1张)，详情页返回所有
-    private List<String> videos; // 视频列表
-    // TODO 如何确定图片/视频的顺序
+
+    /**
+     * 0: 图文 (多张图)
+     * 1: 视频 (单视频)
+     * 2: 纯文字 (本质上是带背景图的图文，但标记出来方便后续做特殊样式)
+     */
+    private Integer type;
+
+    // 列表页：只用 cover 展示
+    private String cover;
+
+    // 详情页：
+    // type=0/2: 前端读这个列表渲染轮播图/单图
+    private List<String> images;
+
+    // type=1: 前端读这个字段渲染播放器
+    private String video;
     // 交互计数
     private Integer likeCount;
     private Integer collectCount;
     private Integer commentCount;
 
-    // 💡 状态字段 (前端用于渲染红心/高亮)
+    // 状态字段 (前端用于渲染红心/高亮)
     private Boolean isLiked;     // 我是否点赞
     private Boolean isCollected; // 我是否收藏
     private Boolean isFollowed;  // 我是否关注了作者
 
     private String createdAt;    // 格式化后的时间
-    // 【新增】标签列表
+    // 标签列表
     private List<String> tags;
 }

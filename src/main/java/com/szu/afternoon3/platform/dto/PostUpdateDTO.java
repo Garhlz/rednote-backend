@@ -1,5 +1,6 @@
 package com.szu.afternoon3.platform.dto;
 
+import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
 import java.util.List;
@@ -11,10 +12,18 @@ public class PostUpdateDTO {
 
     private String content;
 
-    // 如果传了 images/videos，说明要覆盖原有的资源
+    // --- 资源互斥 ---
+
+    // 1. 如果是图文帖(type=0) 或 纯文字帖(type=2)，传这个
     private List<String> images;
 
-    private List<String> videos;
+    // 2. 如果是视频帖(type=1)，传这个 (单视频 URL)
+    private String video;
 
+    // ----------------
+
+    /**
+     * 标签列表
+     */
     private List<String> tags;
 }

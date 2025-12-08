@@ -29,10 +29,6 @@ public class PostDoc {
 //    @TextIndexed(weight = 1) // 权重1：内容匹配
     private String content;
 
-    private Integer type; // 0:图文, 1:视频
-
-    private List<Resource> resources;
-
 //    @TextIndexed(weight = 3) // 新增全文索引，用于模糊搜索 (searchPosts)
     @Indexed           // 保留普通索引，用于精确筛选 (getPostList)
     private List<String> tags;
@@ -50,11 +46,28 @@ public class PostDoc {
 
     private Integer isDeleted = 0;
 
-    @Data
-    public static class Resource {
-        private String url;
-        private String type; // IMAGE, VIDEO
-    }
+    /**
+     * 0: 图文 (多张图)
+     * 1: 视频 (单视频)
+     * 2: 纯文字 (本质上是带背景图的图文，但标记出来方便后续做特殊样式)
+     */
+    private Integer type;
+
+    /**
+     * 资源列表
+     * type=0: 存多张图片 URL
+     * type=1: 存【一个】视频 URL (约定 index 0 是视频)
+     * type=2: 存【一个】由前端生成的图片 URL
+     */
+    private List<String> resources; // 简化：直接存 String List，不再用 Resource 内部类
+
+    /**
+     * 封面图 (冗余字段，方便列表查询)
+     * type=0: resources[0]
+     * type=1: 视频URL + 阿里云截帧参数
+     * type=2: resources[0]
+     */
+    private String cover;
 
     // 平均分 (默认 0.0)
     // 前端展示时通常保留一位小数，如 4.5

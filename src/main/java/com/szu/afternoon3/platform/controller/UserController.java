@@ -1,13 +1,17 @@
 package com.szu.afternoon3.platform.controller;
 
+import cn.hutool.core.util.StrUtil;
 import com.szu.afternoon3.platform.common.Result;
 import com.szu.afternoon3.platform.dto.*;
+import com.szu.afternoon3.platform.exception.ResultCode;
 import com.szu.afternoon3.platform.service.UserService;
+import com.szu.afternoon3.platform.vo.UserInfo;
 import com.szu.afternoon3.platform.vo.UserProfileVO;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -104,5 +108,41 @@ public class UserController {
     ) {
         Map<String, Object> data = userService.getFanList(userId, page, size);
         return Result.success(data);
+    }
+
+    /**
+     * 关注用户
+     */
+    @PostMapping("/follow")
+    public Result<Void> followUser(@RequestBody Map<String, String> params) {
+        String targetUserId = params.get("targetUserId");
+        if (StrUtil.isBlank(targetUserId)) {
+            return Result.error(ResultCode.PARAM_ERROR);
+        }
+        userService.followUser(targetUserId);
+        return Result.success();
+    }
+
+    /**
+     * 取消关注
+     */
+    @PostMapping("/unfollow")
+    public Result<Void> unfollowUser(@RequestBody Map<String, String> params) {
+        String targetUserId = params.get("targetUserId");
+        if (StrUtil.isBlank(targetUserId)) {
+            return Result.error(ResultCode.PARAM_ERROR);
+        }
+        userService.unfollowUser(targetUserId);
+        return Result.success();
+    }
+
+    /**
+     * 获取好友列表 (互相关注)
+     * 用于聊天页面的联系人列表
+     */
+    @GetMapping("/friends")
+    public Result<List<UserInfo>> getFriends() {
+        List<UserInfo> list = userService.getFriendList();
+        return Result.success(list);
     }
 }

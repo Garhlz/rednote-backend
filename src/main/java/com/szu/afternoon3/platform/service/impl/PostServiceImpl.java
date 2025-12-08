@@ -365,6 +365,8 @@ public class PostServiceImpl implements PostService {
         return buildResultMap(postDocPage);
     }
 
+    // 阿里云 OSS 视频截帧参数: 截取第1000ms, 输出jpg, 模式为fast
+    private static final String OSS_VIDEO_SNAPSHOT_PARAM = "?x-oss-process=video/snapshot,t_1000,f_jpg,w_0,h_0,m_fast";
     @Override
     public String createPost(PostCreateDTO dto) {
         // 1. 获取当前登录用户ID
@@ -373,56 +375,57 @@ public class PostServiceImpl implements PostService {
             throw new AppException(ResultCode.UNAUTHORIZED);
         }
 
-        // 2. 校验资源文件 (根据 type 判断)
-        List<PostDoc.Resource> resources = new ArrayList<>();
-        if (dto.getType() == 0) {
-            // 图文模式：图片不能为空
-            if (CollUtil.isEmpty(dto.getImages())) {
-                throw new AppException(ResultCode.PARAM_ERROR, "图文帖子必须上传图片");
-            }
-            for (String url : dto.getImages()) {
-                PostDoc.Resource res = new PostDoc.Resource();
-                res.setUrl(url);
-                res.setType("IMAGE");
-                resources.add(res);
-            }
-        } else if (dto.getType() == 1) {
-            // 视频模式：视频不能为空
-            if (CollUtil.isEmpty(dto.getVideos())) {
-                throw new AppException(ResultCode.PARAM_ERROR, "视频帖子必须上传视频");
-            }
-            for (String url : dto.getVideos()) {
-                PostDoc.Resource res = new PostDoc.Resource();
-                res.setUrl(url);
-                res.setType("VIDEO");
-                resources.add(res);
-            }
-        } else {
-            throw new AppException(ResultCode.PARAM_ERROR, "未知的帖子类型");
-        }
-
-        // 3. 获取用户详细信息 (用于 MongoDB 冗余存储)
+        // 2. 获取用户详细信息 (用于 MongoDB 冗余存储)
         User user = userMapper.selectById(userId);
         if (user == null) {
             throw new AppException(ResultCode.USER_NOT_FOUND);
         }
 
-        // 4. 构建 MongoDB 文档对象
+        // 3. 构建 MongoDB 文档对象
         PostDoc post = new PostDoc();
         post.setUserId(userId);
 
-        // --- 冗余字段填充 (保证创建时的一致性) ---
+        // 冗余字段填充 (保证创建时的一致性)
         post.setUserNickname(user.getNickname());
         post.setUserAvatar(user.getAvatar());
-        // -------------------------------------
 
         post.setTitle(dto.getTitle());
         post.setContent(dto.getContent());
-        post.setType(dto.getType());
-        post.setResources(resources);
         post.setTags(dto.getTags());
 
-        // 初始化统计数据
+        // 4. 严格互斥逻辑
+        post.setType(dto.getType());
+
+        // --- 核心：资源与封面处理 ---
+        List<String> finalResources = new ArrayList<>();
+        String finalCover = "";
+
+        if (dto.getType() == 0 || dto.getType() == 2) {
+            // 场景: 图文(0) / 纯文字(2) -> 必须传 images
+            if (CollUtil.isEmpty(dto.getImages())) {
+                throw new AppException(ResultCode.PARAM_ERROR, "图片不能为空");
+            }
+            finalResources.addAll(dto.getImages());
+            // 封面默认取第1张
+            finalCover = dto.getImages().get(0);
+
+        } else if (dto.getType() == 1) {
+            // 场景: 视频(1) -> 必须传 video (String)
+            if (StrUtil.isBlank(dto.getVideo())) {
+                throw new AppException(ResultCode.PARAM_ERROR, "视频不能为空");
+            }
+            finalResources.add(dto.getVideo());
+            // 封面自动由 OSS 生成
+            finalCover = dto.getVideo() + OSS_VIDEO_SNAPSHOT_PARAM;
+        } else {
+            throw new AppException(ResultCode.PARAM_ERROR, "未知的帖子类型");
+        }
+
+        post.setResources(finalResources);
+        post.setCover(finalCover);
+        // -----------------------------
+
+        // 5. 初始化统计数据
         post.setViewCount(0);
         post.setLikeCount(0);
         post.setCollectCount(0);
@@ -430,16 +433,14 @@ public class PostServiceImpl implements PostService {
         post.setRatingAverage(0.0);
         post.setRatingCount(0);
 
-        // 设置状态 (直接发布)
-        // 这里不可以直接发布，需要提交给管理端或者后续接入的ai
-        // 【修改】默认状态设为 0 (审核中)，而不是 1 (直接发布)
+        // 6. 设置为审核中
         post.setStatus(0);
         post.setIsDeleted(0);
 
         post.setCreatedAt(java.time.LocalDateTime.now());
         post.setUpdatedAt(java.time.LocalDateTime.now());
 
-        // 5. 保存到 MongoDB
+        // 7. 保存到 MongoDB
         postRepository.save(post);
 
         // TODO: 发送异步事件通知审核模块 (AI 或 管理端)
@@ -448,6 +449,127 @@ public class PostServiceImpl implements PostService {
         return post.getId();
     }
 
+
+
+    @Override
+    public void deletePost(String postId) {
+        // 1. 获取当前登录用户
+        Long currentUserId = UserContext.getUserId();
+        if (currentUserId == null) {
+            throw new AppException(ResultCode.UNAUTHORIZED);
+        }
+
+        // 2. 查询帖子是否存在
+        PostDoc post = postRepository.findById(postId).orElse(null);
+        if (post == null || (post.getIsDeleted() != null && post.getIsDeleted() == 1)) {
+            throw new AppException(ResultCode.RESOURCE_NOT_FOUND, "帖子不存在或已删除");
+        }
+
+        // 3. 权限校验：必须是作者本人 OR 管理员
+        if (!post.getUserId().equals(currentUserId)) {
+            // 如果不是作者，查一下数据库看是不是管理员
+            User user = userMapper.selectById(currentUserId);
+            if (user == null || !"ADMIN".equalsIgnoreCase(user.getRole())) {
+                throw new AppException(ResultCode.UNAUTHORIZED, "无权删除他人帖子");
+            }
+        }
+
+        // 4. 执行逻辑删除 (Soft Delete)
+        // 我们只标记帖子为删除，关联数据的清理交给 Listener 异步处理
+        post.setIsDeleted(1);
+        post.setStatus(2); // 可选：标记状态为审核失败或特定状态，防止被搜索出来
+        post.setUpdatedAt(java.time.LocalDateTime.now());
+
+        postRepository.save(post);
+
+        // 5. 发布事件 (Spring Event)
+        // 解耦：Service 只管改状态，后续的 Redis 清理、关联数据删除交给 Listener
+        eventPublisher.publishEvent(new PostDeleteEvent(postId, currentUserId));
+    }
+
+    @Override
+    public void updatePost(String postId, PostUpdateDTO dto) {
+        Long currentUserId = UserContext.getUserId();
+        if (currentUserId == null) {
+            throw new AppException(ResultCode.UNAUTHORIZED);
+        }
+
+        PostDoc post = postRepository.findById(postId).orElse(null);
+        if (post == null || (post.getIsDeleted() != null && post.getIsDeleted() == 1)) {
+            throw new AppException(ResultCode.RESOURCE_NOT_FOUND);
+        }
+
+        if (!post.getUserId().equals(currentUserId)) {
+            throw new AppException(ResultCode.UNAUTHORIZED, "无权修改他人帖子");
+        }
+
+        boolean needAudit = false;
+
+        // 1. 更新基本文本
+        if (StrUtil.isNotBlank(dto.getTitle())) {
+            post.setTitle(dto.getTitle());
+            needAudit = true;
+        }
+        if (StrUtil.isNotBlank(dto.getContent())) {
+            post.setContent(dto.getContent());
+            needAudit = true;
+        }
+        if (dto.getTags() != null) {
+            post.setTags(dto.getTags());
+            needAudit = true;
+        }
+
+        // 2. 更新资源 (严格按照原有类型更新，不允许 Update 时修改 Type)
+        Integer currentType = post.getType();
+        boolean mediaChanged = false;
+
+        if (currentType == 0 || currentType == 2) {
+            // === 图文/文字贴 ===
+            if (StrUtil.isNotBlank(dto.getVideo())) {
+                throw new AppException(ResultCode.PARAM_ERROR, "图文帖子无法转为视频帖");
+            }
+            if (CollUtil.isNotEmpty(dto.getImages())) {
+                // 覆盖旧资源
+                post.setResources(dto.getImages());
+                // 更新封面为第1张
+                post.setCover(dto.getImages().get(0));
+                mediaChanged = true;
+            }
+        } else if (currentType == 1) {
+            // === 视频贴 ===
+            if (CollUtil.isNotEmpty(dto.getImages())) {
+                throw new AppException(ResultCode.PARAM_ERROR, "视频帖子无法转为图文帖");
+            }
+            if (StrUtil.isNotBlank(dto.getVideo())) {
+                // 覆盖旧视频
+                List<String> newRes = new ArrayList<>();
+                newRes.add(dto.getVideo());
+                post.setResources(newRes);
+                // 更新封面 (OSS)
+                post.setCover(dto.getVideo() + OSS_VIDEO_SNAPSHOT_PARAM);
+                mediaChanged = true;
+            }
+        }
+        if (mediaChanged) {
+            needAudit = true;
+        }
+
+        // 3. 状态重置与保存
+        if (needAudit) {
+            post.setStatus(0); // 重置为审核中
+        }
+        post.setUpdatedAt(java.time.LocalDateTime.now());
+        postRepository.save(post);
+
+        // 4. 清理缓存
+//        String cacheKey = "post:detail:" + postId;
+//        redisTemplate.delete(cacheKey);
+
+        // 5. 发布事件
+        if (needAudit) {
+            eventPublisher.publishEvent(new PostUpdateEvent(post.getId(), post.getTitle(), post.getContent()));
+        }
+    }
     // --- Private Methods ---
 
     // 1. 修改 buildResultMap 方法
@@ -548,29 +670,35 @@ public class PostServiceImpl implements PostService {
         vo.setAuthor(author);
 
         vo.setTitle(doc.getTitle());
-
+        // 列表页摘要
         if (isDetail) {
             vo.setContent(doc.getContent());
         } else {
             vo.setContent(StrUtil.subPre(doc.getContent(), 50));
         }
+
         vo.setTags(doc.getTags());
-
         vo.setType(doc.getType());
+        vo.setCover(doc.getCover()); // 直接返回封面
 
-        List<String> images = new ArrayList<>();
-        List<String> videos = new ArrayList<>();
-        if (doc.getResources() != null) {
-            for (PostDoc.Resource res : doc.getResources()) {
-                if ("VIDEO".equalsIgnoreCase(res.getType())) {
-                    videos.add(res.getUrl());
-                } else {
-                    images.add(res.getUrl());
+        // 详情页才返回具体资源
+        if (isDetail) {
+            if (doc.getType() != null && doc.getType() == 1) {
+                // 视频贴：填充 video 字段
+                if (CollUtil.isNotEmpty(doc.getResources())) {
+                    vo.setVideo(doc.getResources().get(0));
                 }
+                vo.setImages(Collections.emptyList());
+            } else {
+                // 图文贴：填充 images 字段
+                vo.setImages(doc.getResources());
+                vo.setVideo(null);
             }
+        } else {
+            // 列表页：资源置空，只留 cover 节省流量
+            vo.setImages(Collections.emptyList());
+            vo.setVideo(null);
         }
-        vo.setImages(images);
-        vo.setVideos(videos);
 
         vo.setLikeCount(doc.getLikeCount());
         vo.setCollectCount(doc.getCollectCount());
@@ -581,128 +709,5 @@ public class PostServiceImpl implements PostService {
         }
 
         return vo;
-    }
-
-    @Override
-    public void deletePost(String postId) {
-        // 1. 获取当前登录用户
-        Long currentUserId = UserContext.getUserId();
-        if (currentUserId == null) {
-            throw new AppException(ResultCode.UNAUTHORIZED);
-        }
-
-        // 2. 查询帖子是否存在
-        PostDoc post = postRepository.findById(postId).orElse(null);
-        if (post == null || (post.getIsDeleted() != null && post.getIsDeleted() == 1)) {
-            throw new AppException(ResultCode.RESOURCE_NOT_FOUND, "帖子不存在或已删除");
-        }
-
-        // 3. 权限校验：必须是作者本人 OR 管理员
-        if (!post.getUserId().equals(currentUserId)) {
-            // 如果不是作者，查一下数据库看是不是管理员
-            User user = userMapper.selectById(currentUserId);
-            if (user == null || !"ADMIN".equalsIgnoreCase(user.getRole())) {
-                throw new AppException(ResultCode.UNAUTHORIZED, "无权删除他人帖子");
-            }
-        }
-
-        // 4. 执行逻辑删除 (Soft Delete)
-        // 我们只标记帖子为删除，关联数据的清理交给 Listener 异步处理
-        post.setIsDeleted(1);
-        post.setStatus(2); // 可选：标记状态为审核失败或特定状态，防止被搜索出来
-        post.setUpdatedAt(java.time.LocalDateTime.now());
-
-        postRepository.save(post);
-
-        // 5. 发布事件 (Spring Event)
-        // 解耦：Service 只管改状态，后续的 Redis 清理、关联数据删除交给 Listener
-        eventPublisher.publishEvent(new PostDeleteEvent(postId, currentUserId));
-    }
-
-    @Override
-    public void updatePost(String postId, PostUpdateDTO dto) {
-        // 1. 获取当前用户
-        Long currentUserId = UserContext.getUserId();
-        if (currentUserId == null) {
-            throw new AppException(ResultCode.UNAUTHORIZED);
-        }
-
-        // 2. 查找帖子
-        PostDoc post = postRepository.findById(postId).orElse(null);
-        if (post == null || (post.getIsDeleted() != null && post.getIsDeleted() == 1)) {
-            throw new AppException(ResultCode.RESOURCE_NOT_FOUND);
-        }
-
-        // 3. 权限校验：只能修改自己的帖子
-        if (!post.getUserId().equals(currentUserId)) {
-            throw new AppException(ResultCode.UNAUTHORIZED, "无权修改他人帖子");
-        }
-
-        // 4. 更新字段 (如果不为 null 则更新)
-        boolean needAudit = false;
-
-        if (StrUtil.isNotBlank(dto.getTitle())) {
-            post.setTitle(dto.getTitle());
-            needAudit = true;
-        }
-        if (StrUtil.isNotBlank(dto.getContent())) {
-            post.setContent(dto.getContent());
-            needAudit = true;
-        }
-        if (dto.getTags() != null) {
-            post.setTags(dto.getTags());
-            needAudit = true; // 标签变了也建议重审
-        }
-
-        // 5. 重建资源列表 (图片/视频)
-        // 逻辑：如果前端传了 images 列表，则覆盖旧的资源；videos 同理
-        // 注意：PostDoc 中是一个 List<Resource>，需要根据 post.getType() 或参数来组装
-        List<PostDoc.Resource> newResources = new ArrayList<>();
-
-        // 如果 DTO 携带了新的媒体信息，我们需要处理
-        boolean mediaChanged = false;
-        if (CollUtil.isNotEmpty(dto.getImages())) {
-            for (String url : dto.getImages()) {
-                PostDoc.Resource res = new PostDoc.Resource();
-                res.setUrl(url);
-                res.setType("IMAGE");
-                newResources.add(res);
-            }
-            mediaChanged = true;
-        }
-
-        if (CollUtil.isNotEmpty(dto.getVideos())) {
-            // 如果是视频贴，且传了视频链接
-            for (String url : dto.getVideos()) {
-                PostDoc.Resource res = new PostDoc.Resource();
-                res.setUrl(url);
-                res.setType("VIDEO");
-                newResources.add(res);
-            }
-            mediaChanged = true;
-        }
-
-        // 如果发生了媒体变更，替换原有资源
-        if (mediaChanged) {
-            post.setResources(newResources);
-            needAudit = true;
-        }
-
-        // 6. 状态处理
-        // 关键逻辑：一旦内容修改，必须重置为"审核中"，防止逃避监管
-        if (needAudit) {
-            post.setStatus(0); // 0: 审核中
-        }
-
-        post.setUpdatedAt(java.time.LocalDateTime.now());
-
-        // 7. 保存到 MongoDB
-        postRepository.save(post);
-
-        // 8. 发布异步事件
-        // PostAuditListener 监听到此事件后，应重新调用 AI 审核接口
-        if (needAudit) {
-            eventPublisher.publishEvent(new PostUpdateEvent(post.getId(), post.getTitle(), post.getContent()));
-        }
     }
 }

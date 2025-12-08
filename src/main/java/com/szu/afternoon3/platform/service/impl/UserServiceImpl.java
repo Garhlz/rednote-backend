@@ -1,5 +1,6 @@
 package com.szu.afternoon3.platform.service.impl;
 
+import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.crypto.digest.BCrypt;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
@@ -12,6 +13,7 @@ import com.szu.afternoon3.platform.exception.ResultCode;
 import com.szu.afternoon3.platform.mapper.UserMapper;
 import com.szu.afternoon3.platform.repository.UserFollowRepository;
 import com.szu.afternoon3.platform.service.UserService;
+import com.szu.afternoon3.platform.vo.UserInfo;
 import com.szu.afternoon3.platform.vo.UserProfileVO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,6 +29,7 @@ import com.szu.afternoon3.platform.entity.mongo.UserFollowDoc;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -267,6 +270,104 @@ public class UserServiceImpl implements UserService {
         return result;
     }
 
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void followUser(String targetUserIdStr) {
+        Long currentUserId = UserContext.getUserId();
+        long targetUserId;
+        try {
+            targetUserId = Long.parseLong(targetUserIdStr);
+        } catch (NumberFormatException e) {
+            throw new AppException(ResultCode.PARAM_ERROR);
+        }
+
+        // 1. 不能关注自己
+        if (currentUserId.equals(targetUserId)) {
+            throw new AppException(ResultCode.PARAM_ERROR, "不能关注自己");
+        }
+
+        // 2. 检查是否已关注 (幂等性)
+        if (userFollowRepository.existsByUserIdAndTargetUserId(currentUserId, targetUserId)) {
+            return; // 已经关注了，直接返回成功，或者抛异常提示
+        }
+
+        // 3. 获取双方信息 (为了填充 Mongo 冗余字段)
+        // 使用 Postgres 查询，确保数据最新
+        User currentUser = userMapper.selectById(currentUserId);
+        User targetUser = userMapper.selectById(targetUserId);
+
+        if (targetUser == null) {
+            throw new AppException(ResultCode.USER_NOT_FOUND, "关注的用户不存在");
+        }
+
+        // 4. 构建文档并保存
+        UserFollowDoc followDoc = new UserFollowDoc();
+        followDoc.setUserId(currentUserId);
+        followDoc.setTargetUserId(targetUserId);
+
+        // 填充粉丝信息 (我)
+        followDoc.setUserNickname(currentUser.getNickname());
+        followDoc.setUserAvatar(currentUser.getAvatar());
+
+        // 填充博主信息 (对方)
+        followDoc.setTargetUserNickname(targetUser.getNickname());
+        followDoc.setTargetUserAvatar(targetUser.getAvatar());
+
+        followDoc.setCreatedAt(java.time.LocalDateTime.now());
+
+        userFollowRepository.save(followDoc);
+
+        // TODO: 在这里发一条系统通知：xxx 关注了你
+    }
+
+    @Override
+    public void unfollowUser(String targetUserIdStr) {
+        Long currentUserId = UserContext.getUserId();
+        long targetUserId;
+        try {
+            targetUserId = Long.parseLong(targetUserIdStr);
+        } catch (NumberFormatException e) {
+            throw new AppException(ResultCode.PARAM_ERROR);
+        }
+
+        userFollowRepository.deleteByUserIdAndTargetUserId(currentUserId, targetUserId);
+    }
+
+    @Override
+    public List<UserInfo> getFriendList() {
+        Long currentUserId = UserContext.getUserId();
+
+        // 逻辑：好友 = (我关注的人) ∩ (关注我的人)
+
+        // 1. 先查出 "我关注了谁" (只查 ID 即可，省流量)
+        List<UserFollowDoc> myFollowings = userFollowRepository.findFollowingIds(currentUserId);
+        if (CollUtil.isEmpty(myFollowings)) {
+            return new ArrayList<>();
+        }
+
+        // 提取出我关注的人的 ID 列表
+        List<Long> followingIds = myFollowings.stream()
+                .map(UserFollowDoc::getTargetUserId)
+                .collect(Collectors.toList());
+
+        // 2. 查 "这些 ID 里，谁关注了我"
+        // 这里的 userIdIn 是潜在的好友(我关注的人)，targetUserId 是我
+        List<UserFollowDoc> mutualFollows = userFollowRepository.findByUserIdInAndTargetUserId(followingIds, currentUserId);
+
+        // 3. 转换结果
+        // mutualFollows 里的每一条记录：
+        // userId = 好友ID (因为是他关注了我)
+        // userNickname = 好友昵称
+        // targetUserId = 我
+        return mutualFollows.stream().map(doc -> {
+            UserInfo info = new UserInfo();
+            info.setUserId(String.valueOf(doc.getUserId()));
+            info.setNickname(doc.getUserNickname());
+            info.setAvatar(doc.getUserAvatar());
+            // info.setEmail(...) // 好友列表通常不需要展示邮箱
+            return info;
+        }).collect(Collectors.toList());
+    }
     // Private Helpers
 
     private User getCurrentUser() {
