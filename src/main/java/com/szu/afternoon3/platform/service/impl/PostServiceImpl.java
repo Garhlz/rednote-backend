@@ -15,10 +15,7 @@ import com.szu.afternoon3.platform.event.PostDeleteEvent;
 import com.szu.afternoon3.platform.event.PostUpdateEvent;
 import com.szu.afternoon3.platform.exception.AppException;
 import com.szu.afternoon3.platform.exception.ResultCode;
-import com.szu.afternoon3.platform.repository.PostCollectRepository;
-import com.szu.afternoon3.platform.repository.PostLikeRepository;
-import com.szu.afternoon3.platform.repository.PostRepository;
-import com.szu.afternoon3.platform.repository.UserFollowRepository;
+import com.szu.afternoon3.platform.repository.*;
 import com.szu.afternoon3.platform.service.PostService;
 import com.szu.afternoon3.platform.vo.PostVO;
 import com.szu.afternoon3.platform.vo.UserInfo;
@@ -52,6 +49,8 @@ public class PostServiceImpl implements PostService {
     private PostLikeRepository postLikeRepository;
     @Autowired
     private PostCollectRepository postCollectRepository;
+    @Autowired
+    private PostRatingRepository postRatingRepository;
     @Autowired
     private MongoTemplate mongoTemplate;
     @Autowired
@@ -650,6 +649,9 @@ public class PostServiceImpl implements PostService {
             vo.setIsLiked(postLikeRepository.existsByUserIdAndPostId(currentUserId, doc.getId()));
             vo.setIsCollected(postCollectRepository.existsByUserIdAndPostId(currentUserId, doc.getId()));
             vo.setIsFollowed(userFollowRepository.existsByUserIdAndTargetUserId(currentUserId, doc.getUserId()));
+            // 【新增】 查询当前用户对该帖子的具体评分 (myScore)
+            postRatingRepository.findByUserIdAndPostId(currentUserId, doc.getId())
+                    .ifPresent(rating -> vo.setMyScore(rating.getScore()));
         } else {
             vo.setIsLiked(false);
             vo.setIsCollected(false);
@@ -703,6 +705,9 @@ public class PostServiceImpl implements PostService {
         vo.setLikeCount(doc.getLikeCount());
         vo.setCollectCount(doc.getCollectCount());
         vo.setCommentCount(doc.getCommentCount());
+
+        vo.setRatingAverage(doc.getRatingAverage()); // 这里的 doc.getRatingAverage() 对应 PostDoc 的字段
+        vo.setRatingCount(doc.getRatingCount());
 
         if (doc.getCreatedAt() != null) {
             vo.setCreatedAt(doc.getCreatedAt().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
