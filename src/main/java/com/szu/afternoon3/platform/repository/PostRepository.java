@@ -44,4 +44,8 @@ public interface PostRepository extends MongoRepository<PostDoc, String> {
 
     // 查询某人特定状态的帖子 (用于查看他人主页，只展示 Status=1 已发布的)
     Page<PostDoc> findByUserIdAndStatusAndIsDeleted(Long userId, Integer status, Integer isDeleted, Pageable pageable);
+
+    // 【新增】查询某人的帖子，支持按 type 筛选 (用于“我的帖子” - 相册/视频)
+    // isDeleted=0 (未逻辑删除)
+    Page<PostDoc> findByUserIdAndTypeAndIsDeleted(Long userId, Integer type, Integer isDeleted, Pageable pageable);
 }

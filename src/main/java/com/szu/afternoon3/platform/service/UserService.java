@@ -57,4 +57,22 @@ public interface UserService {
      * @return 包含双向关系状态的用户列表
      */
     List<UserSearchVO> searchUsers(String keyword);
+
+    // 获取我的点赞列表
+    Map<String, Object> getMyLikeList(Integer page, Integer size);
+
+    // 获取我的收藏列表
+    Map<String, Object> getMyCollectList(Integer page, Integer size);
+
+    // 获取我的评分列表
+    Map<String, Object> getMyRateList(Integer page, Integer size);
+
+    // 【新增】获取我的帖子
+    Map<String, Object> getMyPostList(Integer type, Integer page, Integer size);
+
+    // 【新增】获取浏览历史
+    Map<String, Object> getBrowsingHistory(Integer page, Integer size);
+
+    // 【新增】记录浏览历史 (给 PostService 调用)
+    void recordBrowsingHistory(Long userId, String postId);
 }
