@@ -39,6 +39,14 @@ public class PostVO {
     private Boolean isCollected; // 我是否收藏
     private Boolean isFollowed;  // 我是否关注了作者
 
+
+    // 【新增】评分统计
+    private Double ratingAverage; // 平均分 (e.g. 4.5)
+    private Integer ratingCount;  // 评分人数 (e.g. 102)
+
+    // 【新增】我的评分状态
+    private Double myScore;      // 我给出的评分 (若未评分则为 null 或 0.0)
+
     private String createdAt;    // 格式化后的时间
     // 标签列表
     private List<String> tags;
