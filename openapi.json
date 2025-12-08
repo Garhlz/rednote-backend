@@ -96,13 +96,18 @@
                         "hasPassword": {
                           "description": "前端注意：false 则在设置页引导设密码",
                           "type": "boolean"
+                        },
+                        "userSig": {
+                          "type": "string",
+                          "description": "腾讯IM服务的用户凭证"
                         }
                       },
                       "required": [
                         "token",
                         "userInfo",
                         "isNewUser",
-                        "hasPassword"
+                        "hasPassword",
+                        "userSig"
                       ]
                     }
                   },
@@ -281,13 +286,18 @@
                         },
                         "hasPassword": {
                           "type": "boolean"
+                        },
+                        "userSig": {
+                          "type": "string",
+                          "description": "腾讯IM服务的用户凭证"
                         }
                       },
                       "required": [
                         "token",
                         "userInfo",
                         "isNewUser",
-                        "hasPassword"
+                        "hasPassword",
+                        "userSig"
                       ]
                     }
                   },
@@ -1772,7 +1782,7 @@
                 ]
               },
               "example": {
-                "targetUserId": "5"
+                "targetUserId": "17"
               }
             }
           },
@@ -1822,7 +1832,9 @@
                   "targetUserId"
                 ]
               },
-              "examples": {}
+              "example": {
+                "targetUserId": "10"
+              }
             }
           },
           "required": true
@@ -1835,6 +1847,202 @@
                 "schema": {
                   "type": "object",
                   "properties": {}
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "jwt": []
+          }
+        ]
+      }
+    },
+    "/api/user/search": {
+      "get": {
+        "summary": "搜索用户",
+        "deprecated": false,
+        "description": "根据昵称或邮箱模糊搜索用户，并返回双向关注状态。",
+        "tags": [
+          "/api/user/"
+        ],
+        "parameters": [
+          {
+            "name": "keyword",
+            "in": "query",
+            "description": "搜索关键词（昵称/邮箱）",
+            "required": true,
+            "example": "test",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "userId": {
+                            "type": "string"
+                          },
+                          "nickname": {
+                            "type": "string"
+                          },
+                          "avatar": {
+                            "type": "string"
+                          },
+                          "email": {
+                            "type": "string"
+                          },
+                          "isFollowed": {
+                            "type": "boolean",
+                            "description": "我是否关注了他"
+                          },
+                          "isFollowingMe": {
+                            "type": "boolean",
+                            "description": "他是否关注了我"
+                          }
+                        },
+                        "required": [
+                          "userId",
+                          "nickname",
+                          "avatar",
+                          "isFollowed",
+                          "isFollowingMe"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                },
+                "example": {
+                  "code": 20000,
+                  "message": "success",
+                  "data": [
+                    {
+                      "userId": "1002",
+                      "nickname": "小青",
+                      "avatar": "http://...",
+                      "email": "test@szu.edu.cn",
+                      "isFollowed": true,
+                      "isFollowingMe": false
+                    },
+                    {
+                      "userId": "1003",
+                      "nickname": "悠悠",
+                      "avatar": "http://...",
+                      "email": "youyou@szu.edu.cn",
+                      "isFollowed": true,
+                      "isFollowingMe": true
+                    }
+                  ]
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "jwt": []
+          }
+        ]
+      }
+    },
+    "/api/user/friends": {
+      "get": {
+        "summary": "获取好友列表",
+        "deprecated": false,
+        "description": "",
+        "tags": [],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "description": "description: 请求成功",
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "userId": {
+                            "type": "integer"
+                          },
+                          "nickname": {
+                            "type": "string"
+                          },
+                          "avatar": {
+                            "type": "string"
+                          },
+                          "email": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "userId",
+                          "nickname",
+                          "avatar",
+                          "email"
+                        ],
+                        "description": "UserInfo的VO类"
+                      }
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                },
+                "example": {
+                  "code": 200,
+                  "message": "操作成功",
+                  "data": [
+                    {
+                      "userId": 10,
+                      "nickname": "Eglantine257",
+                      "avatar": "https://afternoon3-rednote.oss-cn-shenzhen.aliyuncs.com/default_avatar.jpg",
+                      "email": "test3@test.com"
+                    },
+                    {
+                      "userId": 9,
+                      "nickname": "Eglantine2357",
+                      "avatar": "https://afternoon3-rednote.oss-cn-shenzhen.aliyuncs.com/default_avatar.jpg",
+                      "email": "test4@test.com"
+                    }
+                  ]
                 }
               }
             },
@@ -1894,7 +2102,98 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "properties": {}
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "default": 200
+                    },
+                    "message": {
+                      "type": "string",
+                      "default": "操作成功"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "records": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "description": "帖子ID"
+                              },
+                              "title": {
+                                "type": "string",
+                                "description": "标题"
+                              },
+                              "type": {
+                                "type": "integer",
+                                "description": "0:图文, 1:视频"
+                              },
+                              "cover": {
+                                "type": "string",
+                                "description": "封面URL"
+                              },
+                              "likeCount": {
+                                "type": "integer"
+                              },
+                              "author": {
+                                "type": "object",
+                                "properties": {
+                                  "userId": {
+                                    "type": "string"
+                                  },
+                                  "nickname": {
+                                    "type": "string"
+                                  },
+                                  "avatar": {
+                                    "type": "string"
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        },
+                        "total": {
+                          "type": "integer"
+                        }
+                      }
+                    }
+                  }
+                },
+                "example": {
+                  "code": 11,
+                  "message": "Ut ipsum consectetur",
+                  "data": {
+                    "records": [
+                      {
+                        "id": "8",
+                        "title": "棒呆最面对哦自从",
+                        "type": 21,
+                        "cover": "consequat qui aliquip in",
+                        "likeCount": 25,
+                        "author": {
+                          "userId": "9",
+                          "nickname": "长孙梓晨",
+                          "avatar": "https://avatars.githubusercontent.com/u/67489248"
+                        }
+                      },
+                      {
+                        "id": "51",
+                        "title": "减去到一边直到跟着考虑到",
+                        "type": 90,
+                        "cover": "pariatur voluptate enim",
+                        "likeCount": 3,
+                        "author": {
+                          "userId": "14",
+                          "nickname": "象明",
+                          "avatar": "https://avatars.githubusercontent.com/u/81203236"
+                        }
+                      }
+                    ],
+                    "total": 90
+                  }
                 }
               }
             },
@@ -1945,7 +2244,128 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "properties": {}
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "description": "业务状态码",
+                      "default": 200
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "提示信息",
+                      "default": "操作成功"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "records": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "description": "帖子ID"
+                              },
+                              "title": {
+                                "type": "string",
+                                "description": "帖子标题"
+                              },
+                              "type": {
+                                "type": "integer",
+                                "description": "帖子类型: 0-图文, 1-视频"
+                              },
+                              "cover": {
+                                "type": "string",
+                                "description": "封面图URL"
+                              },
+                              "likeCount": {
+                                "type": "integer",
+                                "description": "点赞数"
+                              },
+                              "author": {
+                                "type": "object",
+                                "properties": {
+                                  "userId": {
+                                    "type": "string",
+                                    "description": "作者ID"
+                                  },
+                                  "nickname": {
+                                    "type": "string",
+                                    "description": "作者昵称"
+                                  },
+                                  "avatar": {
+                                    "type": "string",
+                                    "description": "作者头像URL"
+                                  }
+                                },
+                                "required": [
+                                  "userId",
+                                  "nickname",
+                                  "avatar"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "title",
+                              "type",
+                              "cover",
+                              "author"
+                            ]
+                          }
+                        },
+                        "total": {
+                          "type": "integer",
+                          "description": "总记录数"
+                        }
+                      },
+                      "required": [
+                        "records",
+                        "total"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                },
+                "example": {
+                  "code": 200,
+                  "message": "获取成功",
+                  "data": {
+                    "records": [
+                      {
+                        "id": "656e1234abcd5678",
+                        "title": "Arch Linux折腾笔记",
+                        "type": 0,
+                        "cover": "https://oss.example.com/img1.jpg",
+                        "author": {
+                          "userId": "10086",
+                          "nickname": "小青",
+                          "avatar": "https://oss.example.com/avatar.jpg"
+                        },
+                        "likeCount": 120
+                      },
+                      {
+                        "id": "656e9999xyz123",
+                        "title": "深圳周末去哪儿",
+                        "type": 1,
+                        "cover": "https://oss.example.com/video_cover.jpg",
+                        "author": {
+                          "userId": "10010",
+                          "nickname": "探店博主",
+                          "avatar": "https://oss.example.com/av2.jpg"
+                        },
+                        "likeCount": 88
+                      }
+                    ],
+                    "total": 52,
+                    "current": 1,
+                    "size": 20
+                  }
                 }
               }
             },
@@ -1996,7 +2416,116 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "properties": {}
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "description": "业务状态码",
+                      "default": 200
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "提示信息",
+                      "default": "操作成功"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "records": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "description": "帖子ID"
+                              },
+                              "title": {
+                                "type": "string",
+                                "description": "帖子标题"
+                              },
+                              "type": {
+                                "type": "integer",
+                                "description": "帖子类型: 0-图文, 1-视频"
+                              },
+                              "cover": {
+                                "type": "string",
+                                "description": "封面图URL"
+                              },
+                              "likeCount": {
+                                "type": "integer",
+                                "description": "点赞数"
+                              },
+                              "author": {
+                                "type": "object",
+                                "properties": {
+                                  "userId": {
+                                    "type": "string",
+                                    "description": "作者ID"
+                                  },
+                                  "nickname": {
+                                    "type": "string",
+                                    "description": "作者昵称"
+                                  },
+                                  "avatar": {
+                                    "type": "string",
+                                    "description": "作者头像URL"
+                                  }
+                                },
+                                "required": [
+                                  "userId",
+                                  "nickname",
+                                  "avatar"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "title",
+                              "type",
+                              "cover",
+                              "author"
+                            ]
+                          }
+                        },
+                        "total": {
+                          "type": "integer",
+                          "description": "总记录数"
+                        }
+                      },
+                      "required": [
+                        "records",
+                        "total"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                },
+                "example": {
+                  "code": 20000,
+                  "message": "获取成功",
+                  "data": {
+                    "records": [
+                      {
+                        "id": "656e1234abcd5678",
+                        "title": "这是我收藏的帖子",
+                        "type": 0,
+                        "cover": "https://oss.example.com/img1.jpg",
+                        "author": {
+                          "userId": "10086",
+                          "nickname": "小青",
+                          "avatar": "https://oss.example.com/avatar.jpg"
+                        },
+                        "likeCount": 120
+                      }
+                    ],
+                    "total": 10,
+                    "current": 1,
+                    "size": 20
+                  }
                 }
               }
             },
@@ -2050,7 +2579,13 @@
                   "properties": {
                     "code": {
                       "type": "integer",
-                      "example": 20000
+                      "description": "业务状态码",
+                      "default": 200
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "提示信息",
+                      "default": "操作成功"
                     },
                     "data": {
                       "type": "object",
@@ -2058,30 +2593,83 @@
                         "records": {
                           "type": "array",
                           "items": {
-                            "allOf": [
-                              {
-                                "type": "object",
-                                "properties": {}
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "description": "帖子ID"
                               },
-                              {
+                              "title": {
+                                "type": "string",
+                                "description": "帖子标题"
+                              },
+                              "type": {
+                                "type": "integer",
+                                "description": "帖子类型"
+                              },
+                              "cover": {
+                                "type": "string",
+                                "description": "封面图URL"
+                              },
+                              "likeCount": {
+                                "type": "integer",
+                                "description": "点赞数"
+                              },
+                              "myScore": {
+                                "type": "number",
+                                "description": "【重点】我给出的评分 (0.0 - 5.0)"
+                              },
+                              "author": {
                                 "type": "object",
                                 "properties": {
-                                  "myScore": {
-                                    "type": "number",
-                                    "description": "我给出的评分"
+                                  "userId": {
+                                    "type": "string",
+                                    "description": "作者ID"
+                                  },
+                                  "nickname": {
+                                    "type": "string",
+                                    "description": "作者昵称"
+                                  },
+                                  "avatar": {
+                                    "type": "string",
+                                    "description": "作者头像URL"
                                   }
-                                }
+                                },
+                                "required": [
+                                  "userId",
+                                  "nickname",
+                                  "avatar"
+                                ]
                               }
+                            },
+                            "required": [
+                              "id",
+                              "title",
+                              "type",
+                              "cover",
+                              "author",
+                              "myScore"
                             ]
                           }
                         },
                         "total": {
-                          "type": "integer"
+                          "type": "integer",
+                          "description": "总记录数"
                         }
-                      }
+                      },
+                      "required": [
+                        "records",
+                        "total"
+                      ]
                     }
-                  }
-                }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                },
+                "example": "{\r\n    \"code\": 20000,\r\n    \"message\": \"获取成功\",\r\n    \"data\": {\r\n        \"records\": [\r\n            {\r\n                \"id\": \"656e1234abcd5678\",\r\n                \"title\": \"这就很好的帖子\",\r\n                \"type\": 0,\r\n                \"cover\": \"https://oss.example.com/img1.jpg\",\r\n                \"author\": {\r\n                    \"userId\": \"10086\",\r\n                    \"nickname\": \"小青\",\r\n                    \"avatar\": \"https://oss.example.com/avatar.jpg\"\r\n                },\r\n                \"likeCount\": 120,\r\n                \"myScore\": 5.0 // <--- 重点：我给它评了5分\r\n            },\r\n            {\r\n                \"id\": \"656e9876...\",\r\n                \"title\": \"这个帖子一般般\",\r\n                \"type\": 0,\r\n                \"cover\": \"...\",\r\n                \"author\": { ...\r\n                },\r\n                \"likeCount\": 2,\r\n                \"myScore\": 3.0 // <--- 重点：我给它评了3分\r\n            }\r\n        ],\r\n        \"total\": 5,\r\n        \"current\": 1,\r\n        \"size\": 20\r\n    }\r\n}"
               }
             },
             "headers": {}
@@ -2131,7 +2719,98 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "properties": {}
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "default": 200
+                    },
+                    "message": {
+                      "type": "string",
+                      "default": "操作成功"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "records": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "description": "帖子ID"
+                              },
+                              "title": {
+                                "type": "string",
+                                "description": "标题"
+                              },
+                              "type": {
+                                "type": "integer",
+                                "description": "0:图文, 1:视频"
+                              },
+                              "cover": {
+                                "type": "string",
+                                "description": "封面URL"
+                              },
+                              "likeCount": {
+                                "type": "integer"
+                              },
+                              "author": {
+                                "type": "object",
+                                "properties": {
+                                  "userId": {
+                                    "type": "string"
+                                  },
+                                  "nickname": {
+                                    "type": "string"
+                                  },
+                                  "avatar": {
+                                    "type": "string"
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        },
+                        "total": {
+                          "type": "integer"
+                        }
+                      }
+                    }
+                  }
+                },
+                "example": {
+                  "code": 99,
+                  "message": "cillum pariatur ex commodo in",
+                  "data": {
+                    "records": [
+                      {
+                        "id": "40",
+                        "title": "整齐嗯航空邮件拉假设在弯曲一旦哎呀",
+                        "type": 45,
+                        "cover": "ut commodo occaecat",
+                        "likeCount": 82,
+                        "author": {
+                          "userId": "41",
+                          "nickname": "华颖",
+                          "avatar": "https://avatars.githubusercontent.com/u/72897348"
+                        }
+                      },
+                      {
+                        "id": "5",
+                        "title": "如果幸亏别花朵嗯哎哟",
+                        "type": 87,
+                        "cover": "occaecat dolore",
+                        "likeCount": 6,
+                        "author": {
+                          "userId": "12",
+                          "nickname": "辛英",
+                          "avatar": "https://avatars.githubusercontent.com/u/75612705"
+                        }
+                      }
+                    ],
+                    "total": 96
+                  }
                 }
               }
             },
@@ -2279,7 +2958,7 @@
       "get": {
         "summary": "获取首页帖子流",
         "deprecated": false,
-        "description": "获取首页推荐、关注或标签筛选的帖子列表。支持分页。",
+        "description": "获取首页推荐、关注或标签筛选的帖子列表。支持分页。只返回封面。\n因为目前没有审查发布机制，只能获得部分测试帖子",
         "tags": [],
         "parameters": [
           {
@@ -2305,7 +2984,8 @@
             "name": "tab",
             "in": "query",
             "description": "Tab类型：recommend(推荐), follow(关注)。默认为 recommend",
-            "required": false,
+            "required": true,
+            "example": "\"recommend\"",
             "schema": {
               "type": "string",
               "enum": [
@@ -2376,13 +3056,14 @@
                                 "type": "string"
                               },
                               "type": {
-                                "type": "integer"
+                                "type": "integer",
+                                "description": "0：图文，1：视频，2：文字",
+                                "title": "帖子类型"
                               },
-                              "images": {
-                                "type": "array",
-                                "items": {
-                                  "type": "string"
-                                }
+                              "cover": {
+                                "type": "string",
+                                "title": "封面",
+                                "description": "封面图/视频截帧/文字转图片"
                               },
                               "likeCount": {
                                 "type": "integer"
@@ -2399,7 +3080,10 @@
                               "createdAt": {
                                 "type": "string"
                               }
-                            }
+                            },
+                            "required": [
+                              "cover"
+                            ]
                           }
                         },
                         "total": {
@@ -2540,7 +3224,7 @@
       "get": {
         "summary": "搜索帖子",
         "deprecated": false,
-        "description": "根据关键词，从tag、标题、内容中模糊搜索，直接使用正则表达式，支持中文",
+        "description": "根据关键词，从tag、标题、内容中模糊搜索，直接使用正则表达式，支持中文。只返回封面",
         "tags": [],
         "parameters": [
           {
@@ -2548,7 +3232,7 @@
             "in": "query",
             "description": "搜索关键词",
             "required": true,
-            "example": "编程",
+            "example": "深圳",
             "schema": {
               "type": "string"
             }
@@ -2625,13 +3309,13 @@
                                 "type": "string"
                               },
                               "type": {
-                                "type": "integer"
+                                "type": "integer",
+                                "description": "0：图文，1：视频，2：文字",
+                                "title": "帖子类型"
                               },
-                              "images": {
-                                "type": "array",
-                                "items": {
-                                  "type": "string"
-                                }
+                              "cover": {
+                                "type": "string",
+                                "title": "封面"
                               },
                               "likeCount": {
                                 "type": "integer"
@@ -2648,7 +3332,10 @@
                               "createdAt": {
                                 "type": "string"
                               }
-                            }
+                            },
+                            "required": [
+                              "cover"
+                            ]
                           }
                         },
                         "total": {
@@ -2729,7 +3416,7 @@
             "in": "path",
             "description": "帖子ID (Mongo ObjectId)",
             "required": true,
-            "example": "post_test_004",
+            "example": "6936fd6866da6846430c615a",
             "schema": {
               "type": "string"
             }
@@ -2785,11 +3472,8 @@
                             "type": "string"
                           }
                         },
-                        "videos": {
-                          "type": "array",
-                          "items": {
-                            "type": "string"
-                          }
+                        "video": {
+                          "type": "string"
                         },
                         "likeCount": {
                           "type": "integer"
@@ -2820,7 +3504,7 @@
                         "content",
                         "type",
                         "images",
-                        "videos",
+                        "video",
                         "likeCount",
                         "collectCount",
                         "commentCount",
@@ -2889,8 +3573,9 @@
           {
             "name": "id",
             "in": "path",
-            "description": "需要删除的帖子id",
+            "description": "需要删除的帖子id，是mongo的string",
             "required": true,
+            "example": "693633b64fdf5a0d330b95c5",
             "schema": {
               "type": "string"
             }
@@ -2913,7 +3598,8 @@
                     "data": {
                       "type": "object",
                       "properties": {},
-                      "description": "数据"
+                      "description": "数据",
+                      "nullable": true
                     }
                   },
                   "required": [
@@ -2941,7 +3627,7 @@
       "put": {
         "summary": "修改帖子",
         "deprecated": false,
-        "description": "作者修改自己的帖子内容。提交后可能需要重新审核（取决于业务逻辑）。",
+        "description": "作者修改自己的帖子内容。提交后需要重新审核。",
         "tags": [
           "/api/post"
         ],
@@ -2949,9 +3635,9 @@
           {
             "name": "id",
             "in": "path",
-            "description": "",
+            "description": "帖子的id,是mongo的string",
             "required": true,
-            "example": "",
+            "example": "693633874fdf5a0d330b95c4",
             "schema": {
               "type": "string"
             }
@@ -2973,13 +3659,12 @@
                     "type": "array",
                     "items": {
                       "type": "string"
-                    }
+                    },
+                    "description": "图片url列表"
                   },
-                  "videos": {
-                    "type": "array",
-                    "items": {
-                      "type": "string"
-                    }
+                  "video": {
+                    "type": "string",
+                    "description": "视频url"
                   },
                   "tags": {
                     "type": "array",
@@ -2989,7 +3674,19 @@
                   }
                 }
               },
-              "examples": {}
+              "example": {
+                "title": "哎呀从最后揽噢红糟糕",
+                "content": "Excepteur elit magna id",
+                "images": [
+                  "https://loremflickr.com/400/400?lock=4505995967633681",
+                  "https://loremflickr.com/400/400?lock=762969650949673"
+                ],
+                "tags": [
+                  "ut ullamco amet tempor",
+                  "commodo",
+                  "ea"
+                ]
+              }
             }
           }
         },
@@ -3018,7 +3715,7 @@
             "in": "query",
             "description": "用户输入的关键词",
             "required": true,
-            "example": "编程",
+            "example": "tes",
             "schema": {
               "type": "string"
             }
@@ -3073,18 +3770,19 @@
         ]
       }
     },
-    "/api/post/{userId}": {
+    "/api/post/user/{userId}": {
       "get": {
         "summary": "获取用户的帖子",
         "deprecated": false,
-        "description": "",
+        "description": "只返回封面",
         "tags": [],
         "parameters": [
           {
             "name": "userId",
             "in": "path",
-            "description": "",
+            "description": "目标用户ID",
             "required": true,
+            "example": "9",
             "schema": {
               "type": "string"
             }
@@ -3092,7 +3790,7 @@
           {
             "name": "page",
             "in": "query",
-            "description": "",
+            "description": "页码",
             "required": false,
             "schema": {
               "type": "integer",
@@ -3102,7 +3800,7 @@
           {
             "name": "size",
             "in": "query",
-            "description": "",
+            "description": "每页数量",
             "required": false,
             "schema": {
               "type": "integer",
@@ -3117,7 +3815,175 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "properties": {}
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "title": "状态码"
+                    },
+                    "message": {
+                      "type": "string",
+                      "title": "提示信息",
+                      "description": "操作结果的文本描述"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "records": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "title": "帖子id",
+                                "description": "mongo的id,是string"
+                              },
+                              "author": {
+                                "type": "object",
+                                "properties": {
+                                  "userId": {
+                                    "type": "string"
+                                  },
+                                  "nickname": {
+                                    "type": "string"
+                                  },
+                                  "avatar": {
+                                    "type": "string",
+                                    "nullable": true
+                                  },
+                                  "email": {
+                                    "type": "string",
+                                    "nullable": true
+                                  }
+                                },
+                                "required": [
+                                  "userId",
+                                  "nickname",
+                                  "avatar",
+                                  "email"
+                                ]
+                              },
+                              "title": {
+                                "type": "string"
+                              },
+                              "content": {
+                                "type": "string"
+                              },
+                              "type": {
+                                "type": "integer",
+                                "description": "0：图文，1：视频，2：文字"
+                              },
+                              "cover": {
+                                "type": "string",
+                                "title": "封面"
+                              },
+                              "tags": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              },
+                              "likeCount": {
+                                "type": "integer"
+                              },
+                              "collectCount": {
+                                "type": "integer"
+                              },
+                              "commentCount": {
+                                "type": "integer"
+                              },
+                              "isLiked": {
+                                "type": "boolean"
+                              },
+                              "isCollected": {
+                                "type": "boolean"
+                              },
+                              "isFollowed": {
+                                "type": "boolean"
+                              },
+                              "createdAt": {
+                                "type": "string"
+                              }
+                            },
+                            "description": "单个帖子的详细信息",
+                            "required": [
+                              "cover"
+                            ]
+                          },
+                          "title": "帖子列表",
+                          "description": "当前页包含的所有帖子记录"
+                        },
+                        "total": {
+                          "type": "integer",
+                          "title": "总条数",
+                          "description": "满足条件的总记录数量"
+                        },
+                        "current": {
+                          "type": "integer",
+                          "title": "当前页码",
+                          "description": "当前查询的是第几页"
+                        },
+                        "size": {
+                          "type": "integer",
+                          "title": "每页数量",
+                          "description": "每页显示的记录条数"
+                        }
+                      },
+                      "title": "数据主体",
+                      "description": "包含分页信息和帖子列表的核心数据",
+                      "required": [
+                        "records",
+                        "total",
+                        "current",
+                        "size"
+                      ],
+                      "nullable": true
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                },
+                "example": {
+                  "code": 200,
+                  "message": "操作成功",
+                  "data": {
+                    "records": [
+                      {
+                        "id": "656e1234abcd5678",
+                        "author": {
+                          "userId": "10086",
+                          "nickname": "小青",
+                          "avatar": "https://oss.example.com/avatar.jpg",
+                          "email": "user@example.com"
+                        },
+                        "title": "这是帖子标题",
+                        "content": "这是帖子摘要内容，通常只显示前50个字...",
+                        "type": 0,
+                        "images": [
+                          "https://oss.example.com/img1.jpg",
+                          "https://oss.example.com/img2.jpg"
+                        ],
+                        "videos": [],
+                        "tags": [
+                          "美食",
+                          "探店"
+                        ],
+                        "likeCount": 102,
+                        "collectCount": 20,
+                        "commentCount": 5,
+                        "isLiked": true,
+                        "isCollected": false,
+                        "isFollowed": true,
+                        "createdAt": "2025-12-05 12:00:00"
+                      }
+                    ],
+                    "total": 50,
+                    "current": 1,
+                    "size": 20
+                  }
                 }
               }
             },
@@ -3156,8 +4022,13 @@
                   },
                   "type": {
                     "type": "integer",
-                    "description": "0:图文, 1:视频",
-                    "title": "帖子类型"
+                    "title": "帖子类型",
+                    "description": "0：图文，1：视频，2：文字",
+                    "enum": [
+                      0,
+                      1,
+                      2
+                    ]
                   },
                   "images": {
                     "type": "array",
@@ -3167,13 +4038,10 @@
                     "description": "图片URL列表 (type=0时必填)",
                     "title": "图片URL列表"
                   },
-                  "videos": {
-                    "type": "array",
-                    "items": {
-                      "type": "string"
-                    },
-                    "description": "视频URL列表 (type=1时必填)",
-                    "title": "视频URL列表"
+                  "video": {
+                    "type": "string",
+                    "title": "视频URL",
+                    "description": "视频URL (type=1时必填)"
                   },
                   "tags": {
                     "type": "array",
@@ -3191,39 +4059,21 @@
                 ]
               },
               "example": {
-                "title": {
-                  "type": "string",
-                  "description": "标题"
-                },
-                "content": {
-                  "type": "string",
-                  "description": "正文内容"
-                },
-                "type": {
-                  "type": "integer",
-                  "description": "0:图文, 1:视频"
-                },
-                "images": {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  },
-                  "description": "图片URL列表 (type=0时必填)"
-                },
-                "videos": {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  },
-                  "description": "视频URL列表 (type=1时必填)"
-                },
-                "tags": {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  },
-                  "description": "标签列表，如 ['美食', '探店']"
-                }
+                "title": "这个哎呀沿着因为哦一定",
+                "content": "ipsum consequat velit reprehenderit",
+                "type": 0,
+                "images": [
+                  "https://loremflickr.com/400/400?lock=6308966629459966",
+                  "https://loremflickr.com/400/400?lock=4495553087669805",
+                  "https://loremflickr.com/400/400?lock=7393863764021332"
+                ],
+                "tags": [
+                  "计算机",
+                  "深圳的大学",
+                  "test",
+                  "dolore laborum magna",
+                  "adipisicing"
+                ]
               }
             }
           },
@@ -3253,7 +4103,8 @@
                       },
                       "required": [
                         "id"
-                      ]
+                      ],
+                      "nullable": true
                     }
                   },
                   "required": [
@@ -3358,7 +4209,7 @@
                 "properties": {
                   "postId": {
                     "type": "string",
-                    "description": "帖子ID",
+                    "description": "帖子ID，是mongo的string",
                     "title": "帖子ID"
                   }
                 },
@@ -3366,7 +4217,9 @@
                   "postId"
                 ]
               },
-              "examples": {}
+              "example": {
+                "postId": "693644a98ed84a6cc5bce5a3"
+              }
             }
           },
           "required": true
@@ -3378,7 +4231,27 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "properties": {}
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                },
+                "example": {
+                  "code": 200,
+                  "message": "success",
+                  "data": null
                 }
               }
             },
@@ -3392,7 +4265,7 @@
         ]
       }
     },
-    "/api/interaction/unilke/post": {
+    "/api/interaction/unlike/post": {
       "post": {
         "summary": "取消点赞帖子",
         "deprecated": false,
@@ -3415,7 +4288,9 @@
                   "postId"
                 ]
               },
-              "examples": {}
+              "example": {
+                "postId": "693644a98ed84a6cc5bce5a3"
+              }
             }
           },
           "required": true
@@ -3484,7 +4359,9 @@
                   "postId"
                 ]
               },
-              "examples": {}
+              "example": {
+                "postId": "693644a98ed84a6cc5bce5a3"
+              }
             }
           },
           "required": true
@@ -3496,7 +4373,27 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "properties": {}
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                },
+                "example": {
+                  "code": 200,
+                  "message": "success",
+                  "data": null
                 }
               }
             },
@@ -3545,7 +4442,27 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "properties": {}
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                },
+                "example": {
+                  "code": 200,
+                  "message": "success",
+                  "data": null
                 }
               }
             },
@@ -3566,6 +4483,34 @@
         "description": "",
         "tags": [],
         "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "postId": {
+                    "type": "string",
+                    "title": "帖子id"
+                  },
+                  "score": {
+                    "type": "number",
+                    "title": "评分"
+                  }
+                },
+                "required": [
+                  "postId",
+                  "score"
+                ]
+              },
+              "example": {
+                "postId": "693644a98ed84a6cc5bce5a3",
+                "score": 4.5
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "description": "",
@@ -3573,10 +4518,31 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "properties": {}
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                },
+                "example": {
+                  "code": 200,
+                  "message": "success",
+                  "data": null
                 }
               }
-            }
+            },
+            "headers": {}
           }
         },
         "security": [
@@ -3610,7 +4576,9 @@
                   "commentId"
                 ]
               },
-              "examples": {}
+              "example": {
+                "commentId": "12"
+              }
             }
           }
         },
@@ -4058,4 +5026,4 @@
       "jwt": []
     }
   ]
-}
+}c

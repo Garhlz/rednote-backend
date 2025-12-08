@@ -31,6 +31,10 @@
 
     API 文档: Apifox / Swagger / OpenAPI 3
 
+    搜索分词: Jieba Analysis (中文分词与关键词提取)
+
+    即时通讯: Tencent Cloud IM (集成用户签名生成 UserSig)
+
 ## 🏗 系统架构 (Architecture)
 
 系统采用典型的分层架构，并预留了 AI 模块的扩展接口。
@@ -45,15 +49,30 @@ graph TD
     Boot --> OSS[阿里云 OSS]
     Boot -->|异步调用| AI[AI 服务 (Python/预留)]
 ```
+
+## 核心架构设计亮点
+1.  **混合存储策略 (Polyglot Persistence)**
+    -   **PostgreSQL**: 作为 Source of Truth，存储核心用户账号、关系型强事务数据。
+    -   **MongoDB**: 存储帖子(Post)、评论(Comment)及海量交互数据。利用其 Schema-free 特性冗余用户信息(Nickname/Avatar)，避免 N+1 查询问题。
+
+2.  **异步事件驱动 (Event-Driven Consistency)**
+    -   利用 `Spring Events` + `@Async` 实现业务解耦。
+    -   **写缓冲 (Write-Behind)**: 点赞、收藏等高频互动先写入 Redis，随后通过事件异步落库 MongoDB，削峰填谷。
+    -   **最终一致性**: 用户修改资料后，通过 `UserUpdateEvent` 异步触发 MongoDB 中冗余数据的批量更新。
+
 ## 核心模块划分
 
     Auth 模块: 处理微信一键登录、账号注册、邮件验证码、JWT 签发。
 
     User 模块: 用户信息管理、邮箱绑定、个人资料修改。
 
-    Post 模块: 笔记发布、流媒体处理。
+    Post 模块: 
+    -   支持图文/视频混合发布流。
+    -   混合搜索: 集成 Jieba 分词构建 MongoDB Text Index，并提供 Regex 兜底策略，支持“联想词”推荐。
 
-    Interaction 模块: 点赞、收藏、评论。
+    Interaction 模块:
+    -   实现了 点赞/收藏/评分(Rating) 的全套逻辑。
+    -   基于 Redis Set/Hash 实现去重与快速计数，保障高并发下的数据准确性。
 
 ## 项目结构
 ```
@@ -108,14 +127,7 @@ graph TD
 MongoDB 不需要提前建表（它会自动创建），但为了方便可视化，建议手动初始化集合。
 1.  打开终端或 MongoDB 客户端工具。
 2.  创建一个数据库，命名为 `rednote`。
-3.  运行以下脚本创建集合：
-    ```javascript
-    db.createCollection("posts")
-    db.createCollection("comments")
-    db.createCollection("post_likes")
-    db.createCollection("post_collects")
-    db.createCollection("user_follows")
-    ```
+
 #### 2.3 Redis 配置
 本地启动一个 Redis 服务，默认端口 6379 即可。
 
@@ -155,6 +167,14 @@ WECHAT_SECRET=你的SECRET
 MAIL_HOST=smtp.163.com
 MAIL_USERNAME=你的邮箱@163.com
 MAIL_PASSWORD=你的授权码
+
+# --- 腾讯云 IM (新增) ---
+TENCENT_IM_SDK_APPID=你的SDKAppID
+TENCENT_IM_SECRET_KEY=你的密钥
+
+# --- 内容安全 (新增) ---
+# 是否开启帖子自动进入审核状态 (true=发帖后状态为0, false=直接发布)
+POST_AUDIT_ENABLE=false
 ```
 ### 3. 如何运行项目 (Run)
 
