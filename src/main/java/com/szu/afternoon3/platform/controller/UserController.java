@@ -156,4 +156,57 @@ public class UserController {
         List<UserSearchVO> list = userService.searchUsers(keyword);
         return Result.success(list);
     }
+
+    /**
+     * 获取我的点赞列表
+     */
+    @GetMapping("/likes")
+    public Result<Map<String, Object>> getMyLikes(
+            @RequestParam(required = false, defaultValue = "1") Integer page,
+            @RequestParam(required = false, defaultValue = "20") Integer size) {
+        return Result.success(userService.getMyLikeList(page, size));
+    }
+
+    /**
+     * 获取我的收藏列表
+     */
+    @GetMapping("/collects")
+    public Result<Map<String, Object>> getMyCollects(
+            @RequestParam(required = false, defaultValue = "1") Integer page,
+            @RequestParam(required = false, defaultValue = "20") Integer size) {
+        return Result.success(userService.getMyCollectList(page, size));
+    }
+
+    /**
+     * 获取我的评分列表
+     */
+    @GetMapping("/ratings")
+    public Result<Map<String, Object>> getMyRatings(
+            @RequestParam(required = false, defaultValue = "1") Integer page,
+            @RequestParam(required = false, defaultValue = "20") Integer size) {
+        return Result.success(userService.getMyRateList(page, size));
+    }
+
+    /**
+     * 获取我的帖子列表 (支持按类型筛选)
+     * 对应接口: /api/user/posts
+     */
+    @GetMapping("/posts")
+    public Result<Map<String, Object>> getMyPosts(
+            @RequestParam(required = false) Integer type,
+            @RequestParam(required = false, defaultValue = "1") Integer page,
+            @RequestParam(required = false, defaultValue = "20") Integer size) {
+        return Result.success(userService.getMyPostList(type, page, size));
+    }
+
+    /**
+     * 获取浏览历史
+     * 对应接口: /api/user/history
+     */
+    @GetMapping("/history")
+    public Result<Map<String, Object>> getHistory(
+            @RequestParam(required = false, defaultValue = "1") Integer page,
+            @RequestParam(required = false, defaultValue = "20") Integer size) {
+        return Result.success(userService.getBrowsingHistory(page, size));
+    }
 }

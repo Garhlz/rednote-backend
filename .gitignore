@@ -35,7 +35,12 @@ build/
 **/digest.txt
 
 **/repomix-output.xml
+.repomixignore
 
 .env
 
 uploads/
+
+mongo_data/
+pg_data/
+
