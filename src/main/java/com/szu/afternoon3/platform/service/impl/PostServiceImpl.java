@@ -24,6 +24,7 @@ import com.szu.afternoon3.platform.dto.PostCreateDTO;
 import com.szu.afternoon3.platform.entity.User;
 import com.szu.afternoon3.platform.mapper.UserMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.*;
 import org.springframework.data.mongodb.core.MongoTemplate;
@@ -377,6 +378,10 @@ public class PostServiceImpl implements PostService {
 
     // 阿里云 OSS 视频截帧参数: 截取第1000ms, 输出jpg, 模式为fast
     private static final String OSS_VIDEO_SNAPSHOT_PARAM = "?x-oss-process=video/snapshot,t_1000,f_jpg,w_0,h_0,m_fast";
+    // 【新增】读取配置文件中的审核开关
+    @Value("${app.post.audit-enable:false}")
+    private boolean auditEnable;
+
     @Override
     public String createPost(PostCreateDTO dto) {
         // 1. 获取当前登录用户ID
@@ -447,8 +452,10 @@ public class PostServiceImpl implements PostService {
         post.setRatingAverage(0.0);
         post.setRatingCount(0);
 
-        // 6. 设置为审核中
-        post.setStatus(0);
+        // 根据配置决定初始状态
+        // auditEnable = true  -> status = 0 (审核中)
+        // auditEnable = false -> status = 1 (直接发布)
+        post.setStatus(auditEnable ? 0 : 1);
         post.setIsDeleted(0);
 
         post.setCreatedAt(java.time.LocalDateTime.now());
@@ -573,7 +580,7 @@ public class PostServiceImpl implements PostService {
             // 如果文本变了，重新生成分词
             List<String> terms = searchHelper.generateSearchTerms(post.getTitle(), post.getContent(), post.getTags());
             post.setSearchTerms(terms);
-            post.setStatus(0); // 重置为审核中
+            post.setStatus(auditEnable ? 0 : 1);
         }
         post.setUpdatedAt(java.time.LocalDateTime.now());
         postRepository.save(post);

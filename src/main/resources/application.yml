@@ -67,3 +67,9 @@ tencent:
     sdk-appid: ${TENCENT_IM_SDK_APPID}
     secret-key: ${TENCENT_IM_SECRET_KEY}
     expire-time: 604800 # 签名有效期，单位秒 (建议 7 天，与 Token 保持一致)
+
+app:
+  post:
+    # 是否开启帖子审核
+    # 默认为 false (直接发布)，可通过 .env 文件中的 POST_AUDIT_ENABLE=true 开启
+    audit-enable: ${POST_AUDIT_ENABLE:false}
