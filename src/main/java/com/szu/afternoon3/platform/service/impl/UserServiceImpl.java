@@ -7,15 +7,17 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.szu.afternoon3.platform.common.UserContext;
 import com.szu.afternoon3.platform.dto.*;
 import com.szu.afternoon3.platform.entity.User;
+import com.szu.afternoon3.platform.entity.mongo.*;
 import com.szu.afternoon3.platform.event.UserUpdateEvent;
 import com.szu.afternoon3.platform.exception.AppException;
 import com.szu.afternoon3.platform.exception.ResultCode;
 import com.szu.afternoon3.platform.mapper.UserMapper;
-import com.szu.afternoon3.platform.repository.UserFollowRepository;
+import com.szu.afternoon3.platform.repository.*;
 import com.szu.afternoon3.platform.service.UserService;
 import com.szu.afternoon3.platform.vo.UserInfo;
 import com.szu.afternoon3.platform.vo.UserProfileVO;
 import com.szu.afternoon3.platform.vo.UserSearchVO;
+import com.szu.afternoon3.platform.vo.PostVO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEventPublisher;
@@ -55,6 +57,16 @@ public class UserServiceImpl implements UserService {
         User user = getCurrentUser();
         return buildProfileVO(user);
     }
+
+    @Autowired
+    private PostLikeRepository postLikeRepository;
+    @Autowired
+    private PostCollectRepository postCollectRepository;
+    @Autowired
+    private PostRatingRepository postRatingRepository;
+    @Autowired
+    private PostRepository postRepository;
+
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -474,5 +486,101 @@ public class UserServiceImpl implements UserService {
             }
             return vo;
         }).collect(Collectors.toList());
+    }
+
+    // ================== 1. 获取我的点赞列表 ==================
+    @Override
+    public Map<String, Object> getMyLikeList(Integer page, Integer size) {
+        Long userId = UserContext.getUserId();
+        // 按时间倒序
+        Pageable pageable = PageRequest.of(page - 1, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+
+        // 查关系表
+        Page<PostLikeDoc> docPage = postLikeRepository.findByUserId(userId, pageable);
+
+        // 提取 ID 列表
+        List<String> postIds = docPage.getContent().stream()
+                .map(PostLikeDoc::getPostId)
+                .collect(Collectors.toList());
+
+        // 转换并返回
+        return buildPostListResult(postIds, docPage.getTotalElements(), null);
+    }
+
+    // ================== 2. 获取我的收藏列表 ==================
+    @Override
+    public Map<String, Object> getMyCollectList(Integer page, Integer size) {
+        Long userId = UserContext.getUserId();
+        Pageable pageable = PageRequest.of(page - 1, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+
+        Page<PostCollectDoc> docPage = postCollectRepository.findByUserId(userId, pageable);
+
+        List<String> postIds = docPage.getContent().stream()
+                .map(PostCollectDoc::getPostId)
+                .collect(Collectors.toList());
+
+        return buildPostListResult(postIds, docPage.getTotalElements(), null);
+    }
+
+    // ================== 3. 获取我的评分列表 ==================
+    @Override
+    public Map<String, Object> getMyRateList(Integer page, Integer size) {
+        Long userId = UserContext.getUserId();
+        Pageable pageable = PageRequest.of(page - 1, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+
+        Page<PostRatingDoc> docPage = postRatingRepository.findByUserId(userId, pageable);
+
+        List<String> postIds = new ArrayList<>();
+        // 建立 postId -> score 的映射，方便后面填入 VO
+        Map<String, Double> scoreMap = new HashMap<>();
+
+        for (PostRatingDoc doc : docPage.getContent()) {
+            postIds.add(doc.getPostId());
+            scoreMap.put(doc.getPostId(), doc.getScore());
+        }
+
+        return buildPostListResult(postIds, docPage.getTotalElements(), scoreMap);
+    }
+
+    // ================== 私有通用方法：批量查帖子并转 VO ==================
+    private Map<String, Object> buildPostListResult(List<String> postIds, long total, Map<String, Double> scoreMap) {
+        if (CollUtil.isEmpty(postIds)) {
+            Map<String, Object> res = new HashMap<>();
+            res.put("records", Collections.emptyList());
+            res.put("total", 0);
+            return res;
+        }
+
+        // 1. 批量查帖子详情
+        List<PostDoc> posts = postRepository.findAllById(postIds);
+
+        // 2. 转 VO (简化版，列表页不需要所有资源，有 cover 就够了)
+        List<PostVO> voList = posts.stream().map(doc -> {
+            PostVO vo = new PostVO();
+            vo.setId(doc.getId());
+            vo.setTitle(doc.getTitle());
+            vo.setType(doc.getType());
+            vo.setCover(doc.getCover()); // 直接使用 PostDoc 里存好的封面
+            vo.setLikeCount(doc.getLikeCount());
+
+            // 填充作者
+            UserInfo author = new UserInfo();
+            author.setUserId(String.valueOf(doc.getUserId()));
+            author.setNickname(doc.getUserNickname());
+            author.setAvatar(doc.getUserAvatar());
+            vo.setAuthor(author);
+
+            // 如果有评分映射，填充评分
+            if (scoreMap != null && scoreMap.containsKey(doc.getId())) {
+                vo.setMyScore(scoreMap.get(doc.getId()));
+            }
+
+            return vo;
+        }).collect(Collectors.toList());
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("records", voList);
+        result.put("total", total);
+        return result;
     }
 }

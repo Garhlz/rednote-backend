@@ -57,4 +57,13 @@ public interface UserService {
      * @return 包含双向关系状态的用户列表
      */
     List<UserSearchVO> searchUsers(String keyword);
+
+    // 获取我的点赞列表
+    Map<String, Object> getMyLikeList(Integer page, Integer size);
+
+    // 获取我的收藏列表
+    Map<String, Object> getMyCollectList(Integer page, Integer size);
+
+    // 获取我的评分列表
+    Map<String, Object> getMyRateList(Integer page, Integer size);
 }

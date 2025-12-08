@@ -42,4 +42,6 @@ public class PostVO {
     private String createdAt;    // 格式化后的时间
     // 标签列表
     private List<String> tags;
+
+    private Double myScore; // 我给出的评分
 }
