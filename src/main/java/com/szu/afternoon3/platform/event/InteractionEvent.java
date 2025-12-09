@@ -14,12 +14,12 @@ public class InteractionEvent {
     private Long userId;
 
     /**
-     * 目标ID (帖子ID 或 评论ID)
+     * 目标ID (帖子ID 或 评论ID 或目标用户ID)
      */
     private String targetId;
 
     /**
-     * 交互类型: LIKE(点赞), COLLECT(收藏), RATE(评分)
+     * 交互类型: LIKE(点赞), COLLECT(收藏), RATE(评分), FOLLOW(关注)
      */
     private String type;
 

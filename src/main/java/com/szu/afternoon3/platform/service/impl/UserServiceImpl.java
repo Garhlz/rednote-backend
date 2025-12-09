@@ -8,6 +8,7 @@ import com.szu.afternoon3.platform.common.UserContext;
 import com.szu.afternoon3.platform.dto.*;
 import com.szu.afternoon3.platform.entity.User;
 import com.szu.afternoon3.platform.entity.mongo.*;
+import com.szu.afternoon3.platform.event.InteractionEvent;
 import com.szu.afternoon3.platform.event.UserUpdateEvent;
 import com.szu.afternoon3.platform.exception.AppException;
 import com.szu.afternoon3.platform.exception.ResultCode;
@@ -338,7 +339,13 @@ public class UserServiceImpl implements UserService {
 
         userFollowRepository.save(followDoc);
 
-        // TODO: 在这里发一条系统通知：xxx 关注了你
+        eventPublisher.publishEvent(new InteractionEvent(
+                currentUserId,           // 谁发起的 (粉丝)
+                targetUserIdStr,         // 目标ID (被关注的人)
+                "FOLLOW",                // 类型
+                "ADD",                   // 动作
+                null                     // value
+        ));
     }
 
     @Override
