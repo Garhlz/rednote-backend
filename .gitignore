@@ -45,3 +45,5 @@ mongo_data/
 pg_data/
 
 logs/
+prometheus_data/
+grafana_data/

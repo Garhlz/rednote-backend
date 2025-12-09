@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # 这里的 localhost 对应宿主机，因为你做了 8080:8080 映射
-BASE_URL="http://8.148.145.178:8080"
+BASE_URL="http://8.148.145.178"
 
 # 颜色定义，方便看结果
 GREEN='\033[0;32m'
@@ -19,7 +19,7 @@ echo -n "1. 尝试登录 "
 LOGIN_RESPONSE=$(curl -s -X POST "$BASE_URL/api/auth/login/account" \
   -H "Content-Type: application/json" \
   -d '{
-    "account": "test3@test.com",
+    "account": "test5@test.com",
     "password": "123456"
   }')
 
