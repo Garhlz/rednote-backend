@@ -83,7 +83,7 @@ services:
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=admin
       # Grafana 子路径配置
-      - GF_SERVER_ROOT_URL=%(protocol)s://%(domain)s:%(http_port)s/monitor/
+      - GF_SERVER_ROOT_URL=http://${SERVER_IP}:80/monitor/
       - GF_SERVER_SERVE_FROM_SUB_PATH=true
       - no_proxy=prometheus,backend,postgres,mongo,redis,localhost,127.0.0.1
       - NO_PROXY=prometheus,backend,postgres,mongo,redis,localhost,127.0.0.1

@@ -50,7 +50,8 @@ public class WebMvcConfig implements WebMvcConfigurer {
                         "/doc.html",
                         "/webjars/**",
                         "/v3/api-docs/**",
-                        "/swagger-resources/**"
+                        "/swagger-resources/**",
+                        "/actuator/**"
                 );
     }
 
