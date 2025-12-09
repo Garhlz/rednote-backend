@@ -73,3 +73,12 @@ app:
     # 是否开启帖子审核
     # 默认为 false (直接发布)，可通过 .env 文件中的 POST_AUDIT_ENABLE=true 开启
     audit-enable: ${POST_AUDIT_ENABLE:false}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: prometheus, health, info # 暴露 prometheus 接口
+  metrics:
+    tags:
+      application: ${spring.application.name} # 给数据打标签，方便在 Grafana 区分应用

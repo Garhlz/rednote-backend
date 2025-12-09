@@ -44,3 +44,4 @@ uploads/
 mongo_data/
 pg_data/
 
+logs/
