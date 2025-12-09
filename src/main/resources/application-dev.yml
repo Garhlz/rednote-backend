@@ -58,9 +58,16 @@ mybatis-plus:
   mapper-locations: classpath:/mapper/*.xml
   type-aliases-package: com.szu.afternoon3.platform.entity
   configuration:
-    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+    log-impl: org.apache.ibatis.logging.slf4j.Slf4jImpl
     map-underscore-to-camel-case: true
   global-config:
     db-config:
       logic-delete-value: 1
       logic-not-delete-value: 0
+
+logging:
+  level:
+    # 只有这个包下的 Mapper 才打印 DEBUG 级别的 SQL 日志
+    com.szu.afternoon3.platform.mapper: DEBUG
+    org.springframework.data.mongodb.core.MongoTemplate: DEBUG
+    org.mongodb.driver.protocol.command: DEBUG

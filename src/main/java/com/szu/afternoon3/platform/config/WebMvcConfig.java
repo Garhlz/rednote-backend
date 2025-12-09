@@ -3,6 +3,7 @@ package com.szu.afternoon3.platform.config;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.Ordered;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
@@ -19,9 +20,18 @@ public class WebMvcConfig implements WebMvcConfigurer {
     @Value("${file.upload.path:./uploads/}")
     private String localUploadPath;
 
+    @Autowired
+    private RequestIdInterceptor requestIdInterceptor;
+
     // 1. 配置拦截器
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
+        // 【注册 MDC 拦截器 - 优先级最高】
+        // 拦截所有路径 "/**"，确保连 404 错误都有 TraceID
+        registry.addInterceptor(requestIdInterceptor)
+                .addPathPatterns("/**")
+                .order(Ordered.HIGHEST_PRECEDENCE); // 设置最高优先级，保证第一个执行
+
         registry.addInterceptor(tokenInterceptor)
                 .addPathPatterns("/api/**") // 默认拦截 api 下的所有路径
                 // 排除不需要登录的接口
