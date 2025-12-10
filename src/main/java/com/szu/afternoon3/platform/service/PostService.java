@@ -60,4 +60,10 @@ public interface PostService {
      * @param dto 修改参数
      */
     void updatePost(String postId, PostUpdateDTO dto);
+
+    // 获取搜索历史
+    List<String> getSearchHistory(Long userId);
+
+    // 清空搜索历史
+    void clearSearchHistory(Long userId);
 }

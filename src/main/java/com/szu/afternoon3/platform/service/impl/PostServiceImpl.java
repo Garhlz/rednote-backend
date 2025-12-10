@@ -25,6 +25,8 @@ import com.szu.afternoon3.platform.vo.UserInfo;
 import com.szu.afternoon3.platform.dto.PostCreateDTO;
 import com.szu.afternoon3.platform.entity.User;
 import com.szu.afternoon3.platform.mapper.UserMapper;
+import com.szu.afternoon3.platform.entity.mongo.SearchHistoryDoc;
+import com.szu.afternoon3.platform.repository.SearchHistoryRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
@@ -36,6 +38,7 @@ import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.TextCriteria;
 import org.springframework.data.mongodb.core.query.TextQuery;
+import org.springframework.data.mongodb.core.query.Update; // 【新增】 解决 Cannot resolve symbol 'Update'
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
@@ -65,6 +68,8 @@ public class PostServiceImpl implements PostService {
     private SearchHelper searchHelper; // 【注入 Helper】
     @Autowired
     private UserService userService;
+    @Autowired
+    private SearchHistoryRepository searchHistoryRepository;
 
     @Autowired
     private ApplicationEventPublisher eventPublisher;
@@ -110,6 +115,12 @@ public class PostServiceImpl implements PostService {
 
     @Override
     public Map<String, Object> searchPosts(String keyword, Integer page, Integer size) {
+        Long currentUserId = UserContext.getUserId();
+        if (currentUserId != null && StrUtil.isNotBlank(keyword)) {
+            // 调用内部辅助方法保存历史 (使用 Upsert 逻辑，存在则更新时间，不存在则插入)
+            saveSearchHistoryAsync(currentUserId, keyword);
+        }
+
         int pageNum = (page == null || page < 1) ? 0 : page - 1;
         int pageSize = (size == null || size < 1) ? 20 : size;
 
@@ -172,6 +183,45 @@ public class PostServiceImpl implements PostService {
 
         return buildResultMap(new PageImpl<>(list, pageable, total));
     }
+
+    private void saveSearchHistoryAsync(Long userId, String keyword) {
+        try {
+            // 1. 定义查询条件: userId + keyword
+            Query query = new Query(Criteria.where("userId").is(userId).and("keyword").is(keyword));
+
+            // 2. 定义更新: 更新时间
+            Update update = new Update();
+            update.set("updatedAt", java.time.LocalDateTime.now());
+            // 如果是新插入，Mongo会自动设置 userId 和 keyword (因为在Query里)
+            // 但为了保险，显式setOnInsert一下
+            update.setOnInsert("userId", userId);
+            update.setOnInsert("keyword", keyword);
+
+            // 3. 执行 Upsert (存在则更新时间，不存在则插入)
+            mongoTemplate.upsert(query, update, SearchHistoryDoc.class);
+        } catch (Exception e) {
+            // 搜索历史保存失败不应影响主业务，打印日志即可
+            // log.warn("保存搜索历史失败: {}", e.getMessage());
+        }
+    }
+
+    @Override
+    public List<String> getSearchHistory(Long userId) {
+        // 按时间倒序，取前 10 条
+        Pageable pageable = PageRequest.of(0, 10, Sort.by(Sort.Direction.DESC, "updatedAt"));
+        Page<SearchHistoryDoc> page = searchHistoryRepository.findByUserId(userId, pageable);
+
+        // 提取关键词
+        return page.getContent().stream()
+                .map(SearchHistoryDoc::getKeyword)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public void clearSearchHistory(Long userId) {
+        searchHistoryRepository.deleteByUserId(userId);
+    }
+
     @Override
     public PostVO getPostDetail(String postId) {
         PostDoc doc = postRepository.findById(postId).orElse(null);
