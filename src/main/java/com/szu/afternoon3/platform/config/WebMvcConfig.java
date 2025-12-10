@@ -22,7 +22,8 @@ public class WebMvcConfig implements WebMvcConfigurer {
 
     @Autowired
     private RequestIdInterceptor requestIdInterceptor;
-
+    @Autowired
+    private AdminInterceptor adminInterceptor;
     // 1. 配置拦截器
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
@@ -33,26 +34,26 @@ public class WebMvcConfig implements WebMvcConfigurer {
                 .order(Ordered.HIGHEST_PRECEDENCE); // 设置最高优先级，保证第一个执行
 
         registry.addInterceptor(tokenInterceptor)
-                .addPathPatterns("/api/**") // 默认拦截 api 下的所有路径
+                .addPathPatterns("/api/**","/admin/**") // 默认拦截 api 下的所有路径
                 // 排除不需要登录的接口
                 .excludePathPatterns(
                         "/api/auth/**",      // 登录注册
                         "/api/common/**",    // 公共接口
-
+                        "/admin/auth/**",
                         // TODO 当前逻辑是从token中获取userId,如果直接放行就无法从上下文获取userId。之后加入柔性放行策略
-                        // --- 新增：放行内容浏览类接口 ---
-//                        "/api/post/list",    // 首页列表
-//                        "/api/post/search",  // 搜索
-//                        "/api/post/*",       // 帖子详情 (匹配 /api/post/xxxx)
-//                        "/api/tag/**",       // 标签相关
-
                         // --- Swagger/静态资源 ---
                         "/doc.html",
                         "/webjars/**",
                         "/v3/api-docs/**",
                         "/swagger-resources/**",
                         "/actuator/**"
-                );
+                )
+                .order(1);
+        //Admin 权限拦截器 (依赖 Token 拦截器的结果)
+        registry.addInterceptor(adminInterceptor)
+                .addPathPatterns("/admin/**") // 只拦截后台接口
+                .excludePathPatterns("/admin/auth/**")
+                .order(2); // 顺序必须在 TokenInterceptor 之后
     }
 
     // 2. 配置跨域

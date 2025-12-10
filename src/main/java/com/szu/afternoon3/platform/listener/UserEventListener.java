@@ -1,8 +1,7 @@
 package com.szu.afternoon3.platform.listener;
 
-import com.szu.afternoon3.platform.entity.mongo.CommentDoc;
-import com.szu.afternoon3.platform.entity.mongo.PostDoc;
-import com.szu.afternoon3.platform.entity.mongo.UserFollowDoc;
+import com.szu.afternoon3.platform.entity.mongo.*;
+import com.szu.afternoon3.platform.event.UserDeleteEvent;
 import com.szu.afternoon3.platform.event.UserUpdateEvent;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -90,5 +89,44 @@ public class UserEventListener {
         );
 
         log.info("MongoDB 数据同步完成 (异步)");
+    }
+
+    /**
+     * 处理用户注销/删除事件：清理 MongoDB 中的所有关联数据
+     */
+    @Async // 关键：异步执行，不阻塞管理员接口
+    @EventListener
+    public void handleUserDelete(UserDeleteEvent event) {
+        Long userId = event.getUserId();
+        log.info("开始异步清理用户数据: userId={}", userId);
+        long start = System.currentTimeMillis();
+
+        // 1. 删除该用户发布的帖子
+        mongoTemplate.remove(Query.query(Criteria.where("userId").is(userId)), PostDoc.class);
+
+        // 2. 删除该用户发布的评论
+        mongoTemplate.remove(Query.query(Criteria.where("userId").is(userId)), CommentDoc.class);
+
+        // 3. 删除该用户的点赞记录
+        mongoTemplate.remove(Query.query(Criteria.where("userId").is(userId)), PostLikeDoc.class);
+        mongoTemplate.remove(Query.query(Criteria.where("userId").is(userId)), CommentLikeDoc.class);
+
+        // 4. 删除该用户的收藏记录
+        mongoTemplate.remove(Query.query(Criteria.where("userId").is(userId)), PostCollectDoc.class);
+
+        // 5. 删除该用户的评分记录
+        mongoTemplate.remove(Query.query(Criteria.where("userId").is(userId)), PostRatingDoc.class);
+
+        // 6. 删除该用户的关注关系 (作为粉丝)
+        mongoTemplate.remove(Query.query(Criteria.where("userId").is(userId)), UserFollowDoc.class);
+
+        // 7. 删除该用户的被关注关系 (作为博主) - 可选：也可以保留记录但把 targetUser 信息置空，直接删比较干净
+        mongoTemplate.remove(Query.query(Criteria.where("targetUserId").is(userId)), UserFollowDoc.class);
+
+        // 8. 删除搜索历史 & 浏览历史
+        mongoTemplate.remove(Query.query(Criteria.where("userId").is(userId)), SearchHistoryDoc.class);
+        mongoTemplate.remove(Query.query(Criteria.where("userId").is(userId)), PostViewHistoryDoc.class);
+
+        log.info("用户数据清理完成，耗时: {}ms", System.currentTimeMillis() - start);
     }
 }

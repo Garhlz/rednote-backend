@@ -14,9 +14,10 @@ public class JwtUtil {
     @Value("${szu.jwt.secret}")
     private String secretKey;
 
-    public String createToken(Long userId) {
+    public String createToken(Long userId, String role) {
         return JWT.create()
                 .setPayload("userId", userId)
+                .setPayload("role", role)
                 .setExpiresAt(new Date(System.currentTimeMillis() + 1000 * 60 * 60 * 24 * 7)) // 7天
 //                .setExpiresAt(null) // TODO 开发阶段设置为不过期好了
                 .setKey(secretKey.getBytes(StandardCharsets.UTF_8))

@@ -18,6 +18,9 @@ public interface AdminService {
     // 用户管理 - 删除用户
     void deleteUser(Long userId, String reason);
 
+    // 聚合用户详情
+    public AdminUserDetailVO getUserDetail(Long userId);
+
     // 内容审核 - 列表查询
     Map<String, Object> getPostList(AdminPostSearchDTO dto);
 

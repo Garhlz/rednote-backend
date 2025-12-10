@@ -122,7 +122,7 @@ public class AuthServiceImpl implements AuthService {
      */
     private LoginVO buildLoginVO(User user, boolean isNewUser) {
         // 生成 JWT Token
-        String token = jwtUtil.createToken(user.getId());
+        String token = jwtUtil.createToken(user.getId(), user.getRole());
 
         LoginVO vo = new LoginVO();
         vo.setToken(token);
@@ -148,14 +148,17 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public void sendEmailCode(String email) {
-        // Redis Key 设计: verify:code:{email}
-        // 例如: verify:code:test@qq.com
+        // Redis Key 设计
         String redisKey = "verify:code:" + email;
-
-        // 1. 防刷校验 (Rate Limiting): 检查是否有 TTL，如果 TTL > 4分30秒 (说明刚发过不到30秒)，拦截
-        // 或者简单点：设置一个额外的 key "verify:limit:email" 有效期 60s
         String limitKey = "verify:limit:" + email;
-        if (redisTemplate.hasKey(limitKey)) {
+
+        // 1. [核心修复] 防刷校验 (Rate Limiting) - 原子操作
+        // 尝试设置占位符，有效期 60 秒。
+        // 如果 Key 不存在，设置成功返回 true；如果 Key 已存在，设置失败返回 false。
+        Boolean isAllowed = redisTemplate.opsForValue().setIfAbsent(limitKey, "1", 60, TimeUnit.SECONDS);
+
+        if (Boolean.FALSE.equals(isAllowed)) {
+            // 抛出 429 操作太频繁
             throw new AppException(ResultCode.OPERATION_TOO_FREQUENT);
         }
 
@@ -169,21 +172,21 @@ public class AuthServiceImpl implements AuthService {
             message.setTo(email);
             message.setSubject("【映记】验证码");
             message.setText("您的验证码是：" + code + "。有效期为5分钟，请勿泄露给他人。");
+
             mailSender.send(message);
+
             log.info("邮件发送成功: {} -> {}", email, code);
         } catch (Exception e) {
+            // 发送失败时，务必删除限流 Key，否则用户 60秒内无法重试
+            redisTemplate.delete(limitKey);
             log.error("邮件发送失败", e);
             throw new AppException(ResultCode.MAIL_SEND_ERROR);
         }
 
         // 4. 存入 Redis (5分钟过期)
+        // 只有邮件发送成功才存码
         redisTemplate.opsForValue().set(redisKey, code, 5, TimeUnit.MINUTES);
-
-        // 5. 设置限流 Key (60秒过期)
-        redisTemplate.opsForValue().set(limitKey, "1", 60, TimeUnit.SECONDS);
     }
-
-    // AuthServiceImpl.java
 
     @Override
     public void resetPassword(UserPasswordResetDTO dto) {

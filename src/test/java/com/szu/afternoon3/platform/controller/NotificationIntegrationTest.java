@@ -62,11 +62,11 @@ public class NotificationIntegrationTest {
         // 2. 创建两个测试用户 (PostgreSQL)
         // 发送者
         sender = createUser("Sender_XiaoQing");
-        senderToken = "Bearer " + jwtUtil.createToken(sender.getId());
+        senderToken = "Bearer " + jwtUtil.createToken(sender.getId(), "USER");
 
         // 接收者
         receiver = createUser("Receiver_YouYou");
-        receiverToken = "Bearer " + jwtUtil.createToken(receiver.getId());
+        receiverToken = "Bearer " + jwtUtil.createToken(receiver.getId(), "USER");
 
         // 3. 接收者发一篇帖子 (MongoDB)
         PostDoc post = new PostDoc();

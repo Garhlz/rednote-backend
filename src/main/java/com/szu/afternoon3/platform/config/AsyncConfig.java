@@ -1,5 +1,6 @@
 package com.szu.afternoon3.platform.config;
 
+import com.szu.afternoon3.platform.common.UserContext;
 import org.slf4j.MDC;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.annotation.AsyncConfigurer;
@@ -21,18 +22,21 @@ public class AsyncConfig implements AsyncConfigurer {
         
         // 【核心】设置任务装饰器，把主线程的 MDC 拷贝给子线程
         executor.setTaskDecorator(runnable -> {
-            // 1. 捕获主线程的上下文
-            Map<String, String> context = MDC.getCopyOfContextMap();
+            // 1. 捕获主线程上下文
+            Map<String, String> mdcContext = MDC.getCopyOfContextMap();
+            Long userId = UserContext.getUserId(); // <--- 捕获 UserId
+
             return () -> {
                 try {
-                    // 2. 注入到子线程
-                    if (context != null) {
-                        MDC.setContextMap(context);
-                    }
+                    // 2. 注入子线程
+                    if (mdcContext != null) MDC.setContextMap(mdcContext);
+                    if (userId != null) UserContext.setUserId(userId); // <--- 注入
+
                     runnable.run();
                 } finally {
-                    // 3. 清理子线程
+                    // 3. 清理
                     MDC.clear();
+                    UserContext.clear(); // <--- 清理
                 }
             };
         });

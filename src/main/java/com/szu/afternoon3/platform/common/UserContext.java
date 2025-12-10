@@ -6,19 +6,29 @@ package com.szu.afternoon3.platform.common;
  */
 public class UserContext {
     private static final ThreadLocal<Long> USER_HOLDER = new ThreadLocal<>();
+    // 【新增】存储当前用户的角色
+    private static final ThreadLocal<String> ROLE_HOLDER = new ThreadLocal<>();
 
-    // 存入 UserId
     public static void setUserId(Long userId) {
         USER_HOLDER.set(userId);
     }
 
-    // 获取 UserId
     public static Long getUserId() {
         return USER_HOLDER.get();
     }
 
-    // 清除
+    // 【新增】
+    public static void setRole(String role) {
+        ROLE_HOLDER.set(role);
+    }
+
+    // 【新增】
+    public static String getRole() {
+        return ROLE_HOLDER.get();
+    }
+
     public static void clear() {
         USER_HOLDER.remove();
+        ROLE_HOLDER.remove(); // 【新增】
     }
 }

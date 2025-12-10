@@ -13,6 +13,7 @@ import com.szu.afternoon3.platform.entity.mongo.UserFollowDoc;
 import com.szu.afternoon3.platform.event.PostCreateEvent;
 import com.szu.afternoon3.platform.event.PostDeleteEvent;
 import com.szu.afternoon3.platform.event.PostUpdateEvent;
+import com.szu.afternoon3.platform.event.UserSearchEvent;
 import com.szu.afternoon3.platform.exception.AppException;
 import com.szu.afternoon3.platform.exception.ResultCode;
 import com.szu.afternoon3.platform.repository.*;
@@ -116,9 +117,10 @@ public class PostServiceImpl implements PostService {
     @Override
     public Map<String, Object> searchPosts(String keyword, Integer page, Integer size) {
         Long currentUserId = UserContext.getUserId();
+
+        // 【修复】改为发布事件，真正实现异步解耦，不阻塞主搜索线程
         if (currentUserId != null && StrUtil.isNotBlank(keyword)) {
-            // 调用内部辅助方法保存历史 (使用 Upsert 逻辑，存在则更新时间，不存在则插入)
-            saveSearchHistoryAsync(currentUserId, keyword);
+            eventPublisher.publishEvent(new UserSearchEvent(this, currentUserId, keyword));
         }
 
         int pageNum = (page == null || page < 1) ? 0 : page - 1;
@@ -128,49 +130,36 @@ public class PostServiceImpl implements PostService {
             return buildResultMap(Page.empty(PageRequest.of(pageNum, pageSize)));
         }
 
-        // 1. 使用 Jieba 处理用户的搜索词
-        // 用户搜 "深大美食" -> 转换成 "深大 美食" (Mongo会理解为 OR 关系)
+        // ... 以下原有的搜索逻辑保持不变 ...
+        // 1. Jieba 分词
         String searchString = searchHelper.analyzeKeyword(keyword);
-
-        // 兜底：如果分词后为空 (比如用户只输入了标点)，就用原词
         if (StrUtil.isBlank(searchString)) {
             searchString = keyword;
         }
 
-        // 2. 构建全文检索条件
-        // matching() 会自动去匹配 PostDoc 中带有 @TextIndexed 的字段 (即 searchTerms)
+        // 2. 构建查询
         TextCriteria criteria = TextCriteria.forDefaultLanguage().matching(searchString);
-
-        // 3. 构建查询对象
-        // sortByScore: 按匹配度排序 (相关性高的在前，比如同时包含 "深大" 和 "美食" 的)
         Query query = TextQuery.queryText(criteria).sortByScore();
-
-        // 4. 叠加状态过滤
         query.addCriteria(Criteria.where("isDeleted").is(0));
         query.addCriteria(Criteria.where("status").is(1));
 
-        // 5. 分页
         Pageable pageable = PageRequest.of(pageNum, pageSize);
         query.with(pageable);
 
-        // 6. 执行
         long total = mongoTemplate.count(query, PostDoc.class);
-        List<PostDoc> list = mongoTemplate.find(query, PostDoc.class);
+        List<PostDoc> list;
 
-        // 降级逻辑,使用正则
+        // 降级逻辑
         if (total == 0) {
-            // log.info("Text Index 未命中，降级为 Regex 搜索: {}", keyword);
             query = new Query();
             String safeKeyword = java.util.regex.Pattern.quote(keyword);
             String regex = ".*" + safeKeyword + ".*";
 
-            // 注意：这里要搜 title, content, tags，不要搜 searchTerms (因为 searchTerms 是切碎的)
             query.addCriteria(new Criteria().orOperator(
                     Criteria.where("title").regex(regex, "i"),
                     Criteria.where("content").regex(regex, "i"),
                     Criteria.where("tags").regex(regex, "i")
             ));
-
             query.addCriteria(Criteria.where("isDeleted").is(0));
             query.addCriteria(Criteria.where("status").is(1));
             query.with(pageable);
@@ -182,27 +171,6 @@ public class PostServiceImpl implements PostService {
         }
 
         return buildResultMap(new PageImpl<>(list, pageable, total));
-    }
-
-    private void saveSearchHistoryAsync(Long userId, String keyword) {
-        try {
-            // 1. 定义查询条件: userId + keyword
-            Query query = new Query(Criteria.where("userId").is(userId).and("keyword").is(keyword));
-
-            // 2. 定义更新: 更新时间
-            Update update = new Update();
-            update.set("updatedAt", java.time.LocalDateTime.now());
-            // 如果是新插入，Mongo会自动设置 userId 和 keyword (因为在Query里)
-            // 但为了保险，显式setOnInsert一下
-            update.setOnInsert("userId", userId);
-            update.setOnInsert("keyword", keyword);
-
-            // 3. 执行 Upsert (存在则更新时间，不存在则插入)
-            mongoTemplate.upsert(query, update, SearchHistoryDoc.class);
-        } catch (Exception e) {
-            // 搜索历史保存失败不应影响主业务，打印日志即可
-            // log.warn("保存搜索历史失败: {}", e.getMessage());
-        }
     }
 
     @Override

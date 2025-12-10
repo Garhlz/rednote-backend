@@ -78,9 +78,13 @@ public class TokenInterceptor implements HandlerInterceptor {
             }
             Long userId = Long.valueOf(userIdObj.toString());
 
+            // 【新增】解析 Role 并放入上下文
+            Object roleObj = jwt.getPayload("role");
+            String role = (roleObj != null) ? roleObj.toString() : "USER"; // 默认 USER 防空指针
+
             // 8. 放入 ThreadLocal
             UserContext.setUserId(userId);
-
+            UserContext.setRole(role);
             // 放行
             return true;
 
