@@ -1,0 +1,29 @@
+package com.szu.afternoon3.platform.service;
+
+import com.szu.afternoon3.platform.dto.*;
+import com.szu.afternoon3.platform.vo.*;
+
+import java.util.Map;
+
+public interface AdminService {
+    // 管理员登录
+    LoginVO login(String account, String password);
+
+    // 管理员获取自己的信息
+    UserInfo getAdminInfo();
+
+    // 用户管理 - 列表查询
+    Map<String, Object> getUserList(AdminUserSearchDTO dto);
+
+    // 用户管理 - 删除用户
+    void deleteUser(Long userId, String reason);
+
+    // 内容审核 - 列表查询
+    Map<String, Object> getPostList(AdminPostSearchDTO dto);
+
+    // 内容审核 - 获取详情
+    PostVO getPostDetail(String postId);
+
+    // 内容审核 - 审核操作
+    void auditPost(String postId, Integer status, String reason);
+}

@@ -22,6 +22,7 @@ public enum ResultCode {
 
     /* 403: 权限相关 */
     ACCOUNT_BANNED(40301, "账号已被禁用"),
+    PERMISSION_DENIED(40302, "无权限访问"),
 
     /* 404: 资源未找到 */
     USER_NOT_FOUND(40401, "该账号未注册"),
