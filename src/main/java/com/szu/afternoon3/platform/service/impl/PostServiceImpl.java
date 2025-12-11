@@ -5,6 +5,7 @@ import cn.hutool.core.date.DateUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONUtil;
 import com.szu.afternoon3.platform.common.UserContext;
+import com.szu.afternoon3.platform.config.RabbitConfig;
 import com.szu.afternoon3.platform.dto.PostUpdateDTO;
 import com.szu.afternoon3.platform.entity.mongo.PostCollectDoc;
 import com.szu.afternoon3.platform.entity.mongo.PostDoc;
@@ -28,6 +29,7 @@ import com.szu.afternoon3.platform.entity.User;
 import com.szu.afternoon3.platform.mapper.UserMapper;
 import com.szu.afternoon3.platform.entity.mongo.SearchHistoryDoc;
 import com.szu.afternoon3.platform.repository.SearchHistoryRepository;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
@@ -73,7 +75,8 @@ public class PostServiceImpl implements PostService {
     private SearchHistoryRepository searchHistoryRepository;
 
     @Autowired
-    private ApplicationEventPublisher eventPublisher;
+    private RabbitTemplate rabbitTemplate;
+
     @Override
     public Map<String, Object> getPostList(Integer page, Integer size, String tab, String tag) {
         // TODO 需要处理首页流只返回一个图片/视频的问题，可能还需要压缩精度
@@ -118,9 +121,10 @@ public class PostServiceImpl implements PostService {
     public Map<String, Object> searchPosts(String keyword, Integer page, Integer size) {
         Long currentUserId = UserContext.getUserId();
 
-        // 【修复】改为发布事件，真正实现异步解耦，不阻塞主搜索线程
         if (currentUserId != null && StrUtil.isNotBlank(keyword)) {
-            eventPublisher.publishEvent(new UserSearchEvent(this, currentUserId, keyword));
+            UserSearchEvent event = new UserSearchEvent(currentUserId, keyword);
+            // 路由键: search.history
+            rabbitTemplate.convertAndSend(RabbitConfig.PLATFORM_EXCHANGE, "search.history", event);
         }
 
         int pageNum = (page == null || page < 1) ? 0 : page - 1;
@@ -506,7 +510,8 @@ public class PostServiceImpl implements PostService {
         postRepository.save(post);
 
         // TODO: 发送异步事件通知审核模块 (AI 或 管理端)
-        eventPublisher.publishEvent(new PostCreateEvent(post.getId(), post.getContent(), post.getTitle()));
+        rabbitTemplate.convertAndSend(RabbitConfig.PLATFORM_EXCHANGE, "post.create",
+                new PostCreateEvent(post.getId(), post.getContent(), post.getTitle()));
 
         return post.getId();
     }
@@ -546,7 +551,8 @@ public class PostServiceImpl implements PostService {
 
         // 5. 发布事件 (Spring Event)
         // 解耦：Service 只管改状态，后续的 Redis 清理、关联数据删除交给 Listener
-        eventPublisher.publishEvent(new PostDeleteEvent(postId, currentUserId));
+        rabbitTemplate.convertAndSend(RabbitConfig.PLATFORM_EXCHANGE, "post.delete",
+                new PostDeleteEvent(postId, currentUserId));
     }
 
     @Override
@@ -632,7 +638,7 @@ public class PostServiceImpl implements PostService {
 
         // 5. 发布事件
         if (needAudit) {
-            eventPublisher.publishEvent(new PostUpdateEvent(post.getId(), post.getTitle(), post.getContent()));
+            rabbitTemplate.convertAndSend(RabbitConfig.PLATFORM_EXCHANGE, "post.update", new PostUpdateEvent(post.getId(), post.getTitle(), post.getContent()));
         }
     }
     // --- Private Methods ---

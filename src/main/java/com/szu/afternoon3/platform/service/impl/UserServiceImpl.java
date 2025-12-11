@@ -5,6 +5,7 @@ import cn.hutool.core.util.StrUtil;
 import cn.hutool.crypto.digest.BCrypt;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.szu.afternoon3.platform.common.UserContext;
+import com.szu.afternoon3.platform.config.RabbitConfig;
 import com.szu.afternoon3.platform.dto.*;
 import com.szu.afternoon3.platform.entity.User;
 import com.szu.afternoon3.platform.entity.mongo.*;
@@ -20,6 +21,7 @@ import com.szu.afternoon3.platform.vo.UserProfileVO;
 import com.szu.afternoon3.platform.vo.UserSearchVO;
 import com.szu.afternoon3.platform.vo.PostVO;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.mongodb.core.MongoTemplate;
@@ -34,7 +36,6 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import com.szu.afternoon3.platform.entity.mongo.UserFollowDoc;
-import org.springframework.scheduling.annotation.Async;
 
 import java.time.LocalDateTime;
 import java.time.LocalDate;
@@ -55,9 +56,8 @@ public class UserServiceImpl implements UserService {
     @Autowired
     private UserFollowRepository userFollowRepository;
 
-    // 注入事件发布器
     @Autowired
-    private ApplicationEventPublisher eventPublisher;
+    private RabbitTemplate rabbitTemplate;
 
     @Override
     public UserProfileVO getUserProfile() {
@@ -115,13 +115,15 @@ public class UserServiceImpl implements UserService {
             }
         }
 
-        // 发布事件 (如果改了昵称或头像)
+        // 发送 RabbitMQ 消息 (UserUpdateEvent)
         if (dto.getNickname() != null || dto.getAvatar() != null) {
-            eventPublisher.publishEvent(new UserUpdateEvent(
+            UserUpdateEvent event = new UserUpdateEvent(
                     user.getId(),
                     user.getNickname(),
                     user.getAvatar()
-            ));
+            );
+            // 路由键: user.update
+            rabbitTemplate.convertAndSend(RabbitConfig.PLATFORM_EXCHANGE, "user.update", event);
         }
         if (changed) {
             userMapper.updateById(user);
@@ -339,13 +341,16 @@ public class UserServiceImpl implements UserService {
 
         userFollowRepository.save(followDoc);
 
-        eventPublisher.publishEvent(new InteractionEvent(
-                currentUserId,           // 谁发起的 (粉丝)
-                targetUserIdStr,         // 目标ID (被关注的人)
-                "FOLLOW",                // 类型
-                "ADD",                   // 动作
-                null                     // value
-        ));
+        // 发送 RabbitMQ 消息 (InteractionEvent)
+        InteractionEvent event = new InteractionEvent(
+                currentUserId,
+                targetUserIdStr,
+                "FOLLOW",
+                "ADD",
+                null
+        );
+        // 路由键: interaction.create
+        rabbitTemplate.convertAndSend(RabbitConfig.PLATFORM_EXCHANGE, "interaction.create", event);
     }
 
     @Override
@@ -623,7 +628,6 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    @Async // 异步执行
     public void recordBrowsingHistory(Long userId, String postId) {
         // 【新增修复】使用 MongoTemplate 的 Upsert (更新或插入) 原子操作
         // 解决高并发下的 DuplicateKeyException 问题

@@ -40,7 +40,20 @@ spring:
     multipart:
       max-file-size: 200MB
       max-request-size: 200MB
-
+  rabbitmq:
+    listener:
+      simple:
+        # 开启重试
+        retry:
+          enabled: true
+          max-attempts: 3        # 最大尝试次数 (1次正常 + 2次重试)
+          initial-interval: 1000ms # 第一次重试间隔 1秒
+          multiplier: 2.0        # 间隔倍数 (1s -> 2s)
+          max-interval: 10000ms  # 最大间隔 10秒
+        # 关键配置：重试耗尽后，是否重新入队？
+        # 设为 false 表示"拒绝(Reject)"。
+        # 配合我们在 Java 代码里配置的 DLX，Reject 的消息会被自动发送到死信队列。
+        default-requeue-rejected: false
 # --- MyBatis-Plus 全局配置 ---
 mybatis-plus:
   configuration:

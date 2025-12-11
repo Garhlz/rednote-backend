@@ -138,7 +138,7 @@ services:
       - "15672:15672" # 管理面板用 (网页访问)
     environment:
       RABBITMQ_DEFAULT_USER: admin
-      RABBITMQ_DEFAULT_PASS: admin123
+      RABBITMQ_DEFAULT_PASS: admin
     networks:
       - afternoon-net
     restart: always

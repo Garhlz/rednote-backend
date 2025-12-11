@@ -1,6 +1,7 @@
 package com.szu.afternoon3.platform.listener;
 
 import cn.hutool.core.util.StrUtil;
+import com.szu.afternoon3.platform.config.RabbitConfig;
 import com.szu.afternoon3.platform.entity.User;
 import com.szu.afternoon3.platform.entity.mongo.*;
 import com.szu.afternoon3.platform.event.InteractionEvent;
@@ -8,13 +9,12 @@ import com.szu.afternoon3.platform.mapper.UserMapper;
 import com.szu.afternoon3.platform.repository.*;
 import com.szu.afternoon3.platform.service.NotificationService;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.event.EventListener;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.Update;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
@@ -38,15 +38,18 @@ public class InteractionEventListener {
     private MongoTemplate mongoTemplate;
     @Autowired private NotificationService notificationService;
     @Autowired private UserMapper userMapper;
-    @Async // 异步执行
-    @EventListener
+
+    /**
+     * 监听 Interaction 队列
+     * 自动反序列化 JSON 为 InteractionEvent 对象
+     */
+    @RabbitListener(queues = RabbitConfig.QUEUE_INTERACTION)
     public void handleInteraction(InteractionEvent event) {
-        log.info("异步处理交互事件: {}", event);
+        log.info("RabbitMQ 收到交互消息: {}", event);
         try {
             switch (event.getType()) {
                 case "LIKE":
                     handleLike(event);
-                    // 只有新增才发通知
                     if ("ADD".equals(event.getAction())) {
                         sendPostNotification(event, "LIKE_POST");
                     }
@@ -59,27 +62,23 @@ public class InteractionEventListener {
                     break;
                 case "RATE":
                     handleRate(event);
-                    // 评分通常只要评了就通知
                     sendPostNotification(event, "RATE_POST");
                     break;
                 case "FOLLOW":
-                    // 关注只有 ADD 动作，且不需要更新计数器(如果不维护count表的话),直接发通知
                     if ("ADD".equals(event.getAction())) {
                         sendFollowNotification(event);
                     }
                     break;
-                    // TODO 实现了评论模块之后在这里修改
-//                case "COMMENT_LIKE":
-//                    handleCommentLike(event);
-//                    if ("ADD".equals(event.getAction())) {
-//                        sendCommentLikeNotification(event);
-//                    }
-//                    break;
+
+                // case "COMMENT_LIKE": ...
+                // TODO 实现comment_like的逻辑
             }
         } catch (Exception e) {
-            log.error("交互落库或发送通知失败: ", e);
+            log.error("交互消息处理失败: ", e);
+            // 可以在这里抛出异常以触发重试，或者记录死信队列
         }
     }
+
     // --- 点赞处理 ---
     private void handleLike(InteractionEvent event) {
         String postId = event.getTargetId();

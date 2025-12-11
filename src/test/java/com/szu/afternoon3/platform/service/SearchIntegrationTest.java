@@ -22,7 +22,7 @@ import java.util.Map;
 
 @SpringBootTest
 //@Transactional
-public class SearchIntegrationTest {
+public class    SearchIntegrationTest {
 
     @Autowired private SearchHelper searchHelper;
     @Autowired private PostService postService;

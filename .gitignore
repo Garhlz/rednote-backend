@@ -47,3 +47,5 @@ pg_data/
 logs/
 prometheus_data/
 grafana_data/
+
+**/diff.txt

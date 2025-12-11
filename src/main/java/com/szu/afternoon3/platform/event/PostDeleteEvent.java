@@ -2,9 +2,11 @@ package com.szu.afternoon3.platform.event;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 @Getter
 @AllArgsConstructor
+@NoArgsConstructor
 public class PostDeleteEvent {
     /**
      * 被删除的帖子ID

@@ -2,14 +2,13 @@ package com.szu.afternoon3.platform.service.impl;
 
 import com.szu.afternoon3.platform.common.RedisKey;
 import com.szu.afternoon3.platform.common.UserContext;
+import com.szu.afternoon3.platform.config.RabbitConfig; // 引入配置
 import com.szu.afternoon3.platform.dto.PostRateDTO;
 import com.szu.afternoon3.platform.event.InteractionEvent;
-import com.szu.afternoon3.platform.exception.AppException;
-import com.szu.afternoon3.platform.exception.ResultCode;
 import com.szu.afternoon3.platform.service.InteractionService;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.amqp.rabbit.core.RabbitTemplate; // 引入 RabbitTemplate
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
@@ -21,20 +20,19 @@ public class InteractionServiceImpl implements InteractionService {
     private StringRedisTemplate redisTemplate;
 
     @Autowired
-    private ApplicationEventPublisher eventPublisher;
+    private RabbitTemplate rabbitTemplate; // 替换 ApplicationEventPublisher
 
     @Override
     public void likePost(String postId) {
         Long userId = UserContext.getUserId();
         String key = RedisKey.POST_LIKE_SET + postId;
 
-        // Redis 原子操作: ADD
-        // 返回 1 表示新添加(之前没赞过)，0 表示已存在
         Long result = redisTemplate.opsForSet().add(key, userId.toString());
 
         if (result != null && result > 0) {
-            // 只有状态改变了，才发事件去写库
-            eventPublisher.publishEvent(new InteractionEvent(userId, postId, "LIKE", "ADD", null));
+            // 发送消息到 RabbitMQ，路由键使用 interaction.create
+            InteractionEvent event = new InteractionEvent(userId, postId, "LIKE", "ADD", null);
+            rabbitTemplate.convertAndSend(RabbitConfig.PLATFORM_EXCHANGE, "interaction.create", event);
         }
     }
 
@@ -46,7 +44,9 @@ public class InteractionServiceImpl implements InteractionService {
         Long result = redisTemplate.opsForSet().remove(key, userId.toString());
 
         if (result != null && result > 0) {
-            eventPublisher.publishEvent(new InteractionEvent(userId, postId, "LIKE", "REMOVE", null));
+            // 路由键使用 interaction.delete
+            InteractionEvent event = new InteractionEvent(userId, postId, "LIKE", "REMOVE", null);
+            rabbitTemplate.convertAndSend(RabbitConfig.PLATFORM_EXCHANGE, "interaction.delete", event);
         }
     }
 
@@ -58,7 +58,8 @@ public class InteractionServiceImpl implements InteractionService {
         Long result = redisTemplate.opsForSet().add(key, userId.toString());
 
         if (result != null && result > 0) {
-            eventPublisher.publishEvent(new InteractionEvent(userId, postId, "COLLECT", "ADD", null));
+            InteractionEvent event = new InteractionEvent(userId, postId, "COLLECT", "ADD", null);
+            rabbitTemplate.convertAndSend(RabbitConfig.PLATFORM_EXCHANGE, "interaction.create", event);
         }
     }
 
@@ -70,7 +71,8 @@ public class InteractionServiceImpl implements InteractionService {
         Long result = redisTemplate.opsForSet().remove(key, userId.toString());
 
         if (result != null && result > 0) {
-            eventPublisher.publishEvent(new InteractionEvent(userId, postId, "COLLECT", "REMOVE", null));
+            InteractionEvent event = new InteractionEvent(userId, postId, "COLLECT", "REMOVE", null);
+            rabbitTemplate.convertAndSend(RabbitConfig.PLATFORM_EXCHANGE, "interaction.delete", event);
         }
     }
 
@@ -82,12 +84,11 @@ public class InteractionServiceImpl implements InteractionService {
 
         String key = RedisKey.POST_RATE_HASH + postId;
 
-        // Redis Hash: HSET postId userId score
-        // 这里我们不判断 result，因为用户可能是在“修改评分”，无论如何都要发事件更新 Mongo
         redisTemplate.opsForHash().put(key, userId.toString(), score.toString());
 
-        // 发送评分事件
-        eventPublisher.publishEvent(new InteractionEvent(userId, postId, "RATE", "ADD", score));
+        // 评分无论是新增还是修改，都可以视为 create 或 update，这里统一用 create
+        InteractionEvent event = new InteractionEvent(userId, postId, "RATE", "ADD", score);
+        rabbitTemplate.convertAndSend(RabbitConfig.PLATFORM_EXCHANGE, "interaction.create", event);
     }
 
     @Override
@@ -95,13 +96,11 @@ public class InteractionServiceImpl implements InteractionService {
         Long userId = UserContext.getUserId();
         String key = RedisKey.COMMENT_LIKE_SET + commentId;
 
-        // 1. Redis 去重 (Write-Behind)c
         Long result = redisTemplate.opsForSet().add(key, userId.toString());
 
         if (result != null && result > 0) {
-            // 2. 发送异步事件
-            // type 使用 "COMMENT_LIKE" 以便 Listener 区分
-            eventPublisher.publishEvent(new InteractionEvent(userId, commentId, "COMMENT_LIKE", "ADD", null));
+            InteractionEvent event = new InteractionEvent(userId, commentId, "COMMENT_LIKE", "ADD", null);
+            rabbitTemplate.convertAndSend(RabbitConfig.PLATFORM_EXCHANGE, "interaction.create", event);
         }
     }
 
@@ -113,7 +112,8 @@ public class InteractionServiceImpl implements InteractionService {
         Long result = redisTemplate.opsForSet().remove(key, userId.toString());
 
         if (result != null && result > 0) {
-            eventPublisher.publishEvent(new InteractionEvent(userId, commentId, "COMMENT_LIKE", "REMOVE", null));
+            InteractionEvent event = new InteractionEvent(userId, commentId, "COMMENT_LIKE", "REMOVE", null);
+            rabbitTemplate.convertAndSend(RabbitConfig.PLATFORM_EXCHANGE, "interaction.delete", event);
         }
     }
 }

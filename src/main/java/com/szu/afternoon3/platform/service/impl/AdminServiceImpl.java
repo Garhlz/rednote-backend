@@ -7,6 +7,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.szu.afternoon3.platform.common.UserContext;
+import com.szu.afternoon3.platform.config.RabbitConfig;
 import com.szu.afternoon3.platform.dto.*;
 import com.szu.afternoon3.platform.entity.User;
 import com.szu.afternoon3.platform.entity.mongo.PostCollectDoc;
@@ -26,6 +27,7 @@ import com.szu.afternoon3.platform.util.JwtUtil;
 import com.szu.afternoon3.platform.util.TencentImUtil;
 import com.szu.afternoon3.platform.vo.*;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEventPublisher;
@@ -67,7 +69,7 @@ public class AdminServiceImpl implements AdminService {
     @Autowired
     private MongoTemplate mongoTemplate;
     @Autowired
-    private ApplicationEventPublisher eventPublisher;
+    private RabbitTemplate rabbitTemplate; // 注入
     @Override
     public LoginVO login(String account, String password) {
         // 1. 查询用户
@@ -261,9 +263,10 @@ public class AdminServiceImpl implements AdminService {
         // MyBatis-Plus 会根据你的配置自动处理逻辑删除
         userMapper.deleteById(userId);
 
-        // 3. [Event] 发布用户删除事件，异步清理 MongoDB 数据
-        // source 传 this，userId 传目标用户ID
-        eventPublisher.publishEvent(new UserDeleteEvent(this, userId));
+        // 3. 【RabbitMQ】发送用户删除事件
+        // 路由键: user.delete (与 UserServiceImpl 中的更新事件区分开)
+        rabbitTemplate.convertAndSend(RabbitConfig.PLATFORM_EXCHANGE, "user.delete",
+                new UserDeleteEvent(userId));
 
         log.info("管理员删除用户成功: userId={}, reason={}", userId, reason);
     }
