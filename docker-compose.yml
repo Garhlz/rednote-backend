@@ -111,6 +111,37 @@ services:
     networks:
       - afternoon-net
     restart: always
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: afternoon-node-exporter
+    restart: always
+    volumes:
+      - /proc:/host/proc:ro   # 只读挂载宿主机的进程信息
+      - /sys:/host/sys:ro     # 只读挂载宿主机的系统信息
+      - /:/rootfs:ro          # 只读挂载根目录，用于监控磁盘使用率
+    command: 
+      - '--path.procfs=/host/proc' 
+      - '--path.rootfs=/rootfs'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    expose:
+      - "9100" # 在 Docker 网络内部暴露端口
+    networks:
+      - afternoon-net
+  rabbitmq:
+    image: rabbitmq:3.12-management-alpine
+    container_name: afternoon-rabbitmq
+    # 【关键】限制内存，防止挤占 Java 和 Mongo 的资源
+    mem_limit: 512m
+    ports:
+      - "5672:5672"   # 代码连接用
+      - "15672:15672" # 管理面板用 (网页访问)
+    environment:
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: admin123
+    networks:
+      - afternoon-net
+    restart: always
 
 networks:
   afternoon-net:

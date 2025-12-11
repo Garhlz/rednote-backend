@@ -6,3 +6,7 @@ scrape_configs:
     metrics_path: '/actuator/prometheus'
     static_configs:
       - targets: ['backend:8080'] # 直接用 docker 服务名
+  - job_name: 'node-exporter'
+    static_configs:
+      # 直接使用容器名访问，Docker会自动解析IP
+      - targets: ['afternoon-node-exporter:9100']
