@@ -35,24 +35,24 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Transactional // 测试结束后自动回滚数据库，保持环境干净
 public class ApiIntegrationTest {
 
-    @Autowired
-    private MockMvc mockMvc;
+        @Autowired
+        private MockMvc mockMvc;
 
-    @Autowired
-    private UserMapper userMapper;
+        @Autowired
+        private UserMapper userMapper;
 
-    // 【核心】Mock掉微信工具类，不让它真正发请求
-    @MockBean
-    private WeChatUtil weChatUtil;
+        // 【核心】Mock掉微信工具类，不让它真正发请求
+        @MockBean
+        private WeChatUtil weChatUtil;
 
-    // 预设一个测试用的 OpenID
-    private static final String MOCK_OPENID = "mock_openid_123456";
+        // 预设一个测试用的 OpenID
+        private static final String MOCK_OPENID = "mock_openid_123456";
 
-    @BeforeEach
-    public void setup() {
-        // 配置 Mock 行为：当调用 getOpenId 时，不管传什么 code，都返回固定的 OpenID
-        Mockito.when(weChatUtil.getOpenId(Mockito.anyString())).thenReturn(MOCK_OPENID);
-    }
+        @BeforeEach
+        public void setup() {
+                // 配置 Mock 行为：当调用 getOpenId 时，不管传什么 code，都返回固定的 OpenID
+                Mockito.when(weChatUtil.getOpenId(Mockito.anyString())).thenReturn(MOCK_OPENID);
+        }
 
     @Test
     @DisplayName("测试微信一键登录(自动注册)")
