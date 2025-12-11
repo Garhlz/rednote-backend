@@ -41,6 +41,10 @@ spring:
       max-file-size: 200MB
       max-request-size: 200MB
   rabbitmq:
+    host: ${RABBITMQ_HOST:localhost} # 默认 localhost，但在 Docker 里会被环境变量覆盖
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
     listener:
       simple:
         # 开启重试
