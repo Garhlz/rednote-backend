@@ -1,5 +1,6 @@
 package com.szu.afternoon3.platform.controller;
 
+import cn.hutool.core.util.StrUtil;
 import com.szu.afternoon3.platform.common.Result;
 import com.szu.afternoon3.platform.common.UserContext;
 import com.szu.afternoon3.platform.exception.AppException;
@@ -47,6 +48,26 @@ public class SearchController {
         }
 
         postService.clearSearchHistory(userId);
+        return Result.success();
+    }
+
+    /**
+     * 删除单条搜索历史
+     * 对应接口: DELETE /api/search/history/item?keyword=xxx
+     */
+    @DeleteMapping("/history/item")
+    public Result<Void> deleteSearchHistoryItem(@RequestParam String keyword) {
+        Long userId = UserContext.getUserId();
+        if (userId == null) {
+            throw new AppException(ResultCode.UNAUTHORIZED);
+        }
+
+        // 参数校验
+        if (StrUtil.isBlank(keyword)) {
+            return Result.error(ResultCode.PARAM_ERROR.getCode(), "关键词不能为空");
+        }
+
+        postService.deleteSearchHistoryItem(userId, keyword);
         return Result.success();
     }
 }

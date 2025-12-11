@@ -66,4 +66,7 @@ public interface PostService {
 
     // 清空搜索历史
     void clearSearchHistory(Long userId);
+
+    // 删除单条搜索历史
+    void deleteSearchHistoryItem(Long userId, String keyword);
 }

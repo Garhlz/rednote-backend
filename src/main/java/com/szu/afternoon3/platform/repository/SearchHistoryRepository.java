@@ -19,4 +19,7 @@ public interface SearchHistoryRepository extends MongoRepository<SearchHistoryDo
      * 清空某用户的搜索历史
      */
     void deleteByUserId(Long userId);
+
+    // 删除指定用户的特定搜索词
+    void deleteByUserIdAndKeyword(Long userId, String keyword);
 }

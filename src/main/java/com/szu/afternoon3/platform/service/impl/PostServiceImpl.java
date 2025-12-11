@@ -190,6 +190,17 @@ public class PostServiceImpl implements PostService {
         searchHistoryRepository.deleteByUserId(userId);
     }
 
+    // 实现删除单条历史
+    @Override
+    public void deleteSearchHistoryItem(Long userId, String keyword) {
+        // 直接调用 Repository 的衍生查询方法即可
+        // 这里的操作是原子的，且 SearchHistoryDoc 没有冗余的用户昵称/头像，
+        // 所以不需要发布类似 UserUpdateEvent 的事件来维护一致性。
+        if (userId != null && StrUtil.isNotBlank(keyword)) {
+            searchHistoryRepository.deleteByUserIdAndKeyword(userId, keyword);
+        }
+    }
+
     @Override
     public PostVO getPostDetail(String postId) {
         PostDoc doc = postRepository.findById(postId).orElse(null);
