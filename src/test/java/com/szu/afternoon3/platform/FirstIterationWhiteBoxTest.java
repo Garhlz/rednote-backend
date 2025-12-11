@@ -51,7 +51,7 @@ public class FirstIterationWhiteBoxTest {
         System.out.println("==================================================");
 
         // 1. 创建初始用户 (模拟微信登录后的状态)
-        System.out.println("\n[Step 1] 创建初始用户 (模拟微信登录)");
+        System.out.println("\n[步骤 1] 创建初始用户 (模拟微信登录)");
         String suffix = String.valueOf(System.currentTimeMillis());
         User user = new User();
         user.setNickname("WhiteBoxUser_" + suffix);
@@ -70,7 +70,7 @@ public class FirstIterationWhiteBoxTest {
 
         try {
             // 2. 绑定邮箱
-            System.out.println("\n[Step 2] 绑定邮箱流程");
+            System.out.println("\n[步骤 2] 绑定邮箱流程");
             String email = "wb_test_" + suffix + "@163.com";
 
             // 清除可能存在的限流
@@ -97,7 +97,7 @@ public class FirstIterationWhiteBoxTest {
             System.out.println("   -> 邮箱绑定成功: " + updatedUser.getEmail());
 
             // 3. 设置初始密码
-            System.out.println("\n[Step 3] 设置初始密码");
+            System.out.println("\n[步骤 3] 设置初始密码");
             // 为了设置密码，需要验证码验证身份（这里复用邮箱验证码流程，简化测试，直接往Redis塞一个验证码用于修改密码）
             // 注意：实际业务中设置密码可能需要验证码，或者如果是绑定邮箱后立即设置可能不需要。
             // 假设需要验证码:
@@ -114,7 +114,7 @@ public class FirstIterationWhiteBoxTest {
             System.out.println("   -> 密码设置成功 (BCrypt加密验证通过)");
 
             // 4. 修改个人资料
-            System.out.println("\n[Step 4] 修改个人资料");
+            System.out.println("\n[步骤 4] 修改个人资料");
             UserProfileUpdateDTO profileDTO = new UserProfileUpdateDTO();
             profileDTO.setNickname("WB_Updated_Name");
             profileDTO.setBio("White Box Testing is fun");
@@ -127,7 +127,7 @@ public class FirstIterationWhiteBoxTest {
             System.out.println("   -> 昵称已更新: " + updatedUser.getNickname());
 
             // 5. 获取个人资料 (VO)
-            System.out.println("\n[Step 5] 获取个人资料视图");
+            System.out.println("\n[步骤 5] 获取个人资料视图");
             UserProfileVO profileVO = userService.getUserProfile();
             Assertions.assertEquals(email, profileVO.getEmail());
             Assertions.assertEquals("WB_Updated_Name", profileVO.getNickname());

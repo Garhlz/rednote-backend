@@ -57,22 +57,22 @@ Assertions.assertTrue(BCrypt.checkpw("WhiteBoxPass123", updatedUser.getPassword(
 
 **测试执行结果示例 (Test Execution Log):**
 ```text
-[Step 1] 创建初始用户 (模拟微信登录)
-   -> 用户创建成功, ID: 20
+[步骤 1] 创建初始用户 (模拟微信登录)
+   -> 用户创建成功, ID: 28
 
-[Step 2] 绑定邮箱流程
+[步骤 2] 绑定邮箱流程
    -> 请求发送验证码 (邮件服务已Mock)
-   -> 验证码已存入 Redis: 859229
+   -> 验证码已存入 Redis: 596075
    -> 邮箱绑定成功: wb_test_...@163.com
 
-[Step 3] 设置初始密码
+[步骤 3] 设置初始密码
    -> 密码设置成功 (BCrypt加密验证通过)
 
-[Step 4] 修改个人资料
+[步骤 4] 修改个人资料
    -> 昵称已更新: WB_Updated_Name
 
-[Step 5] 获取个人资料视图
-   -> 获取资料成功: UserProfileVO(userId=20, nickname=WB_Updated_Name, ...)
+[步骤 5] 获取个人资料视图
+   -> 获取资料成功: UserProfileVO(userId=28, nickname=WB_Updated_Name, ...)
 
 ==================================================
             ✅ 白盒测试全部通过
