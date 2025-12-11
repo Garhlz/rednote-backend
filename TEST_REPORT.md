@@ -116,30 +116,30 @@ python black_box_test.py
 
 **测试执行结果示例 (Test Execution Log):**
 ```text
-Starting Black-Box Test against http://localhost:8080
-Test User: blackbox_1765430506@test.com / TestPassword123
+开始针对 http://localhost:8080 的黑盒测试
+测试用户: blackbox_1765433394@test.com / TestPassword123
 
-=== Step 1: Create Test User ===
-✅ Success
-User Created with ID: 21
+=== 步骤 1: 创建测试用户 ===
+✅ 成功
+用户创建成功，ID: 27
 
-=== Step 2: Login ===
-✅ Success
-Token acquired: eyJ0eXAiOiJKV1QiLCJh...
+=== 步骤 2: 登录 ===
+✅ 成功
+获取 Token 成功: eyJ0eXAiOiJKV1QiLCJh...
 
-=== Step 3: Get User Profile ===
-✅ Success
-Profile: { "nickname": "BlackBoxUser_1765430506", ... }
+=== 步骤 3: 获取个人资料 ===
+✅ 成功
+个人资料: { "nickname": "BlackBoxUser_1765433394", ... }
 
-=== Step 4: Update User Profile ===
-✅ Success
+=== 步骤 4: 更新个人资料 ===
+✅ 成功
 
-=== Step 5: Verify Profile Update ===
-✅ Success
-Nickname updated to: Updated_BlackBoxUser_1765430506
+=== 步骤 5: 验证资料更新 ===
+✅ 成功
+昵称已更新为: Updated_BlackBoxUser_1765433394
 
 ========================================
-       ALL BLACK-BOX TESTS PASSED
+       所有黑盒测试均已通过
 ========================================
 ```
 
