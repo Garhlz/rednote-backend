@@ -1,5 +1,6 @@
 package com.szu.afternoon3.platform.controller;
 
+import com.szu.afternoon3.platform.annotation.OperationLog;
 import com.szu.afternoon3.platform.common.Result;
 import com.szu.afternoon3.platform.service.PostService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -9,6 +10,10 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
+/**
+ * 标签控制器
+ * 提供热门标签等元数据查询
+ */
 @RestController
 @RequestMapping("/api/tag")
 public class TagController {
@@ -18,11 +23,10 @@ public class TagController {
 
     /**
      * 获取热门标签
-     * 对应接口: /api/tag/hot
      */
     @GetMapping("/hot")
+    @OperationLog(module = "标签模块", description = "获取热门标签")
     public Result<List<String>> getHotTags() {
-        // 获取前 10 个热门标签
         List<String> tags = postService.getHotTags(10);
         return Result.success(tags);
     }

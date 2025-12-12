@@ -1,6 +1,7 @@
 package com.szu.afternoon3.platform.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.szu.afternoon3.platform.annotation.OperationLog;
 import com.szu.afternoon3.platform.common.Result;
 import com.szu.afternoon3.platform.dto.*;
 import com.szu.afternoon3.platform.entity.User;
@@ -20,8 +21,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
-import java.util.Objects;
 
+/**
+ * 后台管理控制器
+ * 处理管理员登录、用户管理、内容审核等逻辑
+ */
 @RestController
 @RequestMapping("/admin")
 public class AdminController {
@@ -30,7 +34,7 @@ public class AdminController {
     private AdminService adminService;
 
     @Autowired
-    private AuthService authService; // 复用 resetPassword 逻辑
+    private AuthService authService;
 
     @Autowired
     private UserService userService;
@@ -38,39 +42,55 @@ public class AdminController {
     @Autowired
     private UserMapper userMapper;
 
+    /**
+     * 管理员登录
+     * @param loginDTO 登录参数
+     * @return 登录凭证信息
+     */
     @PostMapping("/auth/login")
+    @OperationLog(module = "后台认证", description = "管理员登录", bizId = "#loginDTO.account")
     public Result<LoginVO> login(@RequestBody @Valid AccountLoginDTO loginDTO) {
         LoginVO loginVO = adminService.login(loginDTO.getAccount(), loginDTO.getPassword());
         return Result.success(loginVO);
     }
 
+    /**
+     * 发送管理员验证码 (用于重置密码)
+     * @param dto 邮箱参数
+     */
     @PostMapping("/auth/send-code")
+    @OperationLog(module = "后台认证", description = "发送验证码", bizId = "#dto.email")
     public Result<Void> sendCode(@RequestBody @Valid SendEmailCodeDTO dto) {
-        // 根据邮箱查找用户, 验证该邮箱是否注册
         User user = userMapper.selectOne(new LambdaQueryWrapper<User>()
                 .eq(User::getEmail, dto.getEmail()));
 
         if (user == null) {
             throw new AppException(ResultCode.USER_NOT_FOUND);
         }
-        // 当前是管理端，只有管理员才可以发送邮件
         if(!user.getRole().equals("ADMIN")){
             throw new AppException(ResultCode.PERMISSION_DENIED);
         }
-        // 复用 AuthService 的发送逻辑
         authService.sendEmailCode(dto.getEmail());
         return Result.success();
     }
 
-    // 管理员修改密码 (通过邮箱验证码)
+    /**
+     * 管理员重置密码 (未登录状态)
+     * @param dto 重置参数
+     */
     @PostMapping("/auth/reset-password")
+    @OperationLog(module = "后台认证", description = "忘记密码重置", bizId = "#dto.email")
     public Result<Void> changePassword(@RequestBody @Valid UserPasswordResetDTO dto) {
         authService.resetPassword(dto);
         return Result.success();
     }
 
-    // 退出登录 (补充文档中存在的接口)
+    /**
+     * 退出登录
+     * @param request HTTP请求
+     */
     @PostMapping("/auth/logout")
+    @OperationLog(module = "后台认证", description = "退出登录")
     public Result<Void> logout(HttpServletRequest request) {
         String token = request.getHeader("Authorization");
         if (token != null && token.startsWith("Bearer ")) {
@@ -80,69 +100,125 @@ public class AdminController {
     }
 
     /**
-     * 创建测试用户 (开发环境便利接口)
+     * 创建测试用户 (开发辅助)
+     * @param dto 用户信息
+     * @return 用户ID
      */
     @PostMapping("/auth/test/register")
+    @OperationLog(module = "后台辅助", description = "创建测试用户", bizId = "#dto.email")
     public Result<Long> createTestUser(@RequestBody @Valid TestUserCreateDTO dto) {
         Long userId = adminService.createTestUser(dto);
         return Result.success(userId);
     }
 
-    // 个人信息
+    /**
+     * 获取管理员个人信息
+     * @return 管理员信息
+     */
     @GetMapping("/profile/info")
+    @OperationLog(module = "后台个人中心", description = "获取个人信息")
     public Result<UserInfo> getAdminInfo() {
         return Result.success(adminService.getAdminInfo());
     }
 
-    // 登录之后重置密码
-    // 直接修改为相同的通过邮箱验证码验证的逻辑好了
+    /**
+     * 登录后修改/重置密码
+     * @param dto 密码参数
+     */
     @PostMapping("/profile/password")
+    @OperationLog(module = "后台个人中心", description = "修改密码", bizId = "#dto.email")
     public Result<Void> updatePassword(@RequestBody @Valid UserPasswordResetDTO dto) {
         authService.resetPassword(dto);
         return Result.success();
     }
 
-
-
-    // 用户管理 - 列表
+    /**
+     * 用户管理列表查询
+     * @param dto 查询条件
+     * @return 用户分页列表
+     */
     @PostMapping("/user/list")
+    @OperationLog(module = "后台用户管理", description = "查询用户列表")
     public Result<Map<String, Object>> getUserList(@RequestBody AdminUserSearchDTO dto) {
         return Result.success(adminService.getUserList(dto));
     }
 
-    // 获取用户详情 (聚合视图)
+    /**
+     * 获取用户详细信息 (聚合视图)
+     * @param id 用户ID
+     * @return 用户详情
+     */
     @GetMapping("/users/{id}")
+    @OperationLog(module = "后台用户管理", description = "查看用户详情", bizId = "#id")
     public Result<AdminUserDetailVO> getUserDetail(@PathVariable Long id) {
         return Result.success(adminService.getUserDetail(id));
     }
 
-    // 用户管理 - 删除
+    /**
+     * 删除/封禁用户
+     * @param id 用户ID
+     * @param dto 删除原因
+     */
     @PostMapping("/user/{id}")
+    @OperationLog(module = "后台用户管理", description = "删除用户", bizId = "#id")
     public Result<Void> deleteUser(@PathVariable Long id, @RequestBody @Valid AdminUserDeleteDTO dto) {
-        // 使用 DTO.getReason()，类型安全且由 Spring 自动校验非空
         adminService.deleteUser(id, dto.getReason());
         return Result.success();
     }
 
-    // 内容审核 - 列表
+    /**
+     * 待审核帖子列表查询
+     * @param dto 查询条件
+     * @return 帖子分页列表
+     */
     @PostMapping("/post/audit-list")
+    @OperationLog(module = "后台内容审核", description = "查询审核列表")
     public Result<Map<String, Object>> getPostList(@RequestBody AdminPostSearchDTO dto) {
         return Result.success(adminService.getPostList(dto));
     }
 
-    // 内容审核 - 详情
+    /**
+     * 获取帖子详情 (审核用)
+     * @param id 帖子ID
+     * @return 帖子详情
+     */
     @GetMapping("/post/{id}")
+    @OperationLog(module = "后台内容审核", description = "查看帖子详情", bizId = "#id")
     public Result<PostVO> getPostDetail(@PathVariable String id) {
         return Result.success(adminService.getPostDetail(id));
     }
 
-    // 内容审核 - 审核
+    /**
+     * 审核帖子操作
+     * @param id 帖子ID
+     * @param dto 审核结果
+     */
     @PostMapping("/post/{id}/audit")
+    @OperationLog(module = "后台内容审核", description = "审核帖子", bizId = "#id")
     public Result<Void> auditPost(@PathVariable String id, @RequestBody @Valid AdminPostAuditDTO dto) {
-        // 使用 DTO 获取参数
         adminService.auditPost(id, dto.getStatus(), dto.getReason());
         return Result.success();
     }
 
+    /**
+     * 查询管理员操作日志
+     * @param dto 查询条件
+     * @return 日志列表
+     */
+    @PostMapping("/log/admin")
+    @OperationLog(module = "后台日志审计", description = "查询管理员日志")
+    public Result<Map<String, Object>> getAdminLogs(@RequestBody LogSearchDTO dto) {
+        return Result.success(adminService.getAdminLogs(dto));
+    }
 
+    /**
+     * 查询C端用户操作日志
+     * @param dto 查询条件
+     * @return 日志列表
+     */
+    @PostMapping("/log/user")
+    @OperationLog(module = "后台日志审计", description = "查询用户日志")
+    public Result<Map<String, Object>> getUserLogs(@RequestBody LogSearchDTO dto) {
+        return Result.success(adminService.getUserLogs(dto));
+    }
 }

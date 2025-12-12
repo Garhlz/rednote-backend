@@ -16,6 +16,8 @@ services:
     networks:
       - afternoon-net
     restart: always
+    ports:
+      - "127.0.0.1:5432:5432"  # 仅允许服务器本机访问
 
   mongo:
     image: mongo:6.0
@@ -27,6 +29,8 @@ services:
     networks:
       - afternoon-net
     restart: always
+    ports:
+      - "127.0.0.1:27017:27017" # 仅允许服务器本机访问
 
   redis:
     image: redis:7-alpine
@@ -36,6 +40,8 @@ services:
     networks:
       - afternoon-net
     restart: always
+    ports:
+      - "127.0.0.1:6379:6379"   # 仅允许服务器本机访问
 
   # --- 2. 后端服务 ---
   backend:

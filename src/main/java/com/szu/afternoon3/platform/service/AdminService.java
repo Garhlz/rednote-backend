@@ -31,4 +31,14 @@ public interface AdminService {
     void auditPost(String postId, Integer status, String reason);
 
     Long createTestUser(TestUserCreateDTO dto);
+
+    /**
+     * 获取管理员操作日志
+     */
+    Map<String, Object> getAdminLogs(LogSearchDTO dto);
+
+    /**
+     * 获取C端用户操作日志
+     */
+    Map<String, Object> getUserLogs(LogSearchDTO dto);
 }

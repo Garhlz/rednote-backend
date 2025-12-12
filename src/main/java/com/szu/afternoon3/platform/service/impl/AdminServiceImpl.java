@@ -10,12 +10,7 @@ import com.szu.afternoon3.platform.common.UserContext;
 import com.szu.afternoon3.platform.config.RabbitConfig;
 import com.szu.afternoon3.platform.dto.*;
 import com.szu.afternoon3.platform.entity.User;
-import com.szu.afternoon3.platform.entity.mongo.PostCollectDoc;
-import com.szu.afternoon3.platform.entity.mongo.PostDoc;
-import com.szu.afternoon3.platform.entity.mongo.PostLikeDoc;
-import com.szu.afternoon3.platform.entity.mongo.UserFollowDoc;
-import com.szu.afternoon3.platform.entity.mongo.PostRatingDoc;
-import com.szu.afternoon3.platform.entity.mongo.CommentDoc;
+import com.szu.afternoon3.platform.entity.mongo.*;
 import com.szu.afternoon3.platform.event.UserDeleteEvent;
 import com.szu.afternoon3.platform.exception.AppException;
 import com.szu.afternoon3.platform.enums.ResultCode;
@@ -567,5 +562,76 @@ public class AdminServiceImpl implements AdminService {
 
         userMapper.insert(user);
         return user.getId();
+    }
+
+    @Override
+    public Map<String, Object> getAdminLogs(LogSearchDTO dto) {
+        return queryLogs("ADMIN_OPER", dto);
+    }
+
+    @Override
+    public Map<String, Object> getUserLogs(LogSearchDTO dto) {
+        return queryLogs("USER_OPER", dto);
+    }
+
+    /**
+     * 通用日志查询私有方法
+     * @param logType 日志类型 (ADMIN_OPER / USER_OPER)
+     * @param dto 查询条件
+     */
+    private Map<String, Object> queryLogs(String logType, LogSearchDTO dto) {
+        Query query = new Query();
+
+        // 1. 强制固定日志类型
+        query.addCriteria(Criteria.where("logType").is(logType));
+
+        // 2. 动态拼接条件
+        if (dto.getUserId() != null) {
+            query.addCriteria(Criteria.where("userId").is(dto.getUserId()));
+        }
+
+        if (dto.getStatus() != null) {
+            query.addCriteria(Criteria.where("status").is(dto.getStatus()));
+        }
+
+        // 精确查询业务ID (例如查询某个帖子的所有操作历史)
+        if (StrUtil.isNotBlank(dto.getBizId())) {
+            query.addCriteria(Criteria.where("bizId").is(dto.getBizId()));
+        }
+
+        // 模糊查询：同时匹配 "中文描述" 或 "请求路径"
+        if (StrUtil.isNotBlank(dto.getKeyword())) {
+            query.addCriteria(new Criteria().orOperator(
+                    Criteria.where("description").regex(dto.getKeyword(), "i"), // i 表示忽略大小写
+                    Criteria.where("uri").regex(dto.getKeyword(), "i")
+            ));
+        }
+
+        // 时间范围查询
+        if (dto.getStartTime() != null && dto.getEndTime() != null) {
+            query.addCriteria(Criteria.where("createdAt")
+                    .gte(dto.getStartTime())
+                    .lte(dto.getEndTime()));
+        }
+
+        // 3. 计算总数 (用于分页)
+        long total = mongoTemplate.count(query, ApiLogDoc.class);
+
+        // 4. 构建分页与排序 (按创建时间倒序)
+        int page = dto.getPage() > 0 ? dto.getPage() - 1 : 0;
+        Pageable pageable = PageRequest.of(page, dto.getSize(), Sort.by(Sort.Direction.DESC, "createdAt"));
+        query.with(pageable);
+
+        // 5. 执行查询
+        List<ApiLogDoc> list = mongoTemplate.find(query, ApiLogDoc.class);
+
+        // 6. 组装结果
+        Map<String, Object> result = new HashMap<>();
+        result.put("total", total);
+        result.put("records", list);
+        result.put("current", dto.getPage());
+        result.put("size", dto.getSize());
+
+        return result;
     }
 }

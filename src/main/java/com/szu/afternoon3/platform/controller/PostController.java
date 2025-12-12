@@ -1,6 +1,7 @@
 package com.szu.afternoon3.platform.controller;
 
 import cn.hutool.core.util.StrUtil;
+import com.szu.afternoon3.platform.annotation.OperationLog;
 import com.szu.afternoon3.platform.common.Result;
 import com.szu.afternoon3.platform.dto.PostUpdateDTO;
 import com.szu.afternoon3.platform.service.PostService;
@@ -19,6 +20,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * 帖子控制器
+ * 处理帖子的发布、浏览、搜索等核心业务
+ */
 @RestController
 @RequestMapping("/api/post")
 public class PostController {
@@ -27,9 +32,10 @@ public class PostController {
     private PostService postService;
 
     /**
-     * 获取首页帖子流
+     * 获取首页帖子流 (推荐/关注)
      */
     @GetMapping("/list")
+    @OperationLog(module = "帖子模块", description = "浏览帖子流")
     public Result<Map<String, Object>> getPostList(
             @RequestParam(required = false, defaultValue = "1") Integer page,
             @RequestParam(required = false, defaultValue = "20") Integer size,
@@ -42,9 +48,10 @@ public class PostController {
 
     /**
      * 搜索帖子
-     * 对应 Apifox 接口: /api/post/search (GET)
+     * @param keyword 关键词
      */
     @GetMapping("/search")
+    @OperationLog(module = "帖子模块", description = "搜索帖子", bizId = "#keyword")
     public Result<Map<String, Object>> searchPosts(
             @RequestParam String keyword,
             @RequestParam(required = false, defaultValue = "1") Integer page,
@@ -55,10 +62,11 @@ public class PostController {
     }
 
     /**
-     * 获取用户的帖子
-     * 正则表达式 {userId:\\d+} 确保只有纯数字ID才会进入此方法。
+     * 获取某用户的帖子列表
+     * @param userId 目标用户ID
      */
     @GetMapping("/user/{userId:\\d+}")
+    @OperationLog(module = "帖子模块", description = "查看用户帖子", bizId = "#userId")
     public Result<Map<String, Object>> getUserPosts(
             @PathVariable String userId,
             @RequestParam(required = false, defaultValue = "1") Integer page,
@@ -69,53 +77,58 @@ public class PostController {
 
     /**
      * 获取帖子详情
+     * @param postId 帖子ID
      */
     @GetMapping("/{postId}")
+    @OperationLog(module = "帖子模块", description = "查看帖子详情", bizId = "#postId")
     public Result<PostVO> getPostDetail(@PathVariable String postId) {
         PostVO vo = postService.getPostDetail(postId);
         return Result.success(vo);
     }
 
     /**
-     * 搜索候选词/联想词
-     * 场景：用户在搜索框输入 "深" -> 提示 "深圳大学", "深圳美食"
+     * 获取搜索联想词
      */
     @GetMapping("/search/suggest")
+    // @OperationLog(module = "帖子模块", description = "搜索联想") // 联想词高频，可不记
     public Result<List<String>> suggestKeywords(@RequestParam String keyword) {
-        // 1. 判空
         if (StrUtil.isBlank(keyword)) {
             return Result.success(Collections.emptyList());
         }
-        // 2. 调用服务
         List<String> list = postService.getSearchSuggestions(keyword);
         return Result.success(list);
     }
 
     /**
      * 发布帖子
-     * 对应 Apifox 接口: /api/post (POST)
+     * @param dto 帖子内容
      */
     @PostMapping
+    @OperationLog(module = "帖子模块", description = "发布帖子", bizId = "#dto.title")
     public Result<Map<String, String>> createPost(@RequestBody @Valid PostCreateDTO dto) {
         String postId = postService.createPost(dto);
-
         Map<String, String> data = new HashMap<>();
         data.put("id", postId);
-
         return Result.success(data);
     }
 
     /**
      * 删除帖子
-     * 对应 Apifox 接口: /api/post/{id} (DELETE)
+     * @param postId 帖子ID
      */
     @DeleteMapping("/{id}")
+    @OperationLog(module = "帖子模块", description = "删除帖子", bizId = "#postId")
     public Result<Void> deletePost(@PathVariable("id") String postId) {
         postService.deletePost(postId);
         return Result.success();
     }
 
+    /**
+     * 修改帖子
+     * @param postId 帖子ID
+     */
     @PutMapping("/{id}")
+    @OperationLog(module = "帖子模块", description = "修改帖子", bizId = "#postId")
     public Result<Void> updatePost(
             @PathVariable("id") String postId,
             @RequestBody PostUpdateDTO dto
