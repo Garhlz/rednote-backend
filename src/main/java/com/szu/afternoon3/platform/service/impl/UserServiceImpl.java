@@ -12,18 +12,14 @@ import com.szu.afternoon3.platform.entity.mongo.*;
 import com.szu.afternoon3.platform.event.InteractionEvent;
 import com.szu.afternoon3.platform.event.UserUpdateEvent;
 import com.szu.afternoon3.platform.exception.AppException;
-import com.szu.afternoon3.platform.exception.ResultCode;
+import com.szu.afternoon3.platform.enums.ResultCode;
 import com.szu.afternoon3.platform.mapper.UserMapper;
 import com.szu.afternoon3.platform.repository.*;
 import com.szu.afternoon3.platform.service.UserService;
-import com.szu.afternoon3.platform.vo.UserInfo;
-import com.szu.afternoon3.platform.vo.UserProfileVO;
-import com.szu.afternoon3.platform.vo.UserSearchVO;
-import com.szu.afternoon3.platform.vo.PostVO;
+import com.szu.afternoon3.platform.vo.*;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.aggregation.Aggregation;
 import org.springframework.data.mongodb.core.aggregation.AggregationResults;
@@ -61,6 +57,12 @@ public class UserServiceImpl implements UserService {
     @Autowired
     private RabbitTemplate rabbitTemplate;
 
+    @Autowired
+    private CommentRepository commentRepository;
+
+    @Autowired
+    private PostRepository postRepository;
+
     @Override
     public UserProfileVO getUserProfile() {
         User user = getCurrentUser();
@@ -73,8 +75,6 @@ public class UserServiceImpl implements UserService {
     private PostCollectRepository postCollectRepository;
     @Autowired
     private PostRatingRepository postRatingRepository;
-    @Autowired
-    private PostRepository postRepository;
 
     @Autowired
     private PostViewHistoryRepository postViewHistoryRepository;
@@ -774,6 +774,69 @@ public class UserServiceImpl implements UserService {
         Map<String, Object> result = new HashMap<>();
         result.put("records", voList);
         result.put("total", total);
+        return result;
+    }
+
+    @Override
+    public Map<String, Object> getMyCommentList(Integer page, Integer size) {
+        Long userId = UserContext.getUserId();
+        if (userId == null) {
+            throw new AppException(ResultCode.UNAUTHORIZED);
+        }
+
+        // 1. 分页查询我的评论 (按时间倒序)
+        Pageable pageable = PageRequest.of(page - 1, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+        Page<CommentDoc> commentPage = commentRepository.findByUserId(userId, pageable);
+        List<CommentDoc> comments = commentPage.getContent();
+
+        if (CollUtil.isEmpty(comments)) {
+            Map<String, Object> result = new HashMap<>();
+            result.put("records", Collections.emptyList());
+            result.put("total", 0);
+            return result;
+        }
+
+        // 2. 批量查询关联的帖子 (为了拿封面)
+        // 2.1 提取所有 postId
+        Set<String> postIds = comments.stream()
+                .map(CommentDoc::getPostId)
+                .collect(Collectors.toSet());
+
+        // 2.2 批量查 PostDoc (只取 ID, cover, title 字段以优化性能，但 Spring Data 默认查全部，这在大作业场景可接受)
+        List<PostDoc> posts = postRepository.findAllById(postIds);
+
+        // 2.3 转为 Map<PostId, PostDoc> 方便快速查找
+        Map<String, PostDoc> postMap = posts.stream()
+                .collect(Collectors.toMap(PostDoc::getId, p -> p));
+
+        // 3. 组装 VO
+        List<MyCommentVO> records = comments.stream().map(comment -> {
+            MyCommentVO vo = new MyCommentVO();
+            vo.setId(comment.getId());
+            // 缩略内容：截取前 50 字
+            vo.setContent(StrUtil.subPre(comment.getContent(), 50));
+            vo.setCreatedAt(comment.getCreatedAt().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")));
+            vo.setLikeCount(comment.getLikeCount());
+
+            // 填充帖子信息
+            vo.setPostId(comment.getPostId());
+
+            PostDoc post = postMap.get(comment.getPostId());
+            if (post != null) {
+                vo.setPostCover(post.getCover());
+                vo.setPostTitle(post.getTitle()); // 顺便给个标题
+            } else {
+                // 极端情况：帖子被删了，但评论还在
+                vo.setPostCover(""); // 或者给个默认图
+                vo.setPostTitle("该帖子已删除");
+            }
+
+            return vo;
+        }).collect(Collectors.toList());
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("records", records);
+        result.put("total", commentPage.getTotalElements());
         return result;
     }
 }

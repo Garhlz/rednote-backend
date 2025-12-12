@@ -1,6 +1,6 @@
 package com.szu.afternoon3.platform.common;
 
-import com.szu.afternoon3.platform.exception.ResultCode;
+import com.szu.afternoon3.platform.enums.ResultCode;
 import lombok.Data;
 // 统一返回类
 @Data

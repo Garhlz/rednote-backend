@@ -1,5 +1,6 @@
 package com.szu.afternoon3.platform.exception;
 
+import com.szu.afternoon3.platform.enums.ResultCode;
 import lombok.Getter;
 
 @Getter

@@ -75,4 +75,7 @@ public interface UserService {
 
     // 【新增】记录浏览历史 (给 PostService 调用)
     void recordBrowsingHistory(Long userId, String postId);
+
+    // 【新增】获取我的评论列表
+    Map<String, Object> getMyCommentList(Integer page, Integer size);
 }

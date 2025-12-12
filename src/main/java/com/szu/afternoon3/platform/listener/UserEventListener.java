@@ -52,12 +52,12 @@ public class UserEventListener {
         // 4. 更新关注我的人的列表
         mongoTemplate.updateMulti(Query.query(Criteria.where("targetUserId").is(userId)), updateTarget, UserFollowDoc.class);
 
+        // 5. 更新回复我的评论的昵称
         Update updateReply = new Update();
-        if (newNickname != null) updateReply.set("replyToUserNickname", newNickname);
-        if (newAvatar != null) updateReply.set("replyToUserAvatar", newAvatar);
-
-        // 5. 更新回复我的
-        mongoTemplate.updateMulti(Query.query(Criteria.where("replyToUserId").is(userId)), updateReply, CommentDoc.class);
+        if (newNickname != null) {
+            updateReply.set("replyToUserNickname", newNickname);
+            mongoTemplate.updateMulti(Query.query(Criteria.where("replyToUserId").is(userId)), updateReply, CommentDoc.class);
+        }
 
         log.info("RabbitMQ 用户数据同步完成");
     }

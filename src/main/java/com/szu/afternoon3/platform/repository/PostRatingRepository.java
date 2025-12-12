@@ -19,4 +19,6 @@ public interface PostRatingRepository extends MongoRepository<PostRatingDoc, Str
 
     // 分页查询某人的评分记录
     Page<PostRatingDoc> findByUserId(Long userId, Pageable pageable);
+
+    void deleteByPostId(String postId);
 }

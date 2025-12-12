@@ -3,7 +3,7 @@ package com.szu.afternoon3.platform.controller;
 import cn.hutool.core.util.StrUtil;
 import com.szu.afternoon3.platform.common.Result;
 import com.szu.afternoon3.platform.dto.*;
-import com.szu.afternoon3.platform.exception.ResultCode;
+import com.szu.afternoon3.platform.enums.ResultCode;
 import com.szu.afternoon3.platform.service.UserService;
 import com.szu.afternoon3.platform.vo.UserInfo;
 import com.szu.afternoon3.platform.vo.UserProfileVO;
@@ -52,16 +52,6 @@ public class UserController {
         return Result.success(result);
     }
 
-// 删除了这个接口。这个接口是冗余的（在apifox中也删除了）
-//    /**
-//     * 初始化/修改密码 (简单模式，无需验证码)
-//     * 对应 Apifox 接口: /api/user/set-password (POST)
-//     */
-//    @PostMapping("/set-password")
-//    public Result<Void> setPassword(@RequestBody @Valid UserSetPasswordSimpleDTO dto) {
-//        userService.setPassword(dto);
-//        return Result.success(null);
-//    }
 
     /**
      * 首次设置密码 (验证邮箱模式)
@@ -208,5 +198,13 @@ public class UserController {
             @RequestParam(required = false, defaultValue = "1") Integer page,
             @RequestParam(required = false, defaultValue = "20") Integer size) {
         return Result.success(userService.getBrowsingHistory(page, size));
+    }
+
+    @GetMapping("/comments")
+    public Result<Map<String, Object>> getMyComments(
+            @RequestParam(required = false, defaultValue = "1") Integer page,
+            @RequestParam(required = false, defaultValue = "20") Integer size) {
+
+        return Result.success(userService.getMyCommentList(page, size));
     }
 }
