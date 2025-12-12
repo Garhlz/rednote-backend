@@ -25,6 +25,8 @@ import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.aggregation.Aggregation;
+import org.springframework.data.mongodb.core.aggregation.AggregationResults;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.Update;
@@ -417,6 +419,8 @@ public class UserServiceImpl implements UserService {
 
     private UserProfileVO buildProfileVO(User user) {
         UserProfileVO vo = new UserProfileVO();
+
+        // 1. 复制基础信息 (PostgreSQL)
         vo.setUserId(user.getId().toString());
         vo.setNickname(user.getNickname());
         vo.setAvatar(user.getAvatar());
@@ -428,9 +432,47 @@ public class UserServiceImpl implements UserService {
         vo.setRegion(user.getRegion());
         vo.setEmail(user.getEmail());
         vo.setHasPassword(StrUtil.isNotBlank(user.getPassword()));
+
+        // =====================================================
+        // 2. 查询统计数据 (MongoDB)
+        // =====================================================
+        Long userId = user.getId();
+
+        // 2.1 查询关注数 (我关注了谁 -> userId = 我)
+        long followCount = mongoTemplate.count(
+                Query.query(Criteria.where("userId").is(userId)),
+                UserFollowDoc.class
+        );
+        vo.setFollowCount(followCount);
+
+        // 2.2 查询粉丝数 (谁关注了我 -> targetUserId = 我)
+        long fanCount = mongoTemplate.count(
+                Query.query(Criteria.where("targetUserId").is(userId)),
+                UserFollowDoc.class
+        );
+        vo.setFanCount(fanCount);
+
+        // 2.3 查询获赞总数 (聚合查询)
+        // 逻辑：找出该用户所有未删除的帖子，累加它们的 likeCount
+        Aggregation agg = Aggregation.newAggregation(
+                // 筛选：我的帖子 && 未删除
+                Aggregation.match(Criteria.where("userId").is(userId).and("isDeleted").is(0)),
+                // 分组：求和
+                Aggregation.group().sum("likeCount").as("totalLikes")
+        );
+
+        AggregationResults<Map> results = mongoTemplate.aggregate(agg, PostDoc.class, Map.class);
+        Map<String, Object> result = results.getUniqueMappedResult();
+
+        if (result != null && result.get("totalLikes") != null) {
+            // Mongo 聚合返回的数值类型可能不固定，转 Number 再取 longValue 比较稳妥
+            vo.setReceivedLikeCount(((Number) result.get("totalLikes")).longValue());
+        } else {
+            vo.setReceivedLikeCount(0L);
+        }
+
         return vo;
     }
-
     // 实现了邮箱验证码的逻辑
     private void verifyCode(String target, String code) {
         // 修改了api接口，只能进行绑定邮箱

@@ -225,6 +225,7 @@ public class PostServiceImpl implements PostService {
             }
         }
 
+        // TODO 新增帖子浏览量的逻辑
         // 【新增】 记录浏览历史 (只有登录用户才记录)
         Long currentUserId = UserContext.getUserId();
         if (currentUserId != null) {

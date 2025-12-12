@@ -39,6 +39,7 @@ public class PostDoc {
     private Float score;
 
     // 统计数据
+    // TODO 这里有浏览数量
     private Integer viewCount = 0;
     private Integer likeCount = 0;
     private Integer collectCount = 0;
