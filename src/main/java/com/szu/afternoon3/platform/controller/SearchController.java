@@ -4,7 +4,7 @@ import cn.hutool.core.util.StrUtil;
 import com.szu.afternoon3.platform.common.Result;
 import com.szu.afternoon3.platform.common.UserContext;
 import com.szu.afternoon3.platform.exception.AppException;
-import com.szu.afternoon3.platform.exception.ResultCode;
+import com.szu.afternoon3.platform.enums.ResultCode;
 import com.szu.afternoon3.platform.service.PostService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;

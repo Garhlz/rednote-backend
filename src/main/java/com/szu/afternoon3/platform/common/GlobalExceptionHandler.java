@@ -1,6 +1,6 @@
 package com.szu.afternoon3.platform.common;
 
-import com.szu.afternoon3.platform.exception.ResultCode;
+import com.szu.afternoon3.platform.enums.ResultCode;
 import com.szu.afternoon3.platform.exception.AppException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.validation.BindingResult;

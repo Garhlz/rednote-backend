@@ -5,7 +5,7 @@ import cn.hutool.core.io.FileUtil;
 import cn.hutool.core.lang.UUID;
 import cn.hutool.core.util.StrUtil;
 import com.szu.afternoon3.platform.exception.AppException;
-import com.szu.afternoon3.platform.exception.ResultCode;
+import com.szu.afternoon3.platform.enums.ResultCode;
 import com.szu.afternoon3.platform.service.AliyunOssService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;

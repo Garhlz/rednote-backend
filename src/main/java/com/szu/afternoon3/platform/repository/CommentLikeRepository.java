@@ -4,6 +4,8 @@ import com.szu.afternoon3.platform.entity.mongo.CommentLikeDoc;
 import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
+
 @Repository
 public interface CommentLikeRepository extends MongoRepository<CommentLikeDoc, String> {
 
@@ -15,4 +17,6 @@ public interface CommentLikeRepository extends MongoRepository<CommentLikeDoc, S
 
     // 3. 级联删除：删除评论时，删除该评论的所有点赞
     void deleteByCommentId(String commentId);
+
+    void deleteByCommentIdIn(List<String> commentIds);
 }

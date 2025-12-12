@@ -12,19 +12,17 @@ import com.szu.afternoon3.platform.entity.mongo.*;
 import com.szu.afternoon3.platform.event.InteractionEvent;
 import com.szu.afternoon3.platform.event.UserUpdateEvent;
 import com.szu.afternoon3.platform.exception.AppException;
-import com.szu.afternoon3.platform.exception.ResultCode;
+import com.szu.afternoon3.platform.enums.ResultCode;
 import com.szu.afternoon3.platform.mapper.UserMapper;
 import com.szu.afternoon3.platform.repository.*;
 import com.szu.afternoon3.platform.service.UserService;
-import com.szu.afternoon3.platform.vo.UserInfo;
-import com.szu.afternoon3.platform.vo.UserProfileVO;
-import com.szu.afternoon3.platform.vo.UserSearchVO;
-import com.szu.afternoon3.platform.vo.PostVO;
+import com.szu.afternoon3.platform.vo.*;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.aggregation.Aggregation;
+import org.springframework.data.mongodb.core.aggregation.AggregationResults;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.Update;
@@ -59,6 +57,12 @@ public class UserServiceImpl implements UserService {
     @Autowired
     private RabbitTemplate rabbitTemplate;
 
+    @Autowired
+    private CommentRepository commentRepository;
+
+    @Autowired
+    private PostRepository postRepository;
+
     @Override
     public UserProfileVO getUserProfile() {
         User user = getCurrentUser();
@@ -71,8 +75,6 @@ public class UserServiceImpl implements UserService {
     private PostCollectRepository postCollectRepository;
     @Autowired
     private PostRatingRepository postRatingRepository;
-    @Autowired
-    private PostRepository postRepository;
 
     @Autowired
     private PostViewHistoryRepository postViewHistoryRepository;
@@ -417,6 +419,8 @@ public class UserServiceImpl implements UserService {
 
     private UserProfileVO buildProfileVO(User user) {
         UserProfileVO vo = new UserProfileVO();
+
+        // 1. 复制基础信息 (PostgreSQL)
         vo.setUserId(user.getId().toString());
         vo.setNickname(user.getNickname());
         vo.setAvatar(user.getAvatar());
@@ -428,9 +432,47 @@ public class UserServiceImpl implements UserService {
         vo.setRegion(user.getRegion());
         vo.setEmail(user.getEmail());
         vo.setHasPassword(StrUtil.isNotBlank(user.getPassword()));
+
+        // =====================================================
+        // 2. 查询统计数据 (MongoDB)
+        // =====================================================
+        Long userId = user.getId();
+
+        // 2.1 查询关注数 (我关注了谁 -> userId = 我)
+        long followCount = mongoTemplate.count(
+                Query.query(Criteria.where("userId").is(userId)),
+                UserFollowDoc.class
+        );
+        vo.setFollowCount(followCount);
+
+        // 2.2 查询粉丝数 (谁关注了我 -> targetUserId = 我)
+        long fanCount = mongoTemplate.count(
+                Query.query(Criteria.where("targetUserId").is(userId)),
+                UserFollowDoc.class
+        );
+        vo.setFanCount(fanCount);
+
+        // 2.3 查询获赞总数 (聚合查询)
+        // 逻辑：找出该用户所有未删除的帖子，累加它们的 likeCount
+        Aggregation agg = Aggregation.newAggregation(
+                // 筛选：我的帖子 && 未删除
+                Aggregation.match(Criteria.where("userId").is(userId).and("isDeleted").is(0)),
+                // 分组：求和
+                Aggregation.group().sum("likeCount").as("totalLikes")
+        );
+
+        AggregationResults<Map> results = mongoTemplate.aggregate(agg, PostDoc.class, Map.class);
+        Map<String, Object> result = results.getUniqueMappedResult();
+
+        if (result != null && result.get("totalLikes") != null) {
+            // Mongo 聚合返回的数值类型可能不固定，转 Number 再取 longValue 比较稳妥
+            vo.setReceivedLikeCount(((Number) result.get("totalLikes")).longValue());
+        } else {
+            vo.setReceivedLikeCount(0L);
+        }
+
         return vo;
     }
-
     // 实现了邮箱验证码的逻辑
     private void verifyCode(String target, String code) {
         // 修改了api接口，只能进行绑定邮箱
@@ -732,6 +774,69 @@ public class UserServiceImpl implements UserService {
         Map<String, Object> result = new HashMap<>();
         result.put("records", voList);
         result.put("total", total);
+        return result;
+    }
+
+    @Override
+    public Map<String, Object> getMyCommentList(Integer page, Integer size) {
+        Long userId = UserContext.getUserId();
+        if (userId == null) {
+            throw new AppException(ResultCode.UNAUTHORIZED);
+        }
+
+        // 1. 分页查询我的评论 (按时间倒序)
+        Pageable pageable = PageRequest.of(page - 1, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+        Page<CommentDoc> commentPage = commentRepository.findByUserId(userId, pageable);
+        List<CommentDoc> comments = commentPage.getContent();
+
+        if (CollUtil.isEmpty(comments)) {
+            Map<String, Object> result = new HashMap<>();
+            result.put("records", Collections.emptyList());
+            result.put("total", 0);
+            return result;
+        }
+
+        // 2. 批量查询关联的帖子 (为了拿封面)
+        // 2.1 提取所有 postId
+        Set<String> postIds = comments.stream()
+                .map(CommentDoc::getPostId)
+                .collect(Collectors.toSet());
+
+        // 2.2 批量查 PostDoc (只取 ID, cover, title 字段以优化性能，但 Spring Data 默认查全部，这在大作业场景可接受)
+        List<PostDoc> posts = postRepository.findAllById(postIds);
+
+        // 2.3 转为 Map<PostId, PostDoc> 方便快速查找
+        Map<String, PostDoc> postMap = posts.stream()
+                .collect(Collectors.toMap(PostDoc::getId, p -> p));
+
+        // 3. 组装 VO
+        List<MyCommentVO> records = comments.stream().map(comment -> {
+            MyCommentVO vo = new MyCommentVO();
+            vo.setId(comment.getId());
+            // 缩略内容：截取前 50 字
+            vo.setContent(StrUtil.subPre(comment.getContent(), 50));
+            vo.setCreatedAt(comment.getCreatedAt().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")));
+            vo.setLikeCount(comment.getLikeCount());
+
+            // 填充帖子信息
+            vo.setPostId(comment.getPostId());
+
+            PostDoc post = postMap.get(comment.getPostId());
+            if (post != null) {
+                vo.setPostCover(post.getCover());
+                vo.setPostTitle(post.getTitle()); // 顺便给个标题
+            } else {
+                // 极端情况：帖子被删了，但评论还在
+                vo.setPostCover(""); // 或者给个默认图
+                vo.setPostTitle("该帖子已删除");
+            }
+
+            return vo;
+        }).collect(Collectors.toList());
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("records", records);
+        result.put("total", commentPage.getTotalElements());
         return result;
     }
 }

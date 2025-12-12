@@ -1,4 +1,4 @@
-package com.szu.afternoon3.platform.exception;
+package com.szu.afternoon3.platform.enums;
 
 import lombok.Getter;
 

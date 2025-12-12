@@ -1,7 +1,12 @@
 package com.szu.afternoon3.platform.controller;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.szu.afternoon3.platform.common.Result;
 import com.szu.afternoon3.platform.dto.*;
+import com.szu.afternoon3.platform.entity.User;
+import com.szu.afternoon3.platform.enums.ResultCode;
+import com.szu.afternoon3.platform.exception.AppException;
+import com.szu.afternoon3.platform.mapper.UserMapper;
 import com.szu.afternoon3.platform.service.AdminService;
 import com.szu.afternoon3.platform.service.AuthService;
 import com.szu.afternoon3.platform.service.UserService;
@@ -15,6 +20,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
+import java.util.Objects;
 
 @RestController
 @RequestMapping("/admin")
@@ -22,12 +28,15 @@ public class AdminController {
 
     @Autowired
     private AdminService adminService;
-    
+
     @Autowired
     private AuthService authService; // 复用 resetPassword 逻辑
 
     @Autowired
     private UserService userService;
+
+    @Autowired
+    private UserMapper userMapper;
 
     @PostMapping("/auth/login")
     public Result<LoginVO> login(@RequestBody @Valid AccountLoginDTO loginDTO) {
@@ -37,6 +46,17 @@ public class AdminController {
 
     @PostMapping("/auth/send-code")
     public Result<Void> sendCode(@RequestBody @Valid SendEmailCodeDTO dto) {
+        // 根据邮箱查找用户, 验证该邮箱是否注册
+        User user = userMapper.selectOne(new LambdaQueryWrapper<User>()
+                .eq(User::getEmail, dto.getEmail()));
+
+        if (user == null) {
+            throw new AppException(ResultCode.USER_NOT_FOUND);
+        }
+        // 当前是管理端，只有管理员才可以发送邮件
+        if(!user.getRole().equals("ADMIN")){
+            throw new AppException(ResultCode.PERMISSION_DENIED);
+        }
         // 复用 AuthService 的发送逻辑
         authService.sendEmailCode(dto.getEmail());
         return Result.success();
@@ -66,12 +86,10 @@ public class AdminController {
     }
 
     // 登录之后重置密码
+    // 直接修改为相同的通过邮箱验证码验证的逻辑好了
     @PostMapping("/profile/password")
-    public Result<Void> updatePassword(@RequestBody @Valid UserPasswordChangeDTO dto) {
-        // 校验旧密码 -> 更新新密码
-        // 注意：这里可以直接复用 UserService 的逻辑，因为 Admin 也是 User 表里的
-        // 或者在 AdminService 再包一层
-        userService.changePassword(dto);
+    public Result<Void> updatePassword(@RequestBody @Valid UserPasswordResetDTO dto) {
+        authService.resetPassword(dto);
         return Result.success();
     }
 

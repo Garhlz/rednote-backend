@@ -5,7 +5,7 @@ import cn.hutool.jwt.JWT;
 import cn.hutool.jwt.JWTUtil;
 import com.szu.afternoon3.platform.common.UserContext;
 import com.szu.afternoon3.platform.exception.AppException;
-import com.szu.afternoon3.platform.exception.ResultCode;
+import com.szu.afternoon3.platform.enums.ResultCode;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;

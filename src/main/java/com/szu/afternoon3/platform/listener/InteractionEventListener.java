@@ -4,6 +4,7 @@ import cn.hutool.core.util.StrUtil;
 import com.szu.afternoon3.platform.config.RabbitConfig;
 import com.szu.afternoon3.platform.entity.User;
 import com.szu.afternoon3.platform.entity.mongo.*;
+import com.szu.afternoon3.platform.enums.NotificationType;
 import com.szu.afternoon3.platform.event.InteractionEvent;
 import com.szu.afternoon3.platform.mapper.UserMapper;
 import com.szu.afternoon3.platform.repository.*;
@@ -33,11 +34,15 @@ public class InteractionEventListener {
     @Autowired
     private PostRepository postRepository; // 用于读取旧均分
     @Autowired
+    private CommentRepository commentRepository;
+    @Autowired
     private CommentLikeRepository commentLikeRepository;
     @Autowired
     private MongoTemplate mongoTemplate;
-    @Autowired private NotificationService notificationService;
-    @Autowired private UserMapper userMapper;
+    @Autowired
+    private NotificationService notificationService;
+    @Autowired
+    private UserMapper userMapper;
 
     /**
      * 监听 Interaction 队列
@@ -51,18 +56,18 @@ public class InteractionEventListener {
                 case "LIKE":
                     handleLike(event);
                     if ("ADD".equals(event.getAction())) {
-                        sendPostNotification(event, "LIKE_POST");
+                        sendPostNotification(event, NotificationType.LIKE_POST);
                     }
                     break;
                 case "COLLECT":
                     handleCollect(event);
                     if ("ADD".equals(event.getAction())) {
-                        sendPostNotification(event, "COLLECT_POST");
+                        sendPostNotification(event, NotificationType.COLLECT_POST);
                     }
                     break;
                 case "RATE":
                     handleRate(event);
-                    sendPostNotification(event, "RATE_POST");
+                    sendPostNotification(event, NotificationType.RATE_POST);
                     break;
                 case "FOLLOW":
                     if ("ADD".equals(event.getAction())) {
@@ -70,8 +75,12 @@ public class InteractionEventListener {
                     }
                     break;
 
-                // case "COMMENT_LIKE": ...
-                // TODO 实现comment_like的逻辑
+                case "COMMENT_LIKE":
+                    handleCommentLike(event);
+                    if ("ADD".equals(event.getAction())) {
+                        sendCommentLikeNotification(event);
+                    }
+                    break;
             }
         } catch (Exception e) {
             log.error("交互消息处理失败: ", e);
@@ -180,7 +189,7 @@ public class InteractionEventListener {
         }
     }
 
-    // 处理评论点赞
+    // --- 评论点赞处理逻辑 ---
     private void handleCommentLike(InteractionEvent event) {
         String commentId = event.getTargetId();
         Long userId = event.getUserId();
@@ -206,13 +215,52 @@ public class InteractionEventListener {
         }
     }
 
-    // 通用：更新评论计数
+    // 辅助方法：更新评论表中的计数
     private void updateCommentCount(String commentId, int inc) {
         mongoTemplate.updateFirst(
                 Query.query(Criteria.where("id").is(commentId)),
                 new Update().inc("likeCount", inc),
                 CommentDoc.class
         );
+    }
+
+    // --- 发送评论点赞通知 ---
+    private void sendCommentLikeNotification(InteractionEvent event) {
+        String commentId = event.getTargetId();
+        Long senderId = event.getUserId();
+
+        // 1. 查评论信息 (为了获取评论作者)
+        CommentDoc comment = commentRepository.findById(commentId).orElse(null);
+        if (comment == null) return;
+
+        // 2. 如果是自己给自己点赞，不发通知
+        if (comment.getUserId().equals(senderId)) return;
+
+        // 3. 查发送者信息
+        User sender = userMapper.selectById(senderId);
+        if (sender == null) return;
+
+        // 4. 构建通知
+        NotificationDoc doc = new NotificationDoc();
+        doc.setReceiverId(comment.getUserId()); // 发给评论作者
+
+        doc.setSenderId(senderId);
+        doc.setSenderNickname(sender.getNickname());
+        doc.setSenderAvatar(sender.getAvatar());
+
+        doc.setType(NotificationType.LIKE_COMMENT); // 类型：赞了评论
+
+        // 关键：targetId 存postId还是commentId？
+        // 建议存 commentId，或者存 postId。
+        // 为了方便前端跳转到帖子详情并定位评论，通常存 postId 更方便，或者存 commentId 但前端有能力反查。
+        // 这里我们沿用 NotificationDoc 的约定：COMMENT/REPLY 类型存 postId。
+        // 但对于 LIKE_COMMENT，targetId 存 postId 更实用。
+        doc.setTargetId(comment.getPostId());
+
+        // 摘要：显示被点赞的评论内容
+        doc.setTargetPreview(StrUtil.subPre(comment.getContent(), 50));
+
+        notificationService.save(doc);
     }
 
     // 通用：原子更新简单计数器
@@ -239,10 +287,11 @@ public class InteractionEventListener {
                 PostDoc.class
         );
     }
+
     /**
      * 通用：发送帖子相关通知 (点赞/收藏/评分)
      */
-    private void sendPostNotification(InteractionEvent event, String notifType) {
+    private void sendPostNotification(InteractionEvent event, NotificationType type) {
         String postId = event.getTargetId();
         Long senderId = event.getUserId();
 
@@ -265,7 +314,7 @@ public class InteractionEventListener {
         doc.setSenderNickname(sender.getNickname());
         doc.setSenderAvatar(sender.getAvatar());
 
-        doc.setType(notifType);
+        doc.setType(type);
         doc.setTargetId(postId);
 
         // 摘要：优先用标题，没有标题截取内容
@@ -301,42 +350,12 @@ public class InteractionEventListener {
         doc.setSenderNickname(sender.getNickname());
         doc.setSenderAvatar(sender.getAvatar());
 
-        doc.setType("FOLLOW");
+        doc.setType(NotificationType.FOLLOW);
         doc.setTargetId(String.valueOf(senderId)); // 关联的目标ID就是粉丝的ID，点击可能跳到粉丝主页
         doc.setTargetPreview("关注了你"); // 简单文案
 
         // 4. 保存
         notificationService.save(doc);
     }
-
-    // 发送评论点赞通知
-    // TODO 评论模块还没有实现
-//    private void sendCommentLikeNotification(InteractionEvent event) {
-//        String commentId = event.getTargetId();
-//        Long senderId = event.getUserId();
-//
-//        CommentDoc comment = commentRepository.findById(commentId).orElse(null);
-//        if (comment == null) return;
-//
-//        // 不通知自己
-//        if (comment.getUserId().equals(senderId)) return;
-//
-//        User sender = userMapper.selectById(senderId);
-//        if (sender == null) return;
-//
-//        NotificationDoc doc = new NotificationDoc();
-//        doc.setReceiverId(comment.getUserId()); // 发给评论者
-//
-//        doc.setSenderId(sender.getId());
-//        doc.setSenderNickname(sender.getNickname());
-//        doc.setSenderAvatar(sender.getAvatar());
-//
-//        doc.setType("LIKE_COMMENT");
-//        doc.setTargetId(commentId); // 这里存的是评论ID，前端点击可能需要跳转到帖子详情并定位
-//        // 也可以存 comment.getPostId()，看前端需求
-//
-//        doc.setTargetPreview(StrUtil.subPre(comment.getContent(), 20));
-//
-//        notificationService.save(doc);
-//    }
 }
+

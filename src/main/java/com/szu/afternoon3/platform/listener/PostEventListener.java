@@ -1,19 +1,22 @@
 package com.szu.afternoon3.platform.listener;
 
+import cn.hutool.core.collection.CollUtil;
 import com.szu.afternoon3.platform.config.RabbitConfig;
+import com.szu.afternoon3.platform.entity.mongo.CommentDoc;
 import com.szu.afternoon3.platform.event.PostCreateEvent;
 import com.szu.afternoon3.platform.event.PostDeleteEvent;
 import com.szu.afternoon3.platform.event.PostUpdateEvent;
-import com.szu.afternoon3.platform.repository.CommentRepository;
-import com.szu.afternoon3.platform.repository.PostCollectRepository;
-import com.szu.afternoon3.platform.repository.PostLikeRepository;
-import com.szu.afternoon3.platform.repository.PostRatingRepository;
+import com.szu.afternoon3.platform.repository.*;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.annotation.RabbitHandler;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
+
+import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * 帖子相关事件监听器
@@ -35,7 +38,8 @@ public class PostEventListener {
     private PostRatingRepository postRatingRepository;
     @Autowired
     private StringRedisTemplate redisTemplate;
-
+    @Autowired
+    private CommentLikeRepository commentLikeRepository;
     /**
      * 处理帖子删除
      */
@@ -51,8 +55,25 @@ public class PostEventListener {
         try {
             postLikeRepository.deleteByPostId(postId);
             postCollectRepository.deleteByPostId(postId);
+            postRatingRepository.deleteByPostId(postId);
+
+            // 方案 A: 完美主义 (数据绝对干净，但性能稍慢)
+            // 第一步：查出该贴下所有评论的 ID (只查 ID，很快)
+//             List<CommentDoc> comments = commentRepository.findByPostIdAndParentIdIsNull(postId, Pageable.unpaged()).getContent();
+//             List<String> commentIds = comments.stream().map(CommentDoc::getId).collect(Collectors.toList());
+
+            // 第二步：批量删除这些评论的点赞
+//             if (CollUtil.isNotEmpty(commentIds)) {
+//                 // 需要在 Repository 加一个 deleteByCommentIdIn(List<String> ids)
+//                 commentLikeRepository.deleteByCommentIdIn(commentIds);
+//             }
+
+            // 方案 B: 实用主义 (推荐)
+            // 直接删除评论，忽略"评论点赞表"里的孤儿数据。
+            // 因为 commentId 已经删了，依附于它的点赞数据永远查不出来，只是占一点点磁盘空间而已。
             commentRepository.deleteByPostId(postId);
-            // postRatingRepository.deleteByPostId(postId);
+
+            log.info("删帖清理完成");
         } catch (Exception e) {
             log.error("删帖清理失败: postId={}", postId, e);
         }
