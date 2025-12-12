@@ -147,4 +147,42 @@ public class AiServiceImpl implements AiService {
 
         return callDeepSeek(systemPrompt, input, 1.3); // 1.3 温度让总结更有趣
     }
+
+    /**
+     * 场景 4: 评论区交互式回复 (被 @ 时触发)
+     * @param postTitle 帖子标题
+     * @param postContent 帖子内容
+     * @param parentContent 父评论内容 (如果是二级回复则有值，否则为 null)
+     * @param userPrompt 用户发送的评论内容
+     */
+    public String generateInteractiveReply(String postTitle, String postContent, String parentContent, String userPrompt) {
+
+        // 1. 构建系统提示词
+        String systemPrompt = """
+            你是一个社交平台的高情商AI助手，名字叫"小映"。
+            用户在评论区 @了你，你需要根据帖子内容回答用户的问题。
+            要求：
+            1. 语气亲切、活泼，像个真实的朋友。
+            2. 结合帖子上下文回答。
+            3. 回复尽量简短（80字以内），不要长篇大论。
+            4. 如果用户是在闲聊，就幽默回应。
+            """;
+
+        // 2. 构建用户输入上下文
+        StringBuilder inputBuilder = new StringBuilder();
+        inputBuilder.append("【当前帖子上下文】\n")
+                .append("标题：").append(StrUtil.nullToEmpty(postTitle)).append("\n")
+                .append("内容：").append(StrUtil.subPre(postContent, 500)).append("\n\n"); // 截取500字防止超长
+
+        if (StrUtil.isNotBlank(parentContent)) {
+            inputBuilder.append("【用户回复的目标评论】\n")
+                    .append(parentContent).append("\n\n");
+        }
+
+        inputBuilder.append("【用户对你说的话】\n")
+                .append(userPrompt);
+
+        // 3. 调用 AI (温度 1.3 比较活泼)
+        return callDeepSeek(systemPrompt, inputBuilder.toString(), 1.3);
+    }
 }
