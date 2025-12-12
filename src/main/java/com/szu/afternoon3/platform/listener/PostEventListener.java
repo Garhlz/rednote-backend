@@ -1,20 +1,31 @@
 package com.szu.afternoon3.platform.listener;
 
 import cn.hutool.core.collection.CollUtil;
+import cn.hutool.core.util.StrUtil;
 import com.szu.afternoon3.platform.config.RabbitConfig;
+import com.szu.afternoon3.platform.entity.User;
 import com.szu.afternoon3.platform.entity.mongo.CommentDoc;
+import com.szu.afternoon3.platform.entity.mongo.PostDoc;
 import com.szu.afternoon3.platform.event.PostCreateEvent;
 import com.szu.afternoon3.platform.event.PostDeleteEvent;
 import com.szu.afternoon3.platform.event.PostUpdateEvent;
+import com.szu.afternoon3.platform.mapper.UserMapper;
 import com.szu.afternoon3.platform.repository.*;
+import com.szu.afternoon3.platform.service.impl.AiServiceImpl;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.annotation.RabbitHandler;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -40,6 +51,9 @@ public class PostEventListener {
     private StringRedisTemplate redisTemplate;
     @Autowired
     private CommentLikeRepository commentLikeRepository;
+    @Autowired private AiServiceImpl aiService;
+    @Autowired private MongoTemplate mongoTemplate;
+    @Autowired private UserMapper userMapper;
     /**
      * 处理帖子删除
      */
@@ -79,18 +93,64 @@ public class PostEventListener {
         }
     }
 
-    /**
-     * 处理帖子创建 (审核逻辑)
-     * 来自原 PostAuditListener
-     */
+
+    // 读取配置文件的机器人ID
+    @Value("${app.bot.user-id}")
+    private Long botUserId;
+
     @RabbitHandler
     public void handlePostCreate(PostCreateEvent event) {
-        log.info("RabbitMQ 收到发帖事件，进入审核流程: {}", event.getPostId());
-        // TODO: 调用阿里云/百度 内容安全 API
-        // 审核通过 -> update post set status = 1
-        // 审核不通过 -> update post set status = 2
+        log.info("RabbitMQ 收到发帖事件: {}", event.getPostId());
+
+        try {
+            handleAutoComment(event);
+        } catch (Exception e) {
+            log.error("AI 自动评论失败", e);
+        }
     }
 
+    /**
+     * 处理自动评论逻辑
+     */
+    private void handleAutoComment(PostCreateEvent event) {
+        // TODO 审核逻辑
+        // 1. 调用 AI 获取总结
+        String summary = aiService.generatePostSummary(event.getTitle(),event.getContent());
+
+        // 如果 AI 没返回（比如内容太短），直接跳过
+        if (StrUtil.isBlank(summary)) return;
+
+        log.info("AI 生成总结评论: {}", summary);
+
+        // 2. 获取机器人用户信息 (为了填充冗余字段)
+        User botUser = userMapper.selectById(botUserId);
+        if (botUser == null) {
+            log.warn("未找到机器人账号 ID={}, 取消评论", botUserId);
+            return;
+        }
+
+        // 3. 构建评论对象
+        CommentDoc comment = new CommentDoc();
+        comment.setPostId(event.getPostId());
+        comment.setUserId(botUserId);
+        comment.setUserNickname(botUser.getNickname()); // "AI省流助手"
+        comment.setUserAvatar(botUser.getAvatar());
+        comment.setContent(summary);
+        comment.setCreatedAt(LocalDateTime.now());
+        comment.setLikeCount(0);
+        comment.setReplyCount(0);
+        comment.setParentId(null); // 这是一级评论
+
+        // 4. 保存评论
+        commentRepository.save(comment);
+
+        // 5. 更新帖子的评论数 (commentCount + 1)
+        mongoTemplate.updateFirst(
+                Query.query(Criteria.where("id").is(event.getPostId())),
+                new Update().inc("commentCount", 1),
+                PostDoc.class
+        );
+    }
     /**
      * 处理帖子更新 (审核逻辑)
      */

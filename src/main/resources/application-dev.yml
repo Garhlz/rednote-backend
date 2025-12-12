@@ -71,3 +71,12 @@ logging:
     com.szu.afternoon3.platform.mapper: DEBUG
     org.springframework.data.mongodb.core.MongoTemplate: DEBUG
     org.mongodb.driver.protocol.command: DEBUG
+ai:
+  deepseek:
+    url: https://api.deepseek.com/chat/completions
+    key: ${DEEPSEEK_API_KEY}
+    model: deepseek-chat
+
+app:
+  bot:
+    user-id: ${CHATBOT_ID}

@@ -3,8 +3,11 @@ package com.szu.afternoon3.platform.controller;
 import cn.hutool.core.util.StrUtil;
 import com.szu.afternoon3.platform.annotation.OperationLog;
 import com.szu.afternoon3.platform.common.Result;
+import com.szu.afternoon3.platform.dto.PostTagSuggestDTO;
 import com.szu.afternoon3.platform.dto.PostUpdateDTO;
+import com.szu.afternoon3.platform.enums.ResultCode;
 import com.szu.afternoon3.platform.service.PostService;
+import com.szu.afternoon3.platform.service.impl.AiServiceImpl;
 import com.szu.afternoon3.platform.vo.PostVO;
 import com.szu.afternoon3.platform.dto.PostCreateDTO;
 import jakarta.validation.Valid;
@@ -30,7 +33,6 @@ public class PostController {
 
     @Autowired
     private PostService postService;
-
     /**
      * 获取首页帖子流 (推荐/关注)
      */

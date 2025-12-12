@@ -65,3 +65,13 @@ mybatis-plus:
     db-config:
       logic-delete-value: 1
       logic-not-delete-value: 0
+
+ai:
+  deepseek:
+    url: https://api.deepseek.com/chat/completions
+    key: ${DEEPSEEK_API_KEY}
+    model: deepseek-chat
+
+app:
+  bot:
+    user-id: ${CHATBOT_ID}
