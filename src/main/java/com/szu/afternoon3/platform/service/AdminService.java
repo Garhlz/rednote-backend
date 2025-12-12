@@ -29,4 +29,6 @@ public interface AdminService {
 
     // 内容审核 - 审核操作
     void auditPost(String postId, Integer status, String reason);
+
+    Long createTestUser(TestUserCreateDTO dto);
 }

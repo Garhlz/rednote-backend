@@ -4,6 +4,7 @@ import com.szu.afternoon3.platform.entity.mongo.CommentLikeDoc;
 import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.List;
 
 @Repository
@@ -19,4 +20,7 @@ public interface CommentLikeRepository extends MongoRepository<CommentLikeDoc, S
     void deleteByCommentId(String commentId);
 
     void deleteByCommentIdIn(List<String> commentIds);
+
+    // 【新增】批量查询某用户对一组评论的点赞记录
+    List<CommentLikeDoc> findByUserIdAndCommentIdIn(Long userId, Collection<String> commentIds);
 }

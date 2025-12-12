@@ -92,11 +92,9 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public LoginVO accountLogin(String account, String password) {
-        // 1. 根据 邮箱 或 昵称 查询用户
+        // 1. 根据邮箱查询用户
         User user = userMapper.selectOne(new LambdaQueryWrapper<User>()
-                .eq(User::getEmail, account)
-                .or()
-                .eq(User::getNickname, account));
+                .eq(User::getEmail, account));
 
         // 2. 用户不存在 -> 对应文档 40401
         if (user == null) {

@@ -30,6 +30,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -72,9 +73,7 @@ public class AdminServiceImpl implements AdminService {
     public LoginVO login(String account, String password) {
         // 1. 查询用户
         User user = userMapper.selectOne(new LambdaQueryWrapper<User>()
-                .eq(User::getEmail, account)
-                .or()
-                .eq(User::getNickname, account));
+                .eq(User::getEmail, account));
 
         if (user == null) {
             throw new AppException(ResultCode.USER_NOT_FOUND);
@@ -540,5 +539,33 @@ public class AdminServiceImpl implements AdminService {
             return (double) Math.round(val * 10) / 10;
         }
         return 0.0;
+    }
+    @Value("${szu.oss.default-avatar}") private String defaultAvatar;
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Long createTestUser(TestUserCreateDTO dto) {
+        // 1. 查重
+        Long count = userMapper.selectCount(new LambdaQueryWrapper<User>()
+                .eq(User::getEmail, dto.getEmail()));
+        if (count > 0) {
+            throw new AppException(ResultCode.EMAIL_ALREADY_EXISTS, "该测试邮箱已存在");
+        }
+
+        // 2. 插入用户
+        User user = new User();
+        user.setEmail(dto.getEmail());
+        user.setNickname(dto.getNickname());
+        // 务必加密密码
+        user.setPassword(BCrypt.hashpw(dto.getPassword()));
+        user.setAvatar(defaultAvatar);
+        user.setRole("ADMIN");
+        user.setStatus(1);
+
+        // 为了测试方便，随便给个 openid，防止唯一索引冲突
+        user.setOpenid("test_openid_" + System.currentTimeMillis());
+
+        userMapper.insert(user);
+        return user.getId();
     }
 }

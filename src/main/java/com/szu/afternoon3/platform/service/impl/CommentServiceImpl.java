@@ -7,6 +7,7 @@ import com.szu.afternoon3.platform.config.RabbitConfig;
 import com.szu.afternoon3.platform.dto.CommentCreateDTO;
 import com.szu.afternoon3.platform.entity.User;
 import com.szu.afternoon3.platform.entity.mongo.CommentDoc;
+import com.szu.afternoon3.platform.entity.mongo.CommentLikeDoc;
 import com.szu.afternoon3.platform.entity.mongo.PostDoc;
 import com.szu.afternoon3.platform.event.CommentEvent;
 import com.szu.afternoon3.platform.exception.AppException;
@@ -112,9 +113,10 @@ public class CommentServiceImpl implements CommentService {
     @Override
     public Map<String, Object> getRootComments(String postId, Integer page, Integer size) {
         Long currentUserId = UserContext.getUserId();
-        
-        // 1. 分页查询一级评论
-        Pageable pageable = PageRequest.of(page - 1, size, Sort.by(Sort.Direction.DESC, "createdAt")); // 或者按 likeCount 热度排
+
+        // 1. 分页查询一级评论 (按热度或时间排序)
+        // 这里默认按时间倒序，也可以改为 Sort.by(Sort.Direction.DESC, "likeCount")
+        Pageable pageable = PageRequest.of(page - 1, size, Sort.by(Sort.Direction.DESC, "createdAt"));
         Page<CommentDoc> rootPage = commentRepository.findByPostIdAndParentIdIsNull(postId, pageable);
         List<CommentDoc> roots = rootPage.getContent();
 
@@ -122,39 +124,49 @@ public class CommentServiceImpl implements CommentService {
             return Map.of("records", List.of(), "total", 0);
         }
 
-        // 2. 批量查询子评论预览 (解决 N+1 问题)
-        // 目标：为每个 root 查出最新的 3 条 child
-        // 简单做法：循环查 (N次查询)。如果 QPS 不高可以接受。
-        // 高级做法：使用 Mongo Aggregation 的 $lookup 或 $graphLookup (较复杂)。
-        // 这种场景下，为了开发效率，先用循环查前 3 条即可，Mongo 查单表 ID 索引很快。
-        
-        List<String> rootIds = roots.stream().map(CommentDoc::getId).toList();
-        
-        // 3. 批量查询点赞状态 (我是否给这些评论点过赞)
+        // --- 准备阶段：收集数据以解决 N+1 问题 ---
+
+        // 2.1 收集一级评论 ID
+        List<String> allCommentIdsToCheck = new ArrayList<>();
+        roots.forEach(root -> allCommentIdsToCheck.add(root.getId()));
+
+        // 2.2 预查询每个一级评论的子评论 (Top 3 热评)
+        // Map<RootId, List<ChildDoc>>
+        Map<String, List<CommentDoc>> childrenMap = new HashMap<>();
+
+        for (CommentDoc root : roots) {
+            if (root.getReplyCount() > 0) {
+                // 【修改点】按点赞数倒序取前3条
+                PageRequest previewPage = PageRequest.of(0, 3, Sort.by(Sort.Direction.DESC, "likeCount"));
+                List<CommentDoc> children = commentRepository.findByParentId(root.getId(), previewPage).getContent();
+
+                childrenMap.put(root.getId(), children);
+
+                // 将子评论 ID 也加入待检查列表
+                children.forEach(child -> allCommentIdsToCheck.add(child.getId()));
+            }
+        }
+
+        // 3. 批量查询点赞状态 (仅当用户登录时)
         Set<String> likedCommentIds = new HashSet<>();
-        if (currentUserId != null) {
-            // 这里假设你有 CommentLikeRepository.findByUserIdAndCommentIdIn...
-            // 否则就循环查 exists (性能稍差)
+        if (currentUserId != null && !allCommentIdsToCheck.isEmpty()) {
+            List<CommentLikeDoc> likes = commentLikeRepository.findByUserIdAndCommentIdIn(currentUserId, allCommentIdsToCheck);
+            likes.forEach(like -> likedCommentIds.add(like.getCommentId()));
         }
 
         // 4. 组装 VO
         List<CommentVO> voList = roots.stream().map(root -> {
-            CommentVO vo = convertToVO(root, currentUserId);
+            // 转换一级评论 (传入 likedSet)
+            CommentVO rootVO = convertToVO(root, likedCommentIds);
 
-            // TODO改成赞最多的
-            // 查询 3 条子评论做预览
-            if (root.getReplyCount() > 0) {
-                PageRequest previewPage = PageRequest.of(0, 3, Sort.by(Sort.Direction.ASC, "createdAt"));
-                List<CommentDoc> children = commentRepository.findByParentId(root.getId(), previewPage).getContent();
-                
-                List<CommentVO> childVOs = children.stream()
-                    .map(child -> convertToVO(child, currentUserId))
+            // 处理子评论预览
+            List<CommentDoc> children = childrenMap.getOrDefault(root.getId(), Collections.emptyList());
+            List<CommentVO> childVOs = children.stream()
+                    .map(child -> convertToVO(child, likedCommentIds)) // 子评论也使用同一个 Set 判断点赞
                     .collect(Collectors.toList());
-                vo.setChildComments(childVOs);
-            } else {
-                vo.setChildComments(new ArrayList<>());
-            }
-            return vo;
+
+            rootVO.setChildComments(childVOs);
+            return rootVO;
         }).collect(Collectors.toList());
 
         return Map.of("records", voList, "total", rootPage.getTotalElements());
@@ -162,18 +174,34 @@ public class CommentServiceImpl implements CommentService {
 
     @Override
     public Map<String, Object> getSubComments(String rootCommentId, Integer page, Integer size) {
-        // 点击 "展开更多" 时调用
+        Long currentUserId = UserContext.getUserId();
+
+        // 1. 分页查询子评论
+        // 点击“展开”通常看全部回复，建议按时间正序（楼层模式），或者按热度倒序
+        // 这里演示按时间正序
         Pageable pageable = PageRequest.of(page - 1, size, Sort.by(Sort.Direction.ASC, "createdAt"));
         Page<CommentDoc> childPage = commentRepository.findByParentId(rootCommentId, pageable);
-        
-        Long currentUserId = UserContext.getUserId();
-        List<CommentVO> voList = childPage.getContent().stream()
-            .map(doc -> convertToVO(doc, currentUserId))
-            .collect(Collectors.toList());
+        List<CommentDoc> children = childPage.getContent();
+
+        if (CollUtil.isEmpty(children)) {
+            return Map.of("records", List.of(), "total", 0);
+        }
+
+        // 2. 批量查询点赞状态
+        Set<String> likedCommentIds = new HashSet<>();
+        if (currentUserId != null) {
+            List<String> ids = children.stream().map(CommentDoc::getId).collect(Collectors.toList());
+            List<CommentLikeDoc> likes = commentLikeRepository.findByUserIdAndCommentIdIn(currentUserId, ids);
+            likes.forEach(like -> likedCommentIds.add(like.getCommentId()));
+        }
+
+        // 3. 组装 VO
+        List<CommentVO> voList = children.stream()
+                .map(doc -> convertToVO(doc, likedCommentIds))
+                .collect(Collectors.toList());
 
         return Map.of("records", voList, "total", childPage.getTotalElements());
     }
-
 
     @Override
     public void deleteComment(String commentId) {
@@ -216,12 +244,11 @@ public class CommentServiceImpl implements CommentService {
         rabbitTemplate.convertAndSend(RabbitConfig.PLATFORM_EXCHANGE, "comment.delete", event);
     }
 
-    // 辅助转换方法
-    private CommentVO convertToVO(CommentDoc doc, Long currentUserId) {
+    private CommentVO convertToVO(CommentDoc doc, Set<String> likedCommentIds) {
         CommentVO vo = new CommentVO();
         vo.setId(doc.getId());
         vo.setContent(doc.getContent());
-        vo.setCreatedAt(doc.getCreatedAt().toString()); // 格式化自己处理
+        vo.setCreatedAt(doc.getCreatedAt().toString()); // 建议用 DateUtil 格式化一下
         vo.setLikeCount(doc.getLikeCount());
         vo.setReplyCount(doc.getReplyCount());
 
@@ -238,14 +265,13 @@ public class CommentServiceImpl implements CommentService {
             vo.setReplyToUser(replyTo);
         }
 
-        // 检查点赞状态
-        if (currentUserId != null) {
-             boolean isLiked = commentLikeRepository.existsByUserIdAndCommentId(currentUserId, doc.getId());
-             vo.setIsLiked(isLiked);
+        // 直接从 Set 中判断，O(1) 复杂度，无需查库
+        if (likedCommentIds != null) {
+            vo.setIsLiked(likedCommentIds.contains(doc.getId()));
         } else {
             vo.setIsLiked(false);
         }
-        
+
         return vo;
     }
 }

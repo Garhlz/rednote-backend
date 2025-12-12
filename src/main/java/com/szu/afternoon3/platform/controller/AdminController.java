@@ -79,6 +79,15 @@ public class AdminController {
         return Result.success();
     }
 
+    /**
+     * 创建测试用户 (开发环境便利接口)
+     */
+    @PostMapping("/auth/test/register")
+    public Result<Long> createTestUser(@RequestBody @Valid TestUserCreateDTO dto) {
+        Long userId = adminService.createTestUser(dto);
+        return Result.success(userId);
+    }
+
     // 个人信息
     @GetMapping("/profile/info")
     public Result<UserInfo> getAdminInfo() {
@@ -134,4 +143,6 @@ public class AdminController {
         adminService.auditPost(id, dto.getStatus(), dto.getReason());
         return Result.success();
     }
+
+
 }
