@@ -49,3 +49,6 @@ prometheus_data/
 grafana_data/
 
 **/diff.txt
+
+# 忽略部署配置
+.deploy_env

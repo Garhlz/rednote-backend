@@ -1,0 +1,32 @@
+# .dockerignore
+# 忽略所有 Git 相关
+.git
+.gitignore
+
+# 忽略构建输出 (除了 target 下的 jar，但 jar 我们会在 Dockerfile 里显式 COPY)
+# 这里的逻辑是：构建上下文不需要传整个 target 目录，只需要传我们指定的 jar
+# 但为了保险起见，我们可以只忽略那些完全无关的数据目录
+
+# 忽略本地的 Maven 包装器和源码 (因为你是本地编译，Docker只负责运行)
+src
+mvnw
+mvnw.cmd
+.mvn
+pom.xml
+
+# 忽略 Docker 产生的数据挂载目录 (关键修复！)
+pg_data
+mongo_data
+redis_data
+grafana_data
+prometheus_data
+logs
+
+# 忽略 IDE 配置
+.idea
+*.iml
+.vscode
+
+# 忽略文档
+*.md
+doc

@@ -9,10 +9,7 @@ import com.szu.afternoon3.platform.service.AuthService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 /**
  * 认证控制器
@@ -95,5 +92,10 @@ public class AuthController {
     public Result<Long> createTestUser(@RequestBody @Valid TestUserCreateDTO dto) {
         Long userId = authService.createTestUser(dto);
         return Result.success(userId);
+    }
+
+    @GetMapping("test")
+    public Result<String> printHello(){
+        return Result.success("Hello, world!");
     }
 }

@@ -84,4 +84,3 @@ ai:
   bot:
     user-id: ${CHATBOT_ID}
     user-nickname: ${CHATBOT_NICKNAME}
-
