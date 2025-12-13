@@ -39,7 +39,6 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/api/dev")
 @Slf4j
-@Profile({"dev", "test"})
 public class DevDataController {
 
     @Autowired private UserService userService;
