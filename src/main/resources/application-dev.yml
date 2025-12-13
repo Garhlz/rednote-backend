@@ -77,7 +77,11 @@ ai:
     key: ${DEEPSEEK_API_KEY}
     model: deepseek-chat
 
-app:
+  dashscope:
+    api-key: ${QWENVL_API_KEY}
+    model: qwen-vl-plus
+
   bot:
     user-id: ${CHATBOT_ID}
     user-nickname: ${CHATBOT_NICKNAME}
+

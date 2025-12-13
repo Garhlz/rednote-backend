@@ -508,8 +508,14 @@ public class PostServiceImpl implements PostService {
         postRepository.save(post);
 
         // TODO: 发送异步事件通知审核模块 (AI 或 管理端)
-        rabbitTemplate.convertAndSend(RabbitConfig.PLATFORM_EXCHANGE, "post.create",
-                new PostCreateEvent(post.getId(), post.getContent(), post.getTitle()));
+        if(post.getType() != 1) {
+            rabbitTemplate.convertAndSend(RabbitConfig.PLATFORM_EXCHANGE, "post.create",
+                    new PostCreateEvent(post.getId(), post.getContent(), post.getTitle(),post.getResources(),null));
+        } else{
+            rabbitTemplate.convertAndSend(RabbitConfig.PLATFORM_EXCHANGE, "post.create",
+                    new PostCreateEvent(post.getId(), post.getContent(), post.getTitle(),null,post.getResources().get(0)));
+        }
+
 
         return post.getId();
     }

@@ -39,7 +39,7 @@ public class TagController {
      * AI 智能生成标签 (编辑时调用)
      */
     @PostMapping("/ai-generate")
-    @OperationLog(module = "帖子模块", description = "AI生成标签")
+    @OperationLog(module = "帖子模块", description = "AI生成标签",bizId = "#dto.title")
     public Result<List<String>> aiGenerateTags(@RequestBody @Valid PostTagSuggestDTO dto) {
         // 1. 简单校验
         if (StrUtil.length(dto.getContent()) > 2000) {
@@ -47,7 +47,7 @@ public class TagController {
         }
 
         // 2. 同步调用 AI
-        List<String> tags = aiService.generateTags(dto.getTitle(), dto.getContent());
+        List<String> tags = aiService.generateTags(dto.getTitle(), dto.getContent(),dto.getImages(),dto.getVideo());
 
         // 3. 返回结果
         return Result.success(tags);

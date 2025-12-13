@@ -49,10 +49,14 @@ public class CommentServiceImpl implements CommentService {
     private CommentLikeRepository commentLikeRepository; // 检查是否点赞
     @Autowired private PostRepository postRepository;
     @Override
-    @Transactional(rollbackFor = Exception.class) // 只是为了 User 表读取一致性，Mongo 不受控
+    @Transactional(rollbackFor = Exception.class)
     public void createComment(CommentCreateDTO dto) {
         Long currentUserId = UserContext.getUserId();
         User user = userMapper.selectById(currentUserId);
+
+        // 0. 【修复】先校验帖子是否存在，并获取帖子作者信息 (用于通知)
+        PostDoc post = postRepository.findById(dto.getPostId())
+                .orElseThrow(() -> new AppException(ResultCode.RESOURCE_NOT_FOUND, "帖子不存在"));
 
         CommentDoc doc = new CommentDoc();
         doc.setPostId(dto.getPostId());
@@ -68,11 +72,9 @@ public class CommentServiceImpl implements CommentService {
         if (StrUtil.isNotBlank(dto.getParentId())) {
             // 1. 查父评论
             CommentDoc parent = commentRepository.findById(dto.getParentId())
-                .orElseThrow(() -> new AppException(ResultCode.RESOURCE_NOT_FOUND));
-            
-            // 2. 确定 rootId (保持两层结构)
-            // 如果 parent 是一级评论(parentId=null)，那它就是 root
-            // 如果 parent 是二级评论，那它的 parentId 才是 root
+                    .orElseThrow(() -> new AppException(ResultCode.RESOURCE_NOT_FOUND, "回复的评论不存在"));
+
+            // 2. 确定 rootId (两层结构)
             String rootId = parent.getParentId() == null ? parent.getId() : parent.getParentId();
             doc.setParentId(rootId);
 
@@ -80,11 +82,11 @@ public class CommentServiceImpl implements CommentService {
             doc.setReplyToUserId(parent.getUserId());
             doc.setReplyToUserNickname(parent.getUserNickname());
 
-            // 4. 【关键】原子更新一级评论的 replyCount + 1
+            // 4. 原子更新一级评论 replyCount
             mongoTemplate.updateFirst(
-                Query.query(Criteria.where("id").is(rootId)),
-                new Update().inc("replyCount", 1),
-                CommentDoc.class
+                    Query.query(Criteria.where("id").is(rootId)),
+                    new Update().inc("replyCount", 1),
+                    CommentDoc.class
             );
         } else {
             // 一级评论
@@ -99,17 +101,17 @@ public class CommentServiceImpl implements CommentService {
         event.setCommentId(doc.getId());
         event.setPostId(doc.getPostId());
         event.setUserId(doc.getUserId());
+        event.setUserNickname(doc.getUserNickname()); // 补充昵称，方便消费者用,最后需要存储
         event.setContent(doc.getContent());
 
-        // 填充用于通知的字段 (需要你在 createComment 里先查好 post 信息)
-        // event.setPostAuthorId(post.getUserId());
+        // 【核心修复】设置帖子作者ID，确保通知能发出去
+        event.setPostAuthorId(post.getUserId());
+
         event.setReplyToUserId(doc.getReplyToUserId());
         event.setParentId(doc.getParentId());
 
-        // 路由键: comment.create
         rabbitTemplate.convertAndSend(RabbitConfig.PLATFORM_EXCHANGE, "comment.create", event);
     }
-
     @Override
     public Map<String, Object> getRootComments(String postId, Integer page, Integer size) {
         Long currentUserId = UserContext.getUserId();

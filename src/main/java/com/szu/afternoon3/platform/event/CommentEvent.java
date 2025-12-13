@@ -16,6 +16,7 @@ public class CommentEvent {
     private String commentId;
     private String postId;
     private Long userId; // 评论者ID
+    private String userNickname;
     private String content; // 评论内容摘要（用于通知）
 
     // --- 用于通知的信息 ---

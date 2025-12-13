@@ -2,11 +2,17 @@ package com.szu.afternoon3.platform.service.impl;
 
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
-import cn.hutool.http.HttpRequest;
 import cn.hutool.json.JSONArray;
-import cn.hutool.json.JSONObject;
 import cn.hutool.json.JSONUtil;
+import com.alibaba.dashscope.aigc.multimodalconversation.MultiModalConversation;
+import com.alibaba.dashscope.aigc.multimodalconversation.MultiModalConversationParam;
+import com.alibaba.dashscope.aigc.multimodalconversation.MultiModalConversationResult;
+import com.alibaba.dashscope.common.Message;
+import com.alibaba.dashscope.common.MultiModalMessage;
+import com.alibaba.dashscope.common.Role;
+import com.szu.afternoon3.platform.entity.mongo.PostDoc;
 import com.szu.afternoon3.platform.service.AiService;
+import com.szu.afternoon3.platform.vo.AiAuditResultVO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -17,108 +23,125 @@ import java.util.*;
 @Slf4j
 public class AiServiceImpl implements AiService {
 
-    @Value("${ai.deepseek.url}") private String apiUrl;
-    @Value("${ai.deepseek.key}") private String apiKey;
-    @Value("${ai.deepseek.model}") private String model;
+    @Value("${ai.dashscope.api-key}")
+    private String apiKey;
+
+    // 推荐使用 qwen-vl-max 以获得最佳的多模态理解能力
+    // 如果想要省钱/测试，可以用 qwen-vl-plus
+    @Value("${ai.dashscope.model:qwen-vl-plus}")
+    private String modelName;
 
     /**
-     * 通用 DeepSeek 调用方法
-     * @param systemPrompt 系统提示词 (设定角色)
-     * @param userContent 用户输入
-     * @param temperature 温度 (根据文档：标签生成1.0，对话1.3)
+     * 通用 Qwen-VL 调用方法 (支持多模态)
+     * @param systemPrompt 系统人设
+     * @param userText 用户纯文本内容
+     * @param images 图片URL列表 (List<String>)
+     * @param video 视频URL (单个 String)
+     * @param temperature 随机性 (0.0 - 2.0)
      */
-    private String callDeepSeek(String systemPrompt, String userContent, double temperature) {
-        // 1. 记录调用开始时间
+    private String callQwenVL(String systemPrompt, String userText, List<String> images, String video, double temperature) {
         long startTime = System.currentTimeMillis();
-        String apiCallName = "DeepSeek_LLM_Call"; // 用于日志标识
+        String apiCallName = "QwenVL_Call";
 
         try {
-            // 1. 构建请求体 (参考 OpenAI/DeepSeek 格式)
-            Map<String, Object> body = new HashMap<>();
-            body.put("model", model);
-            body.put("temperature", temperature);
-            body.put("stream", false);
+            MultiModalConversation conversation = new MultiModalConversation();
 
-            List<Map<String, String>> messages = new ArrayList<>();
-            messages.add(Map.of("role", "system", "content", systemPrompt));
-            messages.add(Map.of("role", "user", "content", userContent));
-            body.put("messages", messages);
+            // 1. 构建 System Message (人设)
+            MultiModalMessage systemMessage = MultiModalMessage.builder()
+                    .role(Role.SYSTEM.getValue())
+                    .content(List.of(Map.of("text", systemPrompt)))
+                    .build();
 
-            // 2. 发起 HTTP POST 请求
-            String result = HttpRequest.post(apiUrl)
-                    .header("Content-Type", "application/json")
-                    .header("Authorization", "Bearer " + apiKey)
-                    .body(JSONUtil.toJsonStr(body))
-                    .timeout(30000)
-                    .execute()
-                    .body();
+            // 2. 构建 User Content (混合图、文、视频)
+            List<Map<String, Object>> contentList = new ArrayList<>();
 
-            // 3. 解析响应
-            JSONObject json = JSONUtil.parseObj(result);
-            String content = null;
-
-            // 检查是否有错误
-            if (json.containsKey("error")) {
-                // 记录失败日志，包含耗时
-                long endTime = System.currentTimeMillis();
-                long duration = endTime - startTime;
-                log.error("[{}] 调用失败，耗时: {} ms，错误详情: {}",
-                        apiCallName, duration, json.get("error"));
-                return null;
+            // 2.1 添加视频 (如果有) - Qwen-VL 只能处理一个视频
+            if (StrUtil.isNotBlank(video)) {
+                contentList.add(Map.of("video", video));
+                contentList.add(Map.of("text", "（用户上传了一段视频）\n"));
             }
 
-            // 提取 content
-            content = json.getByPath("choices[0].message.content", String.class);
+            // 2.2 添加图片 (支持多张 List<String>)
+            if (CollUtil.isNotEmpty(images)) {
+                for (String imgUrl : images) {
+                    if (StrUtil.isNotBlank(imgUrl)) {
+                        contentList.add(Map.of("image", imgUrl.trim()));
+                    }
+                }
+            }
 
-            // 4. 记录成功日志，包含耗时
-            long endTime = System.currentTimeMillis();
-            long duration = endTime - startTime;
-            log.info("[{}] 调用成功，耗时: {} ms，响应内容长度: {}",
-                    apiCallName, duration, content != null ? content.length() : 0);
+            // 2.3 添加文本
+            if (StrUtil.isNotBlank(userText)) {
+                contentList.add(Map.of("text", userText));
+            }
+
+            // 2.4 组装 User Message
+            MultiModalMessage userMessage = MultiModalMessage.builder()
+                    .role(Role.USER.getValue())
+                    .content(contentList)
+                    .build();
+
+            // 3. 构建参数
+            MultiModalConversationParam param = MultiModalConversationParam.builder()
+                    .model(modelName)
+                    .apiKey(apiKey)
+                    .messages(Arrays.asList(systemMessage, userMessage))
+                    // topP 控制生成多样性
+                    .topP(0.8)
+                    .build();
+
+            // 4. 发起调用
+            MultiModalConversationResult result = conversation.call(param);
+
+            // 5. 解析结果
+            String content = result.getOutput().getChoices().get(0).getMessage().getContent().get(0).get("text").toString();
+
+            long duration = System.currentTimeMillis() - startTime;
+            log.info("[{}] 调用成功，耗时: {} ms", apiCallName, duration);
 
             return content;
 
         } catch (Exception e) {
-            // 记录异常日志，包含耗时
-            long endTime = System.currentTimeMillis();
-            long duration = endTime - startTime;
+            long duration = System.currentTimeMillis() - startTime;
             log.error("[{}] 调用异常，耗时: {} ms", apiCallName, duration, e);
             return null;
         }
     }
 
     /**
-     * 场景 1: 根据内容生成标签
-     * 文档建议 Temperature: 1.0 (数据分析)
+     * 场景 1: 生成标签
+     * 传入图片后，AI 可以根据图片内容生成标签
      */
-    /**
-     * 生成标签 (同步方法)
-     */
-    public List<String> generateTags(String title, String content) {
-        // 如果内容太少，直接不调 AI，省钱
-        if (StrUtil.length(content) < 5) {
+    @Override
+    public List<String> generateTags(String title, String content, List<String> images, String video) {
+        // 如果没有任何内容，直接返回
+        if (StrUtil.isBlank(content) && CollUtil.isEmpty(images) && StrUtil.isBlank(video)) {
             return Collections.emptyList();
         }
 
         String systemPrompt = """
-            你是一个社交平台助手。根据用户输入生成 3-5 个热门标签。
+            你是一个社交平台助手。请分析用户提供的【文本、图片或视频】。
+            任务：生成 3-5 个热门标签。
             要求：
-            1. 直接返回 JSON 字符串数组，例如：["美食", "探店"]
-            2. 不要包含 Markdown 格式（不要 ```json ），不要任何解释语。
-            3. 标签简短有力，不带 # 号。
+            1. 必须根据视觉内容（如有）和文本内容共同判断。
+            2. 直接返回 JSON 字符串数组，例如：["美食", "探店", "火锅"]
+            3. 严禁包含 Markdown 格式（不要 ```json），严禁包含任何解释语。
+            4. 标签简短有力，不带 # 号。
             """;
 
-        String input = String.format("标题：%s\n内容：%s", StrUtil.nullToEmpty(title), content);
+        String input = String.format("标题：%s\n内容：%s", StrUtil.nullToEmpty(title), StrUtil.nullToEmpty(content));
 
-        String response = callDeepSeek(systemPrompt, input, 1.0);
+        if (images != null && !images.isEmpty()) {
+            images = new ArrayList<>(images.stream().limit(4).toList());
+        }
+
+        String response = callQwenVL(systemPrompt, input, images, video, 0.5);
 
         if (StrUtil.isBlank(response)) return new ArrayList<>();
 
         try {
             // 清洗数据
             String cleanJson = response.replace("```json", "").replace("```", "").trim();
-            // 兼容性处理：有时候 AI 会返回 [标签1, 标签2] 而不是标准的 JSON 双引号
-            // Hutool 的 parseArray 比较智能，通常能处理
             JSONArray array = JSONUtil.parseArray(cleanJson);
             return array.toList(String.class);
         } catch (Exception e) {
@@ -127,62 +150,164 @@ public class AiServiceImpl implements AiService {
         }
     }
 
-    public String generatePostSummary(String title, String content) {
-        // 如果内容太短，没必要总结，省钱
-        if (StrUtil.length(content) < 10) {
+    /**
+     * 场景 2: 帖子智能总结
+     */
+    @Override
+    public String generatePostSummary(String title, String content, List<String> images, String video) {
+        // 内容太少且没图没视频，不总结
+        if (StrUtil.length(content) < 10 && CollUtil.isEmpty(images) && StrUtil.isBlank(video)) {
             return null;
         }
 
-        String input = String.format("标题：%s\n内容：%s", StrUtil.nullToEmpty(title), content);
+        String input = String.format("标题：%s\n内容：%s", StrUtil.nullToEmpty(title), StrUtil.nullToEmpty(content));
 
         String systemPrompt = """
             你是一个社交平台的“课代表”机器人。
-            任务：阅读用户的帖子标题和内容，用幽默、简短的语言进行总结（神总结/TL;DR）。
+            任务：阅读用户的帖子（包含文字、图片或视频），用幽默、简短的语言进行总结（神总结/TL;DR）。
             要求：
-            1. 必须以第一人称评论的口吻，不要像机器摘要。
-            2. 字数控制在 60 字以内。
-            3. 开头可以是“课代表总结：”或者“省流：”。
-            4. 如果内容是在发泄情绪，给予暖心安慰。
+            1. 必须结合视觉信息！例如：如果图片是猫，你要提到猫；如果视频是跳舞，你要提到跳舞。
+            2. 必须以第一人称评论的口吻，不要像机器摘要。
+            3. 字数控制在 60 字以内。
+            4. 开头可以是“课代表总结：”或者“省流：”。
             """;
 
-        return callDeepSeek(systemPrompt, input, 1.3); // 1.3 温度让总结更有趣
+        if (images != null && !images.isEmpty()) {
+            images = new ArrayList<>(images.stream().limit(4).toList());
+        }
+        return callQwenVL(systemPrompt, input, images, video, 1.2);
     }
 
     /**
-     * 场景 4: 评论区交互式回复 (被 @ 时触发)
-     * @param postTitle 帖子标题
-     * @param postContent 帖子内容
-     * @param parentContent 父评论内容 (如果是二级回复则有值，否则为 null)
-     * @param userPrompt 用户发送的评论内容
+     * 场景 3: 评论区交互式回复
      */
-    public String generateInteractiveReply(String postTitle, String postContent, String parentContent, String userPrompt) {
+    @Override
+    public String generateInteractiveReply(String postTitle, String postContent, List<String> postImages, String postVideo,
+                                           String parentContent, String userPrompt) {
 
-        // 1. 构建系统提示词
         String systemPrompt = """
             你是一个社交平台的高情商AI助手，名字叫"小映"。
-            用户在评论区 @了你，你需要根据帖子内容回答用户的问题。
+            用户在评论区 @了你，你需要根据帖子内容（含视觉内容）回答用户的问题。
             要求：
             1. 语气亲切、活泼，像个真实的朋友。
-            2. 结合帖子上下文回答。
-            3. 回复尽量简短（80字以内），不要长篇大论。
+            2. 深度结合图片/视频内容！例如：看到美食可以说"看起来好好吃"，看到风景可以说"这里是哪里呀"。
+            3. 回复尽量简短（80字以内）。
             4. 如果用户是在闲聊，就幽默回应。
             """;
 
-        // 2. 构建用户输入上下文
+        // 构建上下文
         StringBuilder inputBuilder = new StringBuilder();
-        inputBuilder.append("【当前帖子上下文】\n")
-                .append("标题：").append(StrUtil.nullToEmpty(postTitle)).append("\n")
-                .append("内容：").append(StrUtil.subPre(postContent, 500)).append("\n\n"); // 截取500字防止超长
+        inputBuilder.append("【帖子标题】").append(StrUtil.nullToEmpty(postTitle)).append("\n");
+        inputBuilder.append("【帖子文案】").append(StrUtil.subPre(postContent, 500)).append("\n");
 
         if (StrUtil.isNotBlank(parentContent)) {
-            inputBuilder.append("【用户回复的目标评论】\n")
-                    .append(parentContent).append("\n\n");
+            inputBuilder.append("【回复的目标评论】").append(parentContent).append("\n");
         }
 
-        inputBuilder.append("【用户对你说的话】\n")
-                .append(userPrompt);
+        inputBuilder.append("【用户对你说】").append(userPrompt);
 
-        // 3. 调用 AI (温度 1.3 比较活泼)
-        return callDeepSeek(systemPrompt, inputBuilder.toString(), 1.3);
+        List<String> images = null;
+        if (postImages != null && !postImages.isEmpty()) {
+            images = new ArrayList<>(postImages.stream().limit(4).toList());
+        }
+
+
+        // 将帖子的图片/视频传给 AI
+        return callQwenVL(systemPrompt, inputBuilder.toString(), images, postVideo, 1.3);
+    }
+    /**
+     * 场景 4: 内容安全审核
+     * 复用 callQwenVL 方法，实现统一调用
+     */
+    @Override
+    public AiAuditResultVO auditPostContent(PostDoc post) {
+        // 1. 构造系统提示词 (System Prompt) - 严格审核员模式
+        String systemPrompt = """
+            你是一个严格的社区内容安全审核员。请分析用户提交的帖子内容（包含文本和图片）。
+            检测维度包括：色情低俗、血腥暴力、政治敏感、恶意广告、人身攻击。
+            
+            请严格按照以下 JSON 格式返回结果（不要包含 Markdown 代码块，只返回纯 JSON 字符串）：
+            {
+                "conclusion": "PASS" | "BLOCK" | "REVIEW",
+                "riskType": "色情" | "暴力" | "政治" | "广告" | "谩骂" | "无",
+                "confidence": 0.95,
+                "suggestion": "具体的审核意见和原因描述"
+            }
+            注意：如果是视频贴，请重点审核封面图和标题文本。
+            """;
+
+        // 2. 构造用户文本输入
+        String userText = String.format("【标题】：%s\n【内容】：%s",
+                StrUtil.nullToEmpty(post.getTitle()),
+                StrUtil.nullToEmpty(post.getContent()));
+
+        // 3. 准备图片/视频素材
+        // 策略：为了审核速度（Video Token 很贵且慢），对于视频贴，我们优先审核“封面图 + 标题”。
+        // 只有图文贴才传所有图片（限制前 4 张）。
+        List<String> images = new ArrayList<>();
+        String video = null;
+
+        if (post.getType() != null && post.getType() == 1) {
+            // === 视频贴处理 ===
+            // 方案 A (快速省钱): 只审封面。通常封面和标题能暴露大部分违规。
+            if (StrUtil.isNotBlank(post.getCover())) {
+                images.add(post.getCover());
+            }
+            // 方案 B (深度审核): 如果你需要审视频内容，就把下一行注释打开，并注释掉上面的 images.add
+            // if (CollUtil.isNotEmpty(post.getResources())) video = post.getResources().get(0);
+        } else {
+            // === 图文贴处理 ===
+            if (CollUtil.isNotEmpty(post.getResources())) {
+                // 限制前 4 张，防止 Token 超限或超时
+                images.addAll(post.getResources().stream().limit(4).toList());
+            }
+        }
+
+        // 4. 复用 callQwenVL 发起调用
+        // temperature 设置为 0.1，让审核结果尽可能稳定，不要发散
+        String jsonResult = callQwenVL(systemPrompt, userText, images, video, 0.1);
+
+        // 5. 结果处理与兜底
+        if (StrUtil.isBlank(jsonResult)) {
+            return AiAuditResultVO.builder()
+                    .conclusion("REVIEW")
+                    .riskType("服务异常")
+                    .confidence(0.0)
+                    .suggestion("AI 服务未响应，请转人工审核")
+                    .build();
+        }
+
+        try {
+            // 6. JSON 清洗与反序列化
+            String cleanJson = cleanJsonStr(jsonResult);
+            return JSONUtil.toBean(cleanJson, AiAuditResultVO.class);
+        } catch (Exception e) {
+            log.error("[AI Audit] 结果解析失败, 原始内容: {}", jsonResult, e);
+            return AiAuditResultVO.builder()
+                    .conclusion("REVIEW")
+                    .riskType("解析错误")
+                    .confidence(0.0)
+                    .suggestion("AI 返回格式异常，需人工复核")
+                    .build();
+        }
+    }
+
+    /**
+     * 辅助方法：清洗 JSON 字符串 (去除 markdown 代码块标记)
+     */
+    private String cleanJsonStr(String raw) {
+        if (StrUtil.isBlank(raw)) return "{}";
+        String clean = raw.trim();
+        // 去除 ```json 和 ``` 包裹
+        if (clean.startsWith("```json")) {
+            clean = clean.substring(7);
+        } else if (clean.startsWith("```")) {
+            clean = clean.substring(3);
+        }
+
+        if (clean.endsWith("```")) {
+            clean = clean.substring(0, clean.length() - 3);
+        }
+        return clean.trim();
     }
 }

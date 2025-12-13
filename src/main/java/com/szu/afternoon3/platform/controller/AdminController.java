@@ -5,18 +5,16 @@ import com.szu.afternoon3.platform.annotation.OperationLog;
 import com.szu.afternoon3.platform.common.Result;
 import com.szu.afternoon3.platform.dto.*;
 import com.szu.afternoon3.platform.entity.User;
+import com.szu.afternoon3.platform.entity.mongo.PostDoc;
 import com.szu.afternoon3.platform.enums.ResultCode;
 import com.szu.afternoon3.platform.exception.AppException;
 import com.szu.afternoon3.platform.mapper.UserMapper;
-import com.szu.afternoon3.platform.service.AdminService;
-import com.szu.afternoon3.platform.service.AuthService;
-import com.szu.afternoon3.platform.service.UserService;
-import com.szu.afternoon3.platform.vo.AdminUserDetailVO;
-import com.szu.afternoon3.platform.vo.LoginVO;
-import com.szu.afternoon3.platform.vo.PostVO;
-import com.szu.afternoon3.platform.vo.UserInfo;
+import com.szu.afternoon3.platform.repository.PostRepository;
+import com.szu.afternoon3.platform.service.*;
+import com.szu.afternoon3.platform.vo.*;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
@@ -26,6 +24,7 @@ import java.util.Map;
  * 后台管理控制器
  * 处理管理员登录、用户管理、内容审核等逻辑
  */
+@Slf4j
 @RestController
 @RequestMapping("/admin")
 public class AdminController {
@@ -42,6 +41,11 @@ public class AdminController {
     @Autowired
     private UserMapper userMapper;
 
+    @Autowired
+    private PostRepository postRepository;
+
+    @Autowired
+    private AiService aiService;
     /**
      * 管理员登录
      * @param loginDTO 登录参数
@@ -220,5 +224,35 @@ public class AdminController {
     @OperationLog(module = "后台日志审计", description = "查询用户日志")
     public Result<Map<String, Object>> getUserLogs(@RequestBody LogSearchDTO dto) {
         return Result.success(adminService.getUserLogs(dto));
+    }
+
+    /**
+     * 管理员手动触发 AI 审核
+     * @param postId 帖子ID
+     */
+    @PostMapping("/post/{postId}/audit/ai")
+    @OperationLog(module = "后台内容审核", description = "ai审核帖子", bizId = "#postId")
+    public Result<AiAuditResultVO> manualAuditPost(@PathVariable String postId) {
+        // 1. 查库
+        PostDoc post = postRepository.findById(postId).orElse(null);
+        if (post == null) {
+            throw new AppException(ResultCode.RESOURCE_NOT_FOUND);
+        }
+
+        // 2. 只有“非删除”状态的帖子才有审核意义（可选）
+        if (post.getIsDeleted() != null && post.getIsDeleted() == 1) {
+            throw new AppException(ResultCode.RESOURCE_NOT_FOUND, "帖子已被删除");
+        }
+
+        // 3. 调用 AI 审核
+        // 注意：这是一个同步调用，可能会耗时 3-5 秒，前端建议加 Loading
+        AiAuditResultVO result = aiService.auditPostContent(post);
+
+        result.setPostId(postId);
+
+        log.info("AI 审核结果 - ID: {}, 结论: {}, 原因: {}", postId, result.getConclusion(), result.getSuggestion());
+
+        // 4. 返回给前端展示，暂不自动修改数据库状态，由管理员决定
+        return Result.success(result);
     }
 }

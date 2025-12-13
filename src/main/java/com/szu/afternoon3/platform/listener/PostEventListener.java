@@ -95,7 +95,7 @@ public class PostEventListener {
 
 
     // 读取配置文件的机器人ID
-    @Value("${app.bot.user-id}")
+    @Value("${ai.bot.user-id}")
     private Long botUserId;
 
     @RabbitHandler
@@ -115,7 +115,7 @@ public class PostEventListener {
     private void handleAutoComment(PostCreateEvent event) {
         // TODO 审核逻辑
         // 1. 调用 AI 获取总结
-        String summary = aiService.generatePostSummary(event.getTitle(),event.getContent());
+        String summary = aiService.generatePostSummary(event.getTitle(),event.getContent(), event.getImages(), event.getVideo());
 
         // 如果 AI 没返回（比如内容太短），直接跳过
         if (StrUtil.isBlank(summary)) return;

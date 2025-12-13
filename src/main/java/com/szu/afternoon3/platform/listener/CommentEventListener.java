@@ -43,22 +43,22 @@ public class CommentEventListener {
 
     @Autowired
     private CommentLikeRepository commentLikeRepository;
-    // 【新增】 需要查帖子和评论内容
+    // 需要查帖子和评论内容
     @Autowired private PostRepository postRepository;
     @Autowired private CommentRepository commentRepository;
 
-    // 【新增】 AI 服务
+    // AI 服务
     @Autowired private AiServiceImpl aiService;
 
-    // 【新增】 机器人配置
-    @Value("${app.bot.user-id}")
+    // 机器人配置
+    @Value("${ai.bot.user-id}")
     private Long botUserId;
 
-    @Value("${app.bot.user-nickname}")
+    @Value("${ai.bot.user-nickname}")
     private String botNickname;
 
     /**
-     * 【核心修复】唯一的入口方法
+     * 唯一的入口方法
      * 根据 event.getType() 分发逻辑
      */
     @RabbitHandler
@@ -103,7 +103,7 @@ public class CommentEventListener {
         // 发送通知
         sendCommentNotification(event);
 
-        // 3. 【新增】检测是否触发 AI 回复
+        // 3. 检测是否触发 AI 回复
         try {
             checkAndTriggerAiReply(event);
         } catch (Exception e) {
@@ -146,14 +146,26 @@ public class CommentEventListener {
         // 3. 调用 AI
         // 可以在这里把 content 里的 "@AI省流助手" 替换为空，避免 AI 读到自己的名字
         String cleanPrompt = event.getContent().replace("@" + botNickname, "").trim();
-
-        String aiReplyContent = aiService.generateInteractiveReply(
-                post.getTitle(),
-                post.getContent(),
-                parentContent,
-                cleanPrompt
-        );
-
+        String aiReplyContent;
+        if(post.getType() != 1){
+            aiReplyContent = aiService.generateInteractiveReply(
+                    post.getTitle(),
+                    post.getContent(),
+                    post.getResources(),
+                    null,
+                    parentContent,
+                    cleanPrompt
+            );
+        }else {
+            aiReplyContent = aiService.generateInteractiveReply(
+                    post.getTitle(),
+                    post.getContent(),
+                    null,
+                    post.getResources().get(0),
+                    parentContent,
+                    cleanPrompt
+            );
+        }
         if (StrUtil.isBlank(aiReplyContent)) return;
 
         // 4. 保存 AI 的回复
@@ -175,26 +187,41 @@ public class CommentEventListener {
         aiComment.setLikeCount(0);
         aiComment.setReplyCount(0);
 
-        // 确定 AI 回复的层级
-        // 策略：AI 总是回复触发它的那条评论
-        aiComment.setParentId(userEvent.getCommentId());
+        String rootCommentId; // 真正的一级评论ID
 
-        // 这里的逻辑是：
-        // 如果用户发了一级评论 @AI，AI 回复它 (变成二级评论)
-        // 如果用户发了二级评论 @AI，AI 回复它 (变成“三级”视觉上的回复，但在数据库结构里通常 parentId 指向被回复的 ID)
+        if (StrUtil.isBlank(userEvent.getParentId())) {
+            // 情况 A: 用户发的是一级评论
+            // AI 的回复作为该评论的子评论
+            rootCommentId = userEvent.getCommentId();
 
+            aiComment.setParentId(rootCommentId);
+            aiComment.setReplyToUserId(userEvent.getUserId());
+            aiComment.setReplyToUserNickname(userEvent.getUserNickname()); // 假设 Event 里有，没有的话可以不存或查库
+        } else {
+            // 情况 B: 用户发的是二级评论 (userEvent.getParentId() 是根ID)
+            // AI 的回复应该和用户评论是“兄弟”关系，都挂在同一个 Root 下
+            rootCommentId = userEvent.getParentId();
+
+            aiComment.setParentId(rootCommentId);
+            // 但回复对象是发二级评论的那个用户
+            aiComment.setReplyToUserId(userEvent.getUserId());
+            aiComment.setReplyToUserNickname(userEvent.getUserNickname());
+        }
+
+        // 保存 AI 评论
         commentRepository.save(aiComment);
 
-        // 别忘了更新帖子评论数 +1
+        // 1. 更新帖子总评论数 +1
         mongoTemplate.updateFirst(
                 Query.query(Criteria.where("id").is(userEvent.getPostId())),
                 new Update().inc("commentCount", 1),
                 PostDoc.class
         );
 
-        // 更新父评论（也就是用户的评论）的 replyCount +1
+        // 2. 【核心修正】更新 一级评论 (Root) 的 replyCount +1
+        // 不管是情况 A 还是 B，都要更新 Root 的计数，这样列表页的“展开回复(N)”才会变
         mongoTemplate.updateFirst(
-                Query.query(Criteria.where("id").is(userEvent.getCommentId())),
+                Query.query(Criteria.where("id").is(rootCommentId)),
                 new Update().inc("replyCount", 1),
                 CommentDoc.class
         );
