@@ -485,6 +485,8 @@ public class PostServiceImpl implements PostService {
 
         post.setResources(finalResources);
         post.setCover(finalCover);
+        post.setCoverWidth(dto.getCoverWidth());
+        post.setCoverHeight(dto.getCoverHeight());
         // -----------------------------
 
         // 5. 初始化统计数据
@@ -605,6 +607,8 @@ public class PostServiceImpl implements PostService {
                 post.setResources(dto.getImages());
                 // 更新封面为第1张
                 post.setCover(dto.getImages().get(0));
+                post.setCoverHeight(dto.getCoverHeight());
+                post.setCoverWidth(dto.getCoverWidth());
                 mediaChanged = true;
             }
         } else if (currentType == 1) {
@@ -619,6 +623,8 @@ public class PostServiceImpl implements PostService {
                 post.setResources(newRes);
                 // 更新封面 (OSS)
                 post.setCover(dto.getVideo() + OSS_VIDEO_SNAPSHOT_PARAM);
+                post.setCoverHeight(dto.getCoverHeight());
+                post.setCoverWidth(dto.getCoverWidth());
                 mediaChanged = true;
             }
         }
@@ -758,6 +764,8 @@ public class PostServiceImpl implements PostService {
         vo.setTags(doc.getTags());
         vo.setType(doc.getType());
         vo.setCover(doc.getCover()); // 直接返回封面
+        vo.setCoverWidth(doc.getCoverWidth());
+        vo.setCoverHeight(doc.getCoverHeight());
 
         // 详情页才返回具体资源
         if (isDetail) {

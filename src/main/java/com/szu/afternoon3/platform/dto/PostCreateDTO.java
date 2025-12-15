@@ -28,4 +28,10 @@ public class PostCreateDTO {
      * 标签列表
      */
     private List<String> tags;
+
+    @NotBlank(message = "封面宽度不能为空")
+    private Integer coverWidth;
+
+    @NotBlank(message = "封面高度不能为空")
+    private Integer coverHeight;
 }

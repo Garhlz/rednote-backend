@@ -82,4 +82,9 @@ public class PostDoc {
     // 评分总人数
     // 用于显示 "100人已评" 以及计算加权平均
     private Integer ratingCount = 0;
+
+    // 封面图原始宽度 (px)
+    private Integer coverWidth;
+    // 封面图原始高度 (px)
+    private Integer coverHeight;
 }
