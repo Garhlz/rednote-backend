@@ -8,5 +8,7 @@ public enum NotificationType {
     FOLLOW,         // 关注
     COMMENT,        // 评论了帖子
     REPLY,          // 回复了评论
-    SYSTEM          // 系统通知
+    SYSTEM,          // 系统通知
+    SYSTEM_AUDIT_PASS,   // 审核通过
+    SYSTEM_AUDIT_REJECT  // 审核拒绝
 }

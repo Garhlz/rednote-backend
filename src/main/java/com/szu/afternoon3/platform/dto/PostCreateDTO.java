@@ -29,9 +29,9 @@ public class PostCreateDTO {
      */
     private List<String> tags;
 
-    @NotBlank(message = "封面宽度不能为空")
+//    @NotBlank(message = "封面宽度不能为空")
     private Integer coverWidth;
 
-    @NotBlank(message = "封面高度不能为空")
+//    @NotBlank(message = "封面高度不能为空")
     private Integer coverHeight;
 }

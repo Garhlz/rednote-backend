@@ -22,4 +22,8 @@ public class AdminPostVO {
     private Integer type;
     private List<String> resources;
     private String cover;
+
+    private Integer coverWidth;
+
+    private Integer coverHeight;
 }

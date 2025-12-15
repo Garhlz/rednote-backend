@@ -24,6 +24,7 @@ public class RabbitConfig {
     public static final String QUEUE_POST = "platform.post.queue";
     public static final String QUEUE_COMMENT = "platform.comment.queue";
     public static final String QUEUE_LOG = "platform.log.queue";
+    public static final String QUEUE_NOTIFY_AUDIT = "queue.notify.audit";
     // 死信队列
     public static final String QUEUE_DEAD_LETTER = "platform.dead.letter.queue";
 
@@ -79,6 +80,9 @@ public class RabbitConfig {
     @Bean
     public Queue logQueue() {return createQueueWithDlq(QUEUE_LOG);}
 
+    @Bean
+    public Queue notifyAuditQueue() {return createQueueWithDlq(QUEUE_NOTIFY_AUDIT);}
+
     // 死信队列本身 (普通持久化队列，不能套娃再绑死信)
     @Bean
     public Queue deadLetterQueue() {
@@ -125,6 +129,10 @@ public class RabbitConfig {
         return BindingBuilder.bind(logQueue()).to(platformExchange()).with("log.#");
     }
 
+    @Bean
+    public Binding bindingNotifyAudit() {
+        return BindingBuilder.bind(notifyAuditQueue()).to(platformExchange()).with("post.audit");
+    }
     // ==========================================
     // 5. 序列化配置
     // ==========================================

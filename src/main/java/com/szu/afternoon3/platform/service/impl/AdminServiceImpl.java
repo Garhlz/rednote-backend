@@ -11,6 +11,7 @@ import com.szu.afternoon3.platform.config.RabbitConfig;
 import com.szu.afternoon3.platform.dto.*;
 import com.szu.afternoon3.platform.entity.User;
 import com.szu.afternoon3.platform.entity.mongo.*;
+import com.szu.afternoon3.platform.event.PostAuditEvent;
 import com.szu.afternoon3.platform.event.UserDeleteEvent;
 import com.szu.afternoon3.platform.exception.AppException;
 import com.szu.afternoon3.platform.enums.ResultCode;
@@ -39,6 +40,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -64,6 +66,7 @@ public class AdminServiceImpl implements AdminService {
     private MongoTemplate mongoTemplate;
     @Autowired
     private RabbitTemplate rabbitTemplate; // 注入
+
     @Override
     public LoginVO login(String account, String password) {
         // 1. 查询用户
@@ -262,12 +265,14 @@ public class AdminServiceImpl implements AdminService {
 
         log.info("管理员删除用户成功: userId={}, reason={}", userId, reason);
     }
+
     @Override
     public Map<String, Object> getPostList(AdminPostSearchDTO dto) {
         Query query = new Query();
 
         // 1. [MongoDB] 构建查询条件
         query.addCriteria(Criteria.where("isDeleted").is(0));
+        query.addCriteria(Criteria.where("status").in(0, 2));
 
         if (StrUtil.isNotBlank(dto.getTitleKeyword())) {
             query.addCriteria(Criteria.where("title").regex(dto.getTitleKeyword(), "i"));
@@ -327,11 +332,10 @@ public class AdminServiceImpl implements AdminService {
                 AdminPostVO vo = new AdminPostVO();
                 BeanUtils.copyProperties(doc, vo);
 
-                // Mongo 里的冗余信息
-                vo.setUserNickname(doc.getUserNickname());
-                vo.setUserAvatar(doc.getUserAvatar());
+                // 处理摘要 (防止内容过长)
+                vo.setContent(StrUtil.subPre(doc.getContent(), 50));
 
-                // 补全邮箱 (从 Map 取)
+                // 补全邮箱
                 vo.setUserEmail(emailMap.get(doc.getUserId()));
 
                 return vo;
@@ -398,6 +402,7 @@ public class AdminServiceImpl implements AdminService {
         // PostVO uses String createdAt
         // PostDoc uses LocalDateTime createdAt
         // simple formatting
+        // TODO 修改时间
         vo.setCreatedAt(doc.getCreatedAt().toString());
 
         return vo;
@@ -405,14 +410,36 @@ public class AdminServiceImpl implements AdminService {
 
     @Override
     public void auditPost(String postId, Integer status, String reason) {
-        // status: 1=通过, 2=不通过(撤回)
+        // 1. 先查询帖子 (我们需要知道作者是谁，才能发通知)
+        PostDoc post = mongoTemplate.findById(postId, PostDoc.class);
+        if (post == null) {
+            throw new AppException(ResultCode.RESOURCE_NOT_FOUND);
+        }
+
+        // 2. 执行更新 (你的原有逻辑)
         Update update = new Update();
         update.set("status", status);
-        // 可以记录 reason
+        // 如果是拒绝，建议把理由也存到帖子表里，方便作者修改时看到
+        if (status == 2 && StrUtil.isNotBlank(reason)) {
+            update.set("rejectReason", reason);
+        }
+        // 更新 updateAt
+        update.set("updatedAt", LocalDateTime.now());
 
         mongoTemplate.updateFirst(Query.query(Criteria.where("id").is(postId)), update, PostDoc.class);
 
-        log.info("Admin audit post {}: status={}, reason={}", postId, status, reason);
+        // 3. 【核心新增】发送异步事件到 RabbitMQ
+        // 路由键建议定义为 "post.audit"
+        PostAuditEvent event = new PostAuditEvent(
+                post.getId(),
+                post.getUserId(),
+                post.getTitle(),
+                status,
+                reason
+        );
+        rabbitTemplate.convertAndSend(RabbitConfig.PLATFORM_EXCHANGE, "post.audit", event);
+
+        log.info("Admin audit post {}: status={}, reason={}, event sent.", postId, status, reason);
     }
 
     @Override
