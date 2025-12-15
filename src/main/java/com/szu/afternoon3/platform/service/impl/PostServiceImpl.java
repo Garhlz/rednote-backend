@@ -131,7 +131,6 @@ public class PostServiceImpl implements PostService {
             return buildResultMap(Page.empty(PageRequest.of(pageNum, pageSize)));
         }
 
-        // ... 以下原有的搜索逻辑保持不变 ...
         // 1. Jieba 分词
         String searchString = searchHelper.analyzeKeyword(keyword);
         if (StrUtil.isBlank(searchString)) {
@@ -239,52 +238,75 @@ public class PostServiceImpl implements PostService {
             return new ArrayList<>();
         }
 
-        // 【架构说明】
-        // 联想词 (Autocomplete) 需要 "前缀匹配" 或 "包含匹配" (如输入 "深" -> 提示 "深圳")。
-        // MongoDB 的 Text Index 是 "分词匹配" (输入 "深" 无法匹配 "深圳")。
-        // 因此，对于联想词功能，RegEx (正则) 依然是最佳选择。
-        // 我们只在 title 和 tags 上做正则，性能是可控的。
+        Set<String> suggestions = new LinkedHashSet<>(); // 使用 LinkedHashSet 保持插入顺序
+        suggestions.add(keyword);
 
-        String safeKeyword = java.util.regex.Pattern.quote(keyword);
-        String regex = ".*" + safeKeyword + ".*";
+        // -------------------------------------------------------
+        // 第一层：搜索历史
+        // -------------------------------------------------------
+        // 逻辑：从 search_histories 表中找出以 keyword 开头的热门词
+        // 调用刚才写好的聚合查询，取前 5 个
+//        List<String> historyWords = searchHistoryRepository.findHotKeywordsStartingWith(keyword, 5);
+//
+//        // 添加到结果集中 (Suggestions 是 LinkedHashSet，会自动去重)
+//        if (CollUtil.isNotEmpty(historyWords)) {
+//            suggestions.addAll(historyWords);
+//        }
+        // -------------------------------------------------------
+        // 第二层：匹配 Tags (保留，这是最高质量的元数据)
+        // -------------------------------------------------------
+        // 使用正则前缀匹配：^keyword (以关键词开头)
+        String regex = "^" + java.util.regex.Pattern.quote(keyword);
 
-        Query query = new Query();
-        query.addCriteria(Criteria.where("isDeleted").is(0));
-        query.addCriteria(Criteria.where("status").is(1));
+        Query tagQuery = new Query();
+        tagQuery.addCriteria(Criteria.where("tags").regex(regex, "i"));
+        tagQuery.addCriteria(Criteria.where("isDeleted").is(0));
+        tagQuery.limit(20);
+        // 只取 tags 字段
+        tagQuery.fields().include("tags");
 
-        // 只查 tags 和 title，不查 searchTerms (因为 searchTerms 太碎了)
-        query.addCriteria(new Criteria().orOperator(
-                Criteria.where("tags").regex(regex, "i"),
-                Criteria.where("title").regex(regex, "i")
-        ));
-
-        query.limit(20);
-        query.fields().include("title").include("tags");
-
-        List<PostDoc> docs = mongoTemplate.find(query, PostDoc.class);
-        Set<String> suggestions = new LinkedHashSet<>();
-
-        for (PostDoc doc : docs) {
-            // 优先推荐 Tag
+        List<PostDoc> tagDocs = mongoTemplate.find(tagQuery, PostDoc.class);
+        for (PostDoc doc : tagDocs) {
             if (CollUtil.isNotEmpty(doc.getTags())) {
                 for (String tag : doc.getTags()) {
-                    if (StrUtil.contains(tag, keyword) && !StrUtil.equals(tag, keyword)) {
+                    // 只保留以 keyword 开头的 tag
+                    if (StrUtil.startWithIgnoreCase(tag, keyword)) {
                         suggestions.add(tag);
                     }
                 }
             }
+            if (suggestions.size() >= 8) break;
         }
-        for (PostDoc doc : docs) {
-            // 其次推荐标题
-            String title = doc.getTitle();
-            if (StrUtil.contains(title, keyword) && !StrUtil.equals(title, keyword)) {
-                suggestions.add(title);
+
+        // -------------------------------------------------------
+        // 第三层：利用分词 (Jieba) 做兜底 (替代原本的 Title 正则)
+        // -------------------------------------------------------
+        if (suggestions.size() < 10) {
+            Query termQuery = new Query();
+            // 关键：查询 searchTerms 数组中以 keyword 开头的词
+            termQuery.addCriteria(Criteria.where("searchTerms").regex(regex, "i"));
+            termQuery.addCriteria(Criteria.where("isDeleted").is(0));
+            termQuery.limit(20);
+            termQuery.fields().include("searchTerms"); // 只取分词结果，不取标题
+
+            List<PostDoc> termDocs = mongoTemplate.find(termQuery, PostDoc.class);
+
+            for (PostDoc doc : termDocs) {
+                if (CollUtil.isNotEmpty(doc.getSearchTerms())) {
+                    for (String term : doc.getSearchTerms()) {
+                        // 过滤掉太短的词，且必须匹配前缀
+                        if (term.length() > 1 && StrUtil.startWithIgnoreCase(term, keyword)) {
+                            suggestions.add(term);
+                        }
+                    }
+                }
+                if (suggestions.size() >= 10) break;
             }
-            if (suggestions.size() >= 10) break;
         }
 
         return new ArrayList<>(suggestions);
     }
+
 
     @Autowired
     private StringRedisTemplate redisTemplate;
@@ -377,7 +399,7 @@ public class PostServiceImpl implements PostService {
         // =================================================
         // 4. 【缓存回写】存入 Redis
         // =================================================
-        // 热门标签不需要实时更新，30分钟更新一次足够了
+        // 热门标签不需要实时更新，10分钟更新一次足够了
         redisTemplate.opsForValue().set(cacheKey, JSONUtil.toJsonStr(hotTags), 10, TimeUnit.SECONDS);
 
         return hotTags;

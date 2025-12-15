@@ -634,7 +634,8 @@ public class UserServiceImpl implements UserService {
             vo.setCover(doc.getCover());
             vo.setLikeCount(doc.getLikeCount());
             vo.setTags(doc.getTags());
-
+            vo.setCoverHeight(doc.getCoverHeight());
+            vo.setCoverWidth(doc.getCoverWidth());
             UserInfo author = new UserInfo();
             author.setUserId(String.valueOf(doc.getUserId()));
             author.setNickname(doc.getUserNickname());

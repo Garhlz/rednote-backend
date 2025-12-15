@@ -6,20 +6,13 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.stereotype.Repository;
 
+// 【修改点】同时继承 MongoRepository 和 SearchHistoryRepositoryCustom
 @Repository
-public interface SearchHistoryRepository extends MongoRepository<SearchHistoryDoc, String> {
+public interface SearchHistoryRepository extends MongoRepository<SearchHistoryDoc, String>, SearchHistoryRepositoryCustom {
 
-    /**
-     * 分页查询某用户的搜索历史
-     * 通常按 updatedAt 倒序
-     */
     Page<SearchHistoryDoc> findByUserId(Long userId, Pageable pageable);
 
-    /**
-     * 清空某用户的搜索历史
-     */
     void deleteByUserId(Long userId);
 
-    // 删除指定用户的特定搜索词
     void deleteByUserIdAndKeyword(Long userId, String keyword);
 }
