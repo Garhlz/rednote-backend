@@ -32,7 +32,7 @@ public class PostDoc {
 
     // 搜索专用字段
     // weight=5 表示匹配到这里的词，相关度得分很高
-//    @TextIndexed(weight = 5)
+    @TextIndexed(weight = 5)
     private List<String> searchTerms;
 
     // 用于接收查询时的匹配分数 (不会存入数据库)
