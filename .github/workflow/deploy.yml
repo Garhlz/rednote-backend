@@ -1,0 +1,87 @@
+name: Deploy to Server (CI/CD)
+
+# 触发条件：当 main 分支有代码推送到 GitHub 时触发
+on:
+  push:
+    branches: [ "main" ]
+  # 允许手动在 GitHub 网页上点击按钮触发
+  workflow_dispatch:
+
+# 定义全局环境变量
+env:
+  JAR_NAME: rednote_backend.jar # 需与 pom.xml 中生成的名字一致
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest # 使用 GitHub 提供的最新 Ubuntu 容器
+
+    steps:
+      # -----------------------------------------------------------------
+      # 1. 准备工作
+      # -----------------------------------------------------------------
+      - name: 📥 拉取代码 (Checkout)
+        uses: actions/checkout@v4
+
+      - name: ☕ 设置 JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'maven' # 开启 Maven 缓存，下次构建会变快
+
+      # -----------------------------------------------------------------
+      # 2. 本地构建 (对应脚本 Step 1)
+      # -----------------------------------------------------------------
+      - name: 📦 Maven 构建 (Build)
+        run: ./mvnw clean package -DskipTests
+
+      # -----------------------------------------------------------------
+      # 3. 配置 SSH 环境 (为 Rsync 和 SSH 远程命令做准备)
+      # -----------------------------------------------------------------
+      - name: 🔑 配置 SSH 私钥
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: 🛡️ 添加服务器指纹 (Known Hosts)
+        # 防止第一次连接时弹出 "Are you sure..." 导致卡死
+        run: ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
+
+      # -----------------------------------------------------------------
+      # 4. 同步文件 (对应脚本 Step 2)
+      # -----------------------------------------------------------------
+      - name: 📤 同步文件到服务器 (Rsync)
+        run: |
+          # 1. 同步配置文件 (排除项完全复刻你的脚本)
+          echo ">> 同步配置..."
+          rsync -rlvz --omit-dir-times --no-perms --no-owner --no-group \
+            --exclude 'target' \
+            --exclude '.git' \
+            --exclude '.idea' \
+            --exclude 'logs' \
+            --exclude 'pg_data' \
+            --exclude 'mongo_data' \
+            --exclude 'grafana_data' \
+            --exclude 'mvnw' \
+            --exclude 'src' \
+            --exclude '.env' \
+            --exclude 'deploy.sh' \
+            . ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:${{ secrets.REMOTE_PROJECT_PATH }}/
+          
+          # 2. 确保目标目录存在
+          ssh ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "mkdir -p ${{ secrets.REMOTE_PROJECT_PATH }}/target"
+          
+          # 3. 同步 JAR 包
+          echo ">> 同步 JAR 包..."
+          rsync -avz target/${{ env.JAR_NAME }} ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:${{ secrets.REMOTE_PROJECT_PATH }}/target/
+
+      # -----------------------------------------------------------------
+      # 5. 远程重启 (对应脚本 Step 3)
+      # -----------------------------------------------------------------
+      - name: 🚀 远程重启 Docker
+        run: |
+          ssh ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} " \
+            cd ${{ secrets.REMOTE_PROJECT_PATH }} && \
+            docker compose up -d --build backend && \
+            docker image prune -f \
+          "

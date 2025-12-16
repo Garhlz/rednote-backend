@@ -153,7 +153,7 @@ public class AdminController {
      * @param id 用户ID
      * @return 用户详情
      */
-    @GetMapping("/users/{id}")
+    @GetMapping("/user/{id}")
     @OperationLog(module = "后台用户管理", description = "查看用户详情", bizId = "#id")
     public Result<AdminUserDetailVO> getUserDetail(@PathVariable Long id) {
         return Result.success(adminService.getUserDetail(id));
@@ -257,6 +257,10 @@ public class AdminController {
         return Result.success(result);
     }
 
+    /**
+     * 获取帖子统计的浏览量排行
+     * @param limit 帖子数量
+     */
     @GetMapping("/stats/top-views")
     @OperationLog(module = "数据统计", description = "查看浏览量排行")
     public Result<List<AdminPostStatVO>> getTopViewPosts(@RequestParam(defaultValue = "20") int limit) {

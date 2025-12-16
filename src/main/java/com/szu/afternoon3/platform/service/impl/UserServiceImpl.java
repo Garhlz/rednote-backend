@@ -497,14 +497,14 @@ public class UserServiceImpl implements UserService {
             return new ArrayList<>();
         }
 
-        // 1. [PostgreSQL] 模糊查询用户 (限制 20 条，防止返回过多数据)
-        // 逻辑：nickname LIKE %keyword% OR email LIKE %keyword%
+        // 1. [PostgreSQL] 模糊查询
+        // 注意：这里 LIMIT 50 稍微放宽一点，增加命中熟人的概率
         List<User> users = userMapper.selectList(new LambdaQueryWrapper<User>()
                 .and(w -> w.like(User::getNickname, keyword)
                         .or()
-                        .like(User::getEmail, keyword)) // 支持搜邮箱
-                .eq(User::getStatus, 1) // 只搜正常状态的用户
-                .last("LIMIT 20"));     // 硬限制数量
+                        .like(User::getEmail, keyword))
+                .eq(User::getStatus, 1)
+                .last("LIMIT 50"));
 
         if (CollUtil.isEmpty(users)) {
             return new ArrayList<>();
@@ -514,38 +514,32 @@ public class UserServiceImpl implements UserService {
         Long currentUserId = UserContext.getUserId();
         List<Long> searchedUserIds = users.stream().map(User::getId).collect(Collectors.toList());
 
-        // 用于快速查找的 Set
-        Set<Long> myFollowingSet = new HashSet<>(); // 我关注了谁
-        Set<Long> myFansSet = new HashSet<>();      // 谁关注了我
+        Set<Long> myFollowingSet = new HashSet<>();
+        Set<Long> myFansSet = new HashSet<>();
 
-        // 3. [MongoDB] 批量查询关系状态 (只有登录用户才查)
+        // 3. [MongoDB] 批量查询关系
         if (currentUserId != null) {
-            // A. 查 "我关注了其中哪些人"
-            // userId = 我, targetUserId IN (搜索结果IDs)
+            // A. 查 "我关注了谁"
             List<UserFollowDoc> followings = userFollowRepository.findByUserIdAndTargetUserIdIn(currentUserId, searchedUserIds);
             myFollowingSet = followings.stream().map(UserFollowDoc::getTargetUserId).collect(Collectors.toSet());
 
-            // B. 查 "其中哪些人关注了我"
-            // userId IN (搜索结果IDs), targetUserId = 我
+            // B. 查 "谁关注了我"
             List<UserFollowDoc> fans = userFollowRepository.findByUserIdInAndTargetUserId(searchedUserIds, currentUserId);
             myFansSet = fans.stream().map(UserFollowDoc::getUserId).collect(Collectors.toSet());
         }
 
-        // 4. 组装 VO
         Set<Long> finalMyFollowingSet = myFollowingSet;
         Set<Long> finalMyFansSet = myFansSet;
 
-        return users.stream().map(user -> {
+        // 4. 组装 VO 列表
+        List<UserSearchVO> resultList = users.stream().map(user -> {
             UserSearchVO vo = new UserSearchVO();
-            // 基础信息
             vo.setUserId(String.valueOf(user.getId()));
             vo.setNickname(user.getNickname());
             vo.setAvatar(user.getAvatar());
-            vo.setEmail(user.getEmail()); // 搜索结果通常可以展示邮箱辅助确认
+            vo.setEmail(user.getEmail());
 
-            // 关系状态
             if (currentUserId != null && currentUserId.equals(user.getId())) {
-                // 搜到了自己
                 vo.setIsFollowed(false);
                 vo.setIsFollowingMe(false);
             } else {
@@ -554,6 +548,42 @@ public class UserServiceImpl implements UserService {
             }
             return vo;
         }).collect(Collectors.toList());
+
+        // 5. 【核心修改】内存排序
+        // 只有登录了才需要排，没登录大家都是路人
+        if (currentUserId != null) {
+            resultList.sort((o1, o2) -> {
+                // 计算权重分数 (越高越靠前)
+                int score1 = calculateWeight(o1);
+                int score2 = calculateWeight(o2);
+                // 降序排列 (分数高的在前)
+                return score2 - score1;
+            });
+        }
+
+        return resultList;
+    }
+
+    /**
+     * 辅助方法：计算用户关系权重
+     * 互相关注 (3分) > 我关注的 (2分) > 关注我的 (1分) > 路人 (0分)
+     */
+    private int calculateWeight(UserSearchVO vo) {
+        int score = 0;
+        // 如果我关注了他，加 2 分
+        if (Boolean.TRUE.equals(vo.getIsFollowed())) {
+            score += 2;
+        }
+        // 如果他关注了我，加 1 分
+        if (Boolean.TRUE.equals(vo.getIsFollowingMe())) {
+            score += 1;
+        }
+        // 结果组合：
+        // 互相关注: 2 + 1 = 3
+        // 我只关注他: 2 + 0 = 2
+        // 他只关注我: 0 + 1 = 1
+        // 互不关注: 0 + 0 = 0
+        return score;
     }
 
     // ================== 1. 获取我的点赞列表 ==================
