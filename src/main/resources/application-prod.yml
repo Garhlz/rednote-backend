@@ -58,8 +58,8 @@ mybatis-plus:
   mapper-locations: classpath:/mapper/*.xml
   type-aliases-package: com.szu.afternoon3.platform.entity
   configuration:
-    # 【关键修改】生产环境关闭 SQL 打印，避免日志爆炸
-    # log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+    # 生产环境显式覆盖
+    log-impl: org.apache.ibatis.logging.nologging.NoLoggingImpl
     map-underscore-to-camel-case: true
   global-config:
     db-config:
