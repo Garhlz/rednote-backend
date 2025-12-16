@@ -25,11 +25,13 @@ public class LogEventListener {
             mongoTemplate.save(logDoc);
 
             // 2. 【核心】在这里加上打印语句，使用 INFO 级别
-            log.info("[日志落库] {} - {} | 耗时: {}ms | 用户: {}",
-                    logDoc.getModule(),
-                    logDoc.getDescription(),
-                    logDoc.getTimeCost(),
-                    logDoc.getUserId());
+            log.info("[日志落库] 模块:{} | 操作:{} | 用户:{} | IP:{} | URL:{} | 耗时:{}ms",
+                    logDoc.getModule(),             // 模块
+                    logDoc.getDescription(),        // 操作描述
+                    logDoc.getUserId(),             // 用户ID
+                    logDoc.getIp(),                 // 【新增】IP
+                    logDoc.getUri(),                // 【新增】URL
+                    logDoc.getTimeCost());          // 耗时
 
         } catch (Exception e) {
             log.error("日志落库失败", e);

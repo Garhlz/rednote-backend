@@ -661,4 +661,73 @@ public class AdminServiceImpl implements AdminService {
 
         return result;
     }
+
+    /**
+     * 统计热门标签 (基于浏览量总和排序)
+     */
+    public List<TagStatVO> getHotTagStats() {
+        // 聚合管道
+        // 1. Unwind: 把 tags 数组拆开 (一帖多标 -> 多条记录)
+        // 2. Group: 按 tag 分组，sum(viewCount), count(id)
+        // 3. Sort: 按浏览量倒序
+        // 4. Limit: 前 20 个
+
+        Aggregation agg = Aggregation.newAggregation(
+                Aggregation.match(Criteria.where("isDeleted").is(0).and("status").is(1)), // 只算有效帖子
+                Aggregation.unwind("tags"),
+                Aggregation.group("tags")
+                        .sum("viewCount").as("totalViews")
+                        .count().as("postCount"),
+                Aggregation.sort(Sort.Direction.DESC, "totalViews"),
+                Aggregation.limit(20),
+                Aggregation.project("totalViews", "postCount").and("_id").as("tagName") // 映射字段
+        );
+
+        AggregationResults<TagStatVO> results = mongoTemplate.aggregate(agg, "posts", TagStatVO.class);
+        return results.getMappedResults();
+    }
+
+    /**
+     * 获取帖子浏览量排行
+     * @param limit 前多少名 (比如 Top 50)
+     */
+    @Override
+    public List<AdminPostStatVO> getPostViewRanking(int limit) {
+        Query query = new Query();
+
+        // 1. 筛选条件：只看有效帖子
+        query.addCriteria(Criteria.where("isDeleted").is(0));
+        query.addCriteria(Criteria.where("status").is(1)); // 只看已发布的
+
+        // 2. 核心：按 viewCount 倒序 (DESC)
+        query.with(Sort.by(Sort.Direction.DESC, "viewCount"));
+
+        // 3. 限制条数
+        query.limit(limit);
+
+        // 4. 查询
+        List<PostDoc> docs = mongoTemplate.find(query, PostDoc.class);
+
+        // 5. 转换为 VO
+        return docs.stream().map(doc -> {
+            AdminPostStatVO vo = new AdminPostStatVO();
+            vo.setId(doc.getId());
+            vo.setTitle(doc.getTitle());
+            vo.setCover(doc.getCover());
+
+            // 重点数据
+            vo.setViewCount(doc.getViewCount());
+            vo.setLikeCount(doc.getLikeCount());
+            vo.setCommentCount(doc.getCommentCount());
+            vo.setCollectCount(doc.getCollectCount());
+            vo.setRatingAverage(doc.getRatingAverage());
+
+            vo.setUserNickname(doc.getUserNickname());
+            // 时间格式化
+            if (doc.getCreatedAt() != null) {
+                vo.setCreatedAt(doc.getCreatedAt().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd")));
+            }
+            return vo;
+        }).collect(Collectors.toList());
+    }
 }

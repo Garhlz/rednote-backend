@@ -116,7 +116,8 @@ public class WebLogAspect {
         logDoc.setRole(UserContext.getRole());
         // logDoc.setUsername(...) // 建议不查库，前端根据 userId 查，或者让 UserContext 带进来
 
-        logDoc.setIp(request.getRemoteAddr());
+        String ip = getIpAddress(request);
+        logDoc.setIp(ip);
         logDoc.setMethod(request.getMethod());
         logDoc.setUri(uri);
         logDoc.setParams(formatArgs(joinPoint.getArgs()));
@@ -127,6 +128,17 @@ public class WebLogAspect {
         } else {
             logDoc.setStatus(200);
         }
+
+        // 4. 【新增】在发送 MQ 之前，直接在 Web 层打印详细日志 (Controller 层日志)
+        // 这样即使 MQ 挂了，你也能在控制台看到有请求进来
+        log.info("Request: [{} {}] IP:{} | User:{} | Cost:{}ms | Desc:{} | Args:{}",
+                request.getMethod(),
+                uri,
+                ip,
+                UserContext.getUserId(),
+                timeCost,
+                logDoc.getDescription(),
+                StrUtil.subPre(logDoc.getParams(), 100)); // 参数截取前100字符，防止日志太长刷屏
 
         // 4. 发送 MQ
         rabbitTemplate.convertAndSend(RabbitConfig.PLATFORM_EXCHANGE, "log.info", logDoc);
@@ -173,5 +185,39 @@ public class WebLogAspect {
         } catch (Exception e) {
             return "args_error";
         }
+    }
+
+    /**
+     * 获取客户端真实IP
+     */
+    private String getIpAddress(HttpServletRequest request) {
+        // 1. 优先取 X-Forwarded-For (这是标准，Nginx 会把真实 IP 追加在后面)
+        String ip = request.getHeader("x-forwarded-for");
+
+        if (ip == null || ip.length() == 0 || "unknown".equalsIgnoreCase(ip)) {
+            // 2. 其次取 Proxy-Client-IP (Apache 等)
+            ip = request.getHeader("Proxy-Client-IP");
+        }
+        if (ip == null || ip.length() == 0 || "unknown".equalsIgnoreCase(ip)) {
+            // 3. 再次取 WL-Proxy-Client-IP (WebLogic 等)
+            ip = request.getHeader("WL-Proxy-Client-IP");
+        }
+        if (ip == null || ip.length() == 0 || "unknown".equalsIgnoreCase(ip)) {
+            // 4. 最后取 X-Real-IP (我们在 Nginx 里专门设的)
+            ip = request.getHeader("X-Real-IP");
+        }
+
+        if (ip == null || ip.length() == 0 || "unknown".equalsIgnoreCase(ip)) {
+            // 5. 实在没有，才取 getRemoteAddr (在 Docker 里这通常是 172.x.x.x)
+            ip = request.getRemoteAddr();
+        }
+
+        // 6. 处理多级代理的情况 (例如: "client-ip, proxy1-ip, proxy2-ip")
+        // 我们通常取第一个，那个才是用户的真实 IP
+        if (ip != null && ip.indexOf(",") > 0) {
+            ip = ip.substring(0, ip.indexOf(",")).trim();
+        }
+
+        return ip;
     }
 }

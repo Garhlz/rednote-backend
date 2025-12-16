@@ -18,6 +18,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -254,5 +255,13 @@ public class AdminController {
 
         // 4. 返回给前端展示，暂不自动修改数据库状态，由管理员决定
         return Result.success(result);
+    }
+
+    @GetMapping("/stats/top-views")
+    @OperationLog(module = "数据统计", description = "查看浏览量排行")
+    public Result<List<AdminPostStatVO>> getTopViewPosts(@RequestParam(defaultValue = "20") int limit) {
+        if (limit > 100) limit = 100; // 限制最大查询数，防止查崩
+        List<AdminPostStatVO> list = adminService.getPostViewRanking(limit);
+        return Result.success(list);
     }
 }

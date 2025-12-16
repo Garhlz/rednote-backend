@@ -63,6 +63,8 @@ public class UserServiceImpl implements UserService {
     @Autowired
     private PostRepository postRepository;
 
+    private static final String CACHE_POST_VIEWS = "rednote:post:views:buffer";
+
     @Override
     public UserProfileVO getUserProfile() {
         User user = getCurrentUser();
@@ -81,6 +83,7 @@ public class UserServiceImpl implements UserService {
 
     @Autowired
     private MongoTemplate mongoTemplate;
+
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -670,9 +673,10 @@ public class UserServiceImpl implements UserService {
         return buildPostListResult(postIds, historyPage.getTotalElements(), null);
     }
 
+    // 记录用户浏览记录
     @Override
     public void recordBrowsingHistory(Long userId, String postId) {
-        // 【新增修复】使用 MongoTemplate 的 Upsert (更新或插入) 原子操作
+        // 使用 MongoTemplate 的 Upsert (更新或插入) 原子操作
         // 解决高并发下的 DuplicateKeyException 问题
 
         // 1. 定义查询条件: userId + postId
@@ -686,6 +690,9 @@ public class UserServiceImpl implements UserService {
         // 3. 执行 Upsert
         // 如果记录存在，则更新 viewTime；如果不存在，则插入一条新记录
         mongoTemplate.upsert(query, update, PostViewHistoryDoc.class);
+
+        // 4. Redis计数器 + 1
+        redisTemplate.opsForHash().increment(CACHE_POST_VIEWS, postId, 1);
     }
 
     // ================== 私有通用方法：批量查帖子并转 VO ==================

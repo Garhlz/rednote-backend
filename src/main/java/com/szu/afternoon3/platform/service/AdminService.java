@@ -3,6 +3,7 @@ package com.szu.afternoon3.platform.service;
 import com.szu.afternoon3.platform.dto.*;
 import com.szu.afternoon3.platform.vo.*;
 
+import java.util.List;
 import java.util.Map;
 
 public interface AdminService {
@@ -41,4 +42,6 @@ public interface AdminService {
      * 获取C端用户操作日志
      */
     Map<String, Object> getUserLogs(LogSearchDTO dto);
+
+    List<AdminPostStatVO> getPostViewRanking(int limit);
 }
