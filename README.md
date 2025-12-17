@@ -15,7 +15,7 @@
 
     核心框架: Spring Boot 3.x
 
-    数据库: PostgreSQL 15 (支持 JSONB 与向量扩展)
+    数据库: PostgreSQL + MongoDB
     
     ORM 框架: MyBatis-Plus (高效的数据库操作与动态 SQL)
 
@@ -31,34 +31,91 @@
 
     API 文档: Apifox / Swagger / OpenAPI 3
 
-    搜索分词: Jieba Analysis (中文分词与关键词提取)
+    搜索/分析: Elasticsearch 8.11 (IK分词 + Pinyin插件) + Kibana
+
+    消息队列: RabbitMQ 3.12 (异步解耦、流量削峰、死信处理)
+
+    AI 能力: Qwen-VL (Spring AI 集成，支持多模态理解)
 
     即时通讯: Tencent Cloud IM (集成用户签名生成 UserSig)
 
 ## 🏗 系统架构 (Architecture)
-
-系统采用典型的分层架构，并预留了 AI 模块的扩展接口。
 ```
 graph TD
     User[小程序/Web端] --> Nginx[Nginx 网关 (80/443)]
-    Nginx -->|/api/auth & /api/user| Boot[Spring Boot 后端 (8080)]
-    Nginx -->|/| Static[Web 管理后台静态资源]
+    Nginx -->|/api| Boot[Spring Boot 后端 (8080)]
     
-    Boot --> PG[(PostgreSQL)]
-    Boot --> Redis[(Redis 缓存)]
-    Boot --> OSS[阿里云 OSS]
-    Boot -->|异步调用| AI[AI 服务 (Python/预留)]
+    Boot --> PostgreSQL[(PostgreSQL: 仅存储 User)]
+    Boot --> MongoDB[(MongoDB: 存储 Post/Comment/交互数据)]
+    Boot --> Redis[(Redis: 缓存/计数/Session)]
+    Boot --> OSS[阿里云 OSS: 图片/视频]
+    
+    Boot --> MQ[RabbitMQ]
+    MQ -->|异步削峰/解耦| Boot
+    
+    Boot --> ES[(Elasticsearch: 全文检索/Tag聚合)]
+    
+    Boot -->|HTTP 请求| AI[大模型 API (QwenVL: 内容理解/生成)]
 ```
 
 ## 核心架构设计亮点
-1. **混合存储策略 (Polyglot Persistence)**
-    - **PostgreSQL**: 作为 Source of Truth，存储核心用户账号、关系型强事务数据。
-    - **MongoDB**: 存储帖子(Post)、评论(Comment)及海量交互数据。利用其 Schema-free 特性冗余用户信息(Nickname/Avatar)，避免 N+1 查询问题。
+1. 混合存储策略 (Polyglot Persistence)
 
-2. **异步事件驱动 (Event-Driven Consistency)**
-   - 利用 `Spring Events` + `@Async` 实现业务解耦。
-   - **写缓冲 (Write-Behind)**: 点赞、收藏等高频互动先写入 Redis，随后通过事件异步落库 MongoDB，削峰填谷。
-   - **最终一致性**: 用户修改资料后，通过 `UserUpdateEvent` 异步触发 MongoDB 中冗余数据的批量更新。
+- PostgreSQL: 作为 Source of Truth，存储核心用户账号、关系型强事务数据。
+
+- MongoDB: 存储帖子(Post)、评论(Comment)及海量交互数据。利用其 Schema-free 特性冗余用户信息(Nickname/Avatar)，避免 N+1 查询问题。
+
+2. 异步事件驱动与最终一致性 (Event-Driven Architecture)
+
+- 消息总线 (Message Bus): 引入 RabbitMQ (Topic Exchange) 作为全链路事件总线，实现核心业务的深度解耦。
+    
+- CQRS 索引同步: 帖子发布/更新写入 MongoDB 后，发送消息至 MQ，消费者异步将数据同步至 Elasticsearch，保证搜索数据的近实时 (NRT) 可见性。
+    
+- 最终一致性 (Eventual Consistency):
+
+    - 关键业务数据（如用户信息修改）采用“发布-订阅”模式，异步触发 MongoDB 中冗余数据（Post/Comment 作者信息）的批量更新，避免分布式事务的性能损耗。
+
+    - AI 异步介入: 也就是在发帖成功后，异步投递消息触发 AI 摘要生成与自动评论，不阻塞主线程，提升用户体验。
+
+3. 多级缓存与高并发支撑 (Redis Strategy)
+
+本项目充分利用 Redis 7 的多种数据结构，构建了高性能的缓冲与缓存体系：
+
+- 写缓冲 (Write-Behind Pattern):
+    - 高频互动: 点赞、收藏等操作直接写入 Redis Set (去重) 与 Hash (计数)，通过定时任务或阈值触发异步落库 MongoDB，削峰填谷，保护数据库。
+
+    - 浏览量计数: 使用 Redis HyperLogLog (或原子计数器) 聚合高并发的帖子浏览量 (View Count)，批量定时同步至数据库。
+
+- 安全与会话管理:
+
+    - Token 黑名单: 用户登出或修改密码时，将旧 JWT 加入 Redis Set 黑名单（设置 TTL），实现无状态 Token 的即时失效机制。
+
+    - 验证码缓存: 注册/登录验证码存入 String 类型并设置短时过期。
+
+- 热点数据加速:
+
+    - 热门标签: 对计算代价较高的“热门标签 (Hot Tags)”聚合结果进行缓存，降低 MongoDB 聚合查询压力。
+
+    - 通用缓存: 使用 @Cacheable 对配置信息、用户信息等读多写少的数据进行缓存。
+
+4. 高可用搜索架构 (Advanced Search)
+
+- Elasticsearch 8: 替代了原有的 MongoDB 正则搜索，性能提升显著。
+
+- 智能分词与补全: 集成 IK 中文分词 与 Pinyin 拼音插件，支持“输入 szu 搜 深圳大学”的混合检索体验，并提供搜索建议 (Suggestion)。
+
+- 混合排序算法: 实现了基于 Function Score 的综合热度排序（结合了 BM25 相关度 + 点赞数对数加权 + 高斯函数时间衰减）。
+
+5. AI Native 内容生态
+
+- 全链路 AI 介入: 帖子发布后自动触发 AI 管道。
+
+- 智能生产: 自动生成内容摘要（Summary）、智能打标（Auto-Tagging）。
+
+- 活跃气氛: 引入“AI 省流助手”角色，自动在评论区生成诙谐的总结评论。
+
+- 安全风控: 内容发布前经过 AI 敏感词与合规性校验。
+
 
 ## 核心模块划分
 
@@ -68,37 +125,57 @@ Auth 模块:
 User 模块: 
 - 用户信息管理、邮箱绑定、个人资料修改。
 
-Post 模块: 
+Post 模块:
 - 支持图文/视频混合发布流。
-- 混合搜索: 集成 Jieba 分词构建 MongoDB Text Index，并提供 Regex 兜底策略，支持“联想词”推荐。
+- **搜索升级**: 基于 Elasticsearch 实现的综合热度排序（Function Score：结合时间衰减与互动权重）。
 
 Interaction 模块:
 - 实现了 点赞/收藏/评分(Rating) 的全套逻辑。
 - 基于 Redis Set/Hash 实现去重与快速计数，保障高并发下的数据准确性。
 
+Admin 模块 (后台管理):
+- 用户治理: 支持用户列表查询、详情查看及账号封禁/解封操作。
+- 内容审计:
+    - 帖子管理：查询全站帖子、强制下架/删除违规内容。
+    - 审核流：配合 AI 预审结果，对状态为“审核中”的帖子进行人工复核（通过/驳回）。
+- 运维工具:
+    - 操作日志 (Audit Log): 基于 Spring AOP 切面记录关键操作（如删除、封禁），持久化至 MongoDB 供审计查询。
+    - 系统监控: 集成 Prometheus + Grafana 监控 JVM/系统指标，RabbitMQ 控制台监控队列积压，Kibana 可视化 ES 数据。
+
+AI 模块:
+- Content Service: 封装 LLM 调用，实现标签生成、摘要提取。
+- Audit Service: 文本与图像的自动化审核。
+- Agent Service: 模拟虚拟用户（如“课代表”）进行自动评论互动。
+
 ## 项目结构
 ```
 graph TD
-    Request[前端请求 JSON] --> DTO
+    Request[前端请求] --> DTO
     DTO --> Controller
     Controller --> Service
     
-    subgraph 业务逻辑
-    Service --> Utils
-    Service --> Mapper
+    subgraph 业务逻辑层
+    Service --> Manager[通用业务处理]
+    Service --> AI_Client[AI 服务调用]
     end
     
-    Mapper --> Entity
-    Entity <--> DB[(PostgreSQL)]
+    subgraph 数据持久层
+    Manager --> UserMapper[UserMapper (MyBatis)]
+    Manager --> MongoRepo[PostRepository (MongoTemplate)]
+    Manager --> ESRepo[PostEsRepository (Elasticsearch)]
+    end
+    
+    UserMapper <--> PG[(PostgreSQL)]
+    MongoRepo <--> Mongo[(MongoDB)]
+    ESRepo <--> ES[(Elasticsearch)]
     
     Service --> VO
-    VO --> Result[统一响应: Result]
-    Result --> Response[前端响应 JSON]
+    VO --> Result[统一响应]
 ```
 
 ---
 
-## 🚀 快速开始 (开发指南)
+## 🚀 快速开始 (待修改，Elastic search使用docker启动)
 
 **写给组员的话：** 本项目是一个基于 **Spring Boot + PostgreSQL + MongoDB** 的混合架构后端。在运行代码前，请务必按照以下步骤配置你的本地环境。
 
