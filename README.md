@@ -59,13 +59,13 @@ graph TD
 ```
 
 ## 核心架构设计亮点
-1. 混合存储策略 (Polyglot Persistence)
+1. **混合存储策略 (Polyglot Persistence)**
 
 - PostgreSQL: 作为 Source of Truth，存储核心用户账号、关系型强事务数据。
 
 - MongoDB: 存储帖子(Post)、评论(Comment)及海量交互数据。利用其 Schema-free 特性冗余用户信息(Nickname/Avatar)，避免 N+1 查询问题。
 
-2. 异步事件驱动与最终一致性 (Event-Driven Architecture)
+2. **异步事件驱动与最终一致性 (Event-Driven Architecture)**
 
 - 消息总线 (Message Bus): 引入 RabbitMQ (Topic Exchange) 作为全链路事件总线，实现核心业务的深度解耦。
     
@@ -77,9 +77,7 @@ graph TD
 
     - AI 异步介入: 也就是在发帖成功后，异步投递消息触发 AI 摘要生成与自动评论，不阻塞主线程，提升用户体验。
 
-3. 多级缓存与高并发支撑 (Redis Strategy)
-
-本项目充分利用 Redis 7 的多种数据结构，构建了高性能的缓冲与缓存体系：
+3. **多级缓存与高并发支撑 (Redis Strategy)**
 
 - 写缓冲 (Write-Behind Pattern):
     - 高频互动: 点赞、收藏等操作直接写入 Redis Set (去重) 与 Hash (计数)，通过定时任务或阈值触发异步落库 MongoDB，削峰填谷，保护数据库。
@@ -98,7 +96,7 @@ graph TD
 
     - 通用缓存: 使用 @Cacheable 对配置信息、用户信息等读多写少的数据进行缓存。
 
-4. 高可用搜索架构 (Advanced Search)
+4. **高可用搜索架构 (Advanced Search)**
 
 - Elasticsearch 8: 替代了原有的 MongoDB 正则搜索，性能提升显著。
 
@@ -106,7 +104,7 @@ graph TD
 
 - 混合排序算法: 实现了基于 Function Score 的综合热度排序（结合了 BM25 相关度 + 点赞数对数加权 + 高斯函数时间衰减）。
 
-5. AI Native 内容生态
+5. **AI Native 内容生态**
 
 - 全链路 AI 介入: 帖子发布后自动触发 AI 管道。
 
