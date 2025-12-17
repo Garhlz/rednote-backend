@@ -115,7 +115,7 @@ func main() {
 	}
 	log.Println("🚀 Go ES-Sync Sidecar Starting...")
 	// 【新增调试日志】注意：生产环境不要打印密码，这里是为了调试
-	log.Printf("DEBUG: Connecting to: %s", RabbitMQURL)
+	// log.Printf("DEBUG: Connecting to: %s", RabbitMQURL)
 	// 1. 初始化 MongoDB
 	ctx := context.Background()
 	mongoClient, err := mongo.Connect(ctx, options.Client().ApplyURI(MongoURI))

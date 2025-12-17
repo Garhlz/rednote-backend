@@ -192,44 +192,126 @@ graph TD
 
 ---
 
-## 🚀 快速开始 (待修改，Elastic search使用docker启动)
+## 🐳 Docker 开发环境极速配置指南
 
-**写给组员的话：** 本项目是一个基于 **Spring Boot + PostgreSQL + MongoDB** 的混合架构后端。在运行代码前，请务必按照以下步骤配置你的本地环境。
+为了确保大家开发环境一致，避免“在我这能跑，在你那报错”的玄学问题，我们使用 Docker Compose 一键启动所有依赖服务（Postgres, Mongo, Redis, RabbitMQ, ES, Kibana, Sidecar）。
 
-### 1. 环境准备 (Prerequisites)
+你不需要在本地手动安装这些数据库，只需要安装 Docker。
+1. 准备工作
+🛠️ 安装 Docker Desktop
 
-请确保你的电脑上安装了以下软件：
+请根据你的操作系统下载并安装 Docker Desktop：
 
-1.  **Java JDK 17** (必须是 17 版本)
-    * 验证方式：终端输入 `java --version`，应显示 `version "17.0.x"`.
-2.  **PostgreSQL** (关系型数据库，存用户数据)
-3.  **MongoDB** (文档型数据库，存帖子/评论数据)
-4.  **Maven** (项目构建工具)
-    * *不用单独安装*，项目里自带了 `mvnw` (Maven Wrapper)，下面的命令会直接用到它。
+    Windows: (⚠️ 重要：安装时请勾选 Use WSL 2 based engine，这是 Windows 运行 Docker 的最佳实践)
 
+    Mac (Intel/Apple Chip): 直接下载
 
-### 2. 数据库配置 (Database Setup)
+    Linux: 直接安装 Docker Engine 和 Docker Compose Plugin。
 
-本项目使用了两个数据库，需要分别配置。
+⚙️ 调整内存限制 (重要!)
 
-#### 2.1 PostgreSQL 配置 (用户表)
-1.  打开你的数据库管理工具 (DBeaver / Navicat / pgAdmin)。
-2.  创建一个新的数据库（Database），命名为 `platform_db` (与配置文件保持一致)。
-3.  **导入建表语句**：
-    * 找到项目根目录下的 `init-mongdb.sql` 文件 (注意：虽然文件名带 mongo，但这是给 SQL 用的)。
-    * 在 `platform_db` 中运行该 SQL 文件脚本，创建 `users` 表。
+我们的环境包含 ES 和 Java 后端，比较吃内存。
 
-#### 2.2 MongoDB 配置 (帖子内容)
-MongoDB 不需要提前建表（它会自动创建），但为了方便可视化，建议手动初始化集合。
-1.  打开终端或 MongoDB 客户端工具。
-2.  创建一个数据库，命名为 `rednote`。
+    打开 Docker Desktop 设置 -> Resources。
 
-#### 2.3 Redis 配置
-本地启动一个 Redis 服务，默认端口 6379 即可。
+    确保 Memory 至少分配 4GB (推荐 6GB+)。
 
-Docker 快速启动: `docker run -d -p 6379:6379 --name rednote-redis redis`
+    点击 "Apply & Restart"。
 
-#### 2.4 环境变量配置 (.env) [重要]
+2. ⚠️ 启动前检查 (防坑必读)
+
+在运行命令前，请务必停止你电脑上本地安装的同类服务，否则会端口冲突！
+
+    如果你本地装了 MySQL/Postgres，请停止它 (占用 5432)。
+
+    如果你本地装了 Redis，请停止它 (占用 6379)。
+
+    如果你本地装了 Mongo，请停止它 (占用 27017)。
+
+3. 🚀 一键启动
+
+在项目根目录下打开终端（Terminal / CMD / PowerShell），运行：
+```Bash
+
+docker compose -f docker-compose-dev.yml up -d
+```
+
+    -f docker-compose-dev.yml: 指定使用开发环境的配置。
+
+    -d: 后台运行 (Detached mode)，不会阻塞你的终端。
+
+    首次运行需要下载镜像，可能需要几分钟，请耐心等待。
+
+验证是否成功
+
+运行以下命令查看容器状态：
+```Bash
+
+docker compose -f docker-compose-dev.yml ps
+```
+
+如果所有容器的状态 (STATUS) 都是 Up 或 Up (healthy)，恭喜你，环境搭建完成！🎉
+
+4. 💻 如何连接? (开发必看)
+
+容器启动后，端口已经映射到你的本机 (localhost)。在 IDEA / GoLand / Navicat 中直接配置如下：
+| 服务 | 主机 (Host) | 端口 (Port) | 用户名 | 密码 | 备注 |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| PostgreSQL | localhost | 5432 | postgres | postgres | 数据库名: platform_db |
+| MongoDB | localhost | 27017 | (无) | (无) | 数据库名: rednote |
+| Redis | localhost | 6379 | (无) | (无) | |
+| RabbitMQ | localhost | 5672 | admin | admin | 消息队列端口 |
+| Elasticsearch | localhost | 9200 | (无) | (无) | 开发环境关闭了安全认证 |
+
+🌐 常用管理面板
+
+启动后，你可以直接在浏览器访问这些好用的管理界面：
+
+    RabbitMQ 控制台: http://localhost:15672 (账号: admin / admin)
+
+    Kibana (ES 可视化): http://localhost:5601
+
+5. 🛠️ 常用操作速查
+
+停止所有服务 (下班关机前)：
+```Bash
+docker compose -f docker-compose-dev.yml down
+```
+
+查看某个服务的日志 (比如看 Sidecar 为什么报错)：
+```Bash
+
+# 查看实时日志 (Ctrl+C 退出)
+docker logs -f sidecar-local-dev
+# 或者
+docker logs -f mq-local-dev
+```
+重启某个服务 (比如卡住了)：
+```Bash
+
+docker compose -f docker-compose-dev.yml restart sync-sidecar-dev
+```
+清理全部数据 (想重头再来)：
+```Bash
+
+# 慎用！这会清空数据库所有数据
+docker compose -f docker-compose-dev.yml down -v
+```
+
+6. ❓ 常见问题 FAQ
+
+Q: 启动报错 Bind for 0.0.0.0:5432 failed: port is already allocated A: 你的电脑上已经跑了一个 Postgres。请手动停止本地的 Postgres 服务，或者卸载它。
+
+Q: Sidecar 启动报错 connection refused A: Sidecar 依赖 ES 和 MQ。如果这两个还没启动好（Healthcheck 未通过），Sidecar 可能会报错退出。Docker 会自动重启它，通常等待 30 秒左右就会变绿（Healthy）。
+
+Q: ES 启动报错 exited with code 137 A: 内存不足。Docker 也就是被系统杀掉了。请参考第 1 步，调大 Docker Desktop 的内存限制。
+
+Q: 我修改了 sync-sidecar 里的 Go 代码，怎么生效？ A: 我们配置了热挂载。只需重启容器即可生效：
+```Bash
+docker compose -f docker-compose-dev.yml restart sync-sidecar-dev
+```
+
+## 环境变量配置 (.env) [重要]
 为了安全起见，我们不再直接修改 application-dev.yml 中的密码，而是通过根目录下的 .env 文件注入环境变量。
 
 - 在项目根目录下创建一个名为 .env 的文件。
@@ -240,7 +322,7 @@ Docker 快速启动: `docker run -d -p 6379:6379 --name rednote-redis redis`
 # --- 数据库配置 ---
 DB_URL=jdbc:postgresql://localhost:5432/platform_db?currentSchema=public
 DB_USERNAME=postgres
-DB_PASSWORD=你的数据库密码
+DB_PASSWORD=postgres
 
 # --- Redis 配置 ---
 REDIS_HOST=localhost
@@ -271,87 +353,9 @@ TENCENT_IM_SECRET_KEY=你的密钥
 # --- 内容安全 (新增) ---
 # 是否开启帖子自动进入审核状态 (true=发帖后状态为0, false=直接发布)
 POST_AUDIT_ENABLE=false
+
+CHATBOT_ID=276
+CHATBOT_NICKNAME=AI省流助手
+
+QWENVL_API_KEY=
 ```
-### 3. 如何运行项目 (Run)
-
-本项目集成了 Maven Wrapper，不需要你手动配置 Maven 环境变量。
-
-#### 在 Windows 上:
-1. 打开 CMD 或 PowerShell，进入项目根目录。
-2. 执行命令：
-```Shell
-.\mvnw.cmd spring-boot:run
-```
-#### 在 macOS / Linux 上:
-1. 打开终端，进入项目根目录。
-2. 赋予脚本执行权限 (仅第一次需要)：
-```Bash
-chmod +x mvnw
-```
-3. 执行命令：
-```Bash
-./mvnw spring-boot:run
-```
-**看到以下日志即表示启动成功：**
-`Started PlatformApplication in x.xxx seconds`
-### 4. 验证测试 (Testing)
-
-我们在 src/test/java 下编写了多维度的测试用例，帮助你验证环境和业务逻辑。
-
-在 IDEA 中找到对应的测试文件，点击类名旁边的绿色 ▶️ 按钮即可运行。
-
-#### 4.1 基础环境连通性测试
-
-- PostgreSQL 测试: UserTest.java
-
-    - 作用: 测试能否向 users 表插入数据。
-    
-    - 成功标志: 输出 写入成功！User ID: xxxxx。
-
-- MongoDB 测试: MongoTest.java
-
-    - 作用: 测试能否向 posts 集合写入文档。
-
-    - 成功标志: 输出 写入成功！生成的 ID 为: xxxxx。
-
-- Redis 测试: RedisTest.java
-
-    - 作用: 测试 Redis 的读写连通性。
-
-#### 4.2 业务逻辑集成测试 (推荐)
-
-4.2 业务逻辑集成测试 (核心推荐)
-
-这些测试模拟了真实的用户请求流程，且使用了 Mock 技术，不依赖外部第三方服务（如微信、OSS），非常适合开发时自测。
-
-- API 综合流程测试: controller/ApiIntegrationTest.java
-
-    - 内容: 模拟了“微信登录(Mock) -> 获取Token -> 修改个人资料”的全流程。
-
-    - 特点: 验证最基础的用户鉴权与资料管理，自动回滚数据。
-
-- 数据一致性测试 (架构核心): DataConsistencyTest.java
-
-    - 内容: 模拟用户在 PostgreSQL 修改昵称/头像后，验证 MongoDB 中的冗余数据（帖子、评论、关注列表）是否通过异步事件正确同步。
-
-    - 特点: 验证混合存储架构中最关键的“最终一致性”机制。
-
-- 交互闭环测试: controller/InteractionIntegrationTest.java
-
-    - 内容: 模拟用户对帖子进行“点赞 -> 取消点赞 -> 评分”的操作。
-
-    - 特点: 验证 Redis 缓存（去重/计数）与 MongoDB 落库之间的异步配合是否正常。
-
-- 搜索与分词测试: service/SearchIntegrationTest.java
-
-    - 内容: 验证 Jieba 中文分词是否生效，以及 MongoDB 的全文索引能否正确召回数据。
-
-    - 特点: 确保“搜关键词”能搜到对应的帖子，验证搜索引擎逻辑。
-
-- 文件上传测试: controller/CommonControllerTest.java
-
-    - 内容: 测试文件上传接口。
-
-    - 特点: 自动使用本地 Mock 模式，文件会生成在 target/test-uploads 目录下，无需配置阿里云账号。
-
-如果上述测试全部通过，说明你的后端环境及核心业务逻辑已经完美就绪！🎉
