@@ -1,6 +1,10 @@
 package com.szu.afternoon3.platform.config;
 
 import org.springframework.amqp.core.*;
+import org.springframework.amqp.rabbit.config.SimpleRabbitListenerContainerFactory;
+import org.springframework.amqp.rabbit.connection.ConnectionFactory;
+import org.springframework.amqp.support.converter.DefaultJackson2JavaTypeMapper;
+import org.springframework.amqp.support.converter.Jackson2JavaTypeMapper;
 import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
 import org.springframework.amqp.support.converter.MessageConverter;
 import org.springframework.context.annotation.Bean;
@@ -24,7 +28,8 @@ public class RabbitConfig {
     public static final String QUEUE_POST = "platform.post.queue";
     public static final String QUEUE_COMMENT = "platform.comment.queue";
     public static final String QUEUE_LOG = "platform.log.queue";
-    public static final String QUEUE_NOTIFY_AUDIT = "queue.notify.audit";
+    public static final String QUEUE_NOTIFY_AUDIT = "platform.notify.audit.queue";
+    public static final String QUEUE_ES_SYNC = "platform.es.sync.queue";
     // 死信队列
     public static final String QUEUE_DEAD_LETTER = "platform.dead.letter.queue";
 
@@ -83,6 +88,9 @@ public class RabbitConfig {
     @Bean
     public Queue notifyAuditQueue() {return createQueueWithDlq(QUEUE_NOTIFY_AUDIT);}
 
+    @Bean
+    public Queue esSyncQueue() {return createQueueWithDlq(QUEUE_ES_SYNC);}
+
     // 死信队列本身 (普通持久化队列，不能套娃再绑死信)
     @Bean
     public Queue deadLetterQueue() {
@@ -133,12 +141,66 @@ public class RabbitConfig {
     public Binding bindingNotifyAudit() {
         return BindingBuilder.bind(notifyAuditQueue()).to(platformExchange()).with("post.audit");
     }
+
+    @Bean
+    public Binding bindingEsSync() {
+        return BindingBuilder.bind(esSyncQueue())
+                .to(platformExchange())
+                .with("post.#"); // 简单粗暴，监听所有帖子变动
+    }
+
+
+    @Bean
+    public Binding bindingUserUpdateToEs() {
+        // 让 esSyncQueue 监听 user.update 路由键
+        return BindingBuilder.bind(esSyncQueue()).to(platformExchange()).with("user.update");
+    }
+
+    @Bean
+    public Binding bindingAuditPassToEs() {
+        return BindingBuilder.bind(esSyncQueue()).to(platformExchange()).with("post.audit.pass");
+    }
+
     // ==========================================
     // 5. 序列化配置
     // ==========================================
 
     @Bean
     public MessageConverter jsonMessageConverter() {
-        return new Jackson2JsonMessageConverter();
+        Jackson2JsonMessageConverter converter = new Jackson2JsonMessageConverter();
+
+        // 1. 手动创建一个 TypeMapper
+        DefaultJackson2JavaTypeMapper typeMapper = new DefaultJackson2JavaTypeMapper();
+
+        // 2. 解决 "无法解析符号 TypePrecedence": 引用正确的类 Jackson2JavaTypeMapper
+        typeMapper.setTypePrecedence(Jackson2JavaTypeMapper.TypePrecedence.TYPE_ID);
+
+        // 3. 解决 "无法解析 setPackagesToScan": 使用 setTrustedPackages 并指定你的 Event 包路径
+        //这是为了防止反序列化漏洞，只有在这个包下的类才允许被反序列化
+        typeMapper.setTrustedPackages(
+                "com.szu.afternoon3.platform.event",
+                "com.szu.afternoon3.platform.entity",
+                "com.szu.afternoon3.platform.entity.mongo", // 解决 ApiLogDoc 报错
+                "com.szu.afternoon3.platform.entity.es"    // 预防 PostEsDoc 报错
+        );
+
+
+        // 4. 将配置好的 TypeMapper 设置给 Converter
+        converter.setJavaTypeMapper(typeMapper);
+
+        return converter;
+    }
+    @Bean
+    public SimpleRabbitListenerContainerFactory rabbitListenerContainerFactory(ConnectionFactory connectionFactory) {
+        SimpleRabbitListenerContainerFactory factory = new SimpleRabbitListenerContainerFactory();
+        factory.setConnectionFactory(connectionFactory);
+
+        // 【关键】强制使用我们配置好的 JSON 转换器
+        factory.setMessageConverter(jsonMessageConverter());
+
+        // 可选：设置手动 ACK (如果你代码里写了 channel.basicAck)
+        factory.setAcknowledgeMode(AcknowledgeMode.MANUAL);
+
+        return factory;
     }
 }

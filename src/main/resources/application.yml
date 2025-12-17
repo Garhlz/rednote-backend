@@ -31,6 +31,9 @@ spring:
   # 全局 JSON 配置 (前后端交互时间格式化)
   # --- Jackson 全局 JSON 配置 (解决前后端时间格式不一致问题) ---
   jackson:
+    serialization:
+      # 必须：禁用将日期写为时间戳（否则可能会变成数组 [2025,12,13...]）
+      write-dates-as-timestamps: false
     date-format: yyyy-MM-dd HH:mm:ss
     time-zone: GMT+8
     default-property-inclusion: always # 即使字段是 null 也返回（方便前端判断）

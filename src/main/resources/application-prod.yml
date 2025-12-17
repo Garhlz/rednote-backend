@@ -39,6 +39,13 @@ spring:
           socketFactory:
             port: 465
             class: javax.net.ssl.SSLSocketFactory
+    # --- Elasticsearch 配置 (新增) ---
+  elasticsearch:
+    # Docker 内部服务名:端口
+    uris: http://afternoon-es:9200
+    socket-timeout: 30s
+    connection-timeout: 5s
+    # 生产环境如果之后开启了 xpack，记得在这里配 username/password
 
 # --- 阿里云 OSS ---
 aliyun:

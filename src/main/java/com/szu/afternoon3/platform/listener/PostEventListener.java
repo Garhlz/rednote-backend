@@ -100,7 +100,7 @@ public class PostEventListener {
 
     @RabbitHandler
     public void handlePostCreate(PostCreateEvent event) {
-        log.info("RabbitMQ 收到发帖事件: {}", event.getPostId());
+        log.info("RabbitMQ 收到发帖事件: {}", event.getId());
 
         try {
             handleAutoComment(event);
@@ -131,7 +131,7 @@ public class PostEventListener {
 
         // 3. 构建评论对象
         CommentDoc comment = new CommentDoc();
-        comment.setPostId(event.getPostId());
+        comment.setPostId(event.getId());
         comment.setUserId(botUserId);
         comment.setUserNickname(botUser.getNickname()); // "AI省流助手"
         comment.setUserAvatar(botUser.getAvatar());
@@ -146,7 +146,7 @@ public class PostEventListener {
 
         // 5. 更新帖子的评论数 (commentCount + 1)
         mongoTemplate.updateFirst(
-                Query.query(Criteria.where("id").is(event.getPostId())),
+                Query.query(Criteria.where("id").is(event.getId())),
                 new Update().inc("commentCount", 1),
                 PostDoc.class
         );

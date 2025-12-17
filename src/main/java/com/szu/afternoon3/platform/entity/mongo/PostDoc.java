@@ -23,21 +23,19 @@ public class PostDoc {
     private String userNickname;
     private String userAvatar;
 
-    // 标题和内容不需要 @TextIndexed 了，因为我们统一搜索 searchTerms
     private String title;
     private String content;
 
-    @Indexed           // 保留普通索引，用于精确筛选 (getPostList)
+    @Indexed   // 保留普通索引，用于精确筛选 (getPostList)
     private List<String> tags;
 
-    // 搜索专用字段
-    // weight=5 表示匹配到这里的词，相关度得分很高
-    @TextIndexed(weight = 5)
-    private List<String> searchTerms;
-
-    // 用于接收查询时的匹配分数 (不会存入数据库)
-    @TextScore
-    private Float score;
+    // 注释掉即可
+// 搜索专用字段
+//    @TextIndexed(weight = 5)
+//    private List<String> searchTerms;
+// 用于接收查询时的匹配分数 (不会存入数据库)
+//    @TextScore
+//    private Float score;
 
     // 统计数据
     // TODO 这里有浏览数量

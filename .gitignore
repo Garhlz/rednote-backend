@@ -52,3 +52,5 @@ grafana_data/
 
 # 忽略部署配置
 .deploy_env
+
+**/log.txt

@@ -42,9 +42,10 @@ public class PostController {
             @RequestParam(required = false, defaultValue = "1") Integer page,
             @RequestParam(required = false, defaultValue = "20") Integer size,
             @RequestParam(required = false, defaultValue = "recommend") String tab,
-            @RequestParam(required = false) String tag
+            @RequestParam(required = false) String tag,
+            @RequestParam(required = false, defaultValue = "hot") String sort // 默认按照最新排序
     ) {
-        Map<String, Object> data = postService.getPostList(page, size, tab, tag);
+        Map<String, Object> data = postService.getPostList(page, size, tab, tag, sort);
         return Result.success(data);
     }
 
@@ -57,9 +58,10 @@ public class PostController {
     public Result<Map<String, Object>> searchPosts(
             @RequestParam String keyword,
             @RequestParam(required = false, defaultValue = "1") Integer page,
-            @RequestParam(required = false, defaultValue = "20") Integer size
+            @RequestParam(required = false, defaultValue = "20") Integer size,
+            @RequestParam(required = false, defaultValue = "hot") String sort
     ) {
-        Map<String, Object> data = postService.searchPosts(keyword, page, size);
+        Map<String, Object> data = postService.searchPosts(keyword, page, size, sort);
         return Result.success(data);
     }
 

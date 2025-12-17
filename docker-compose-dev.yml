@@ -1,0 +1,36 @@
+version: '3.8'
+services:
+  elasticsearch-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.es
+    container_name: es-local-dev
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false # 开发环境关掉密码，省事
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m" # 限制内存，留给 IDEA 和 Chrome
+    ports:
+      - "9200:9200"
+    volumes:
+      - es_local_data:/usr/share/elasticsearch/data
+    networks:
+      - dev-net
+
+  kibana-dev:
+    image: kibana:8.11.1
+    container_name: kibana-local-dev
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch-dev:9200
+    ports:
+      - "5601:5601"
+    depends_on:
+      - elasticsearch-dev
+    networks:
+      - dev-net
+
+volumes:
+  es_local_data:
+
+networks:
+  dev-net:
+    driver: bridge

@@ -69,7 +69,7 @@ public class ApiIntegrationTest {
                 .andExpect(status().isOk()) // 期望 HTTP 200
                 .andExpect(jsonPath("$.code").value(20000)) // 期望业务码 20000
                 .andExpect(jsonPath("$.data.token").exists()) // 期望返回 token
-                .andExpect(jsonPath("$.data.isNewUser").value(true)); // 期望是新用户
+                .   andExpect(jsonPath("$.data.isNewUser").value(true)); // 期望是新用户
     }
 
     @Test

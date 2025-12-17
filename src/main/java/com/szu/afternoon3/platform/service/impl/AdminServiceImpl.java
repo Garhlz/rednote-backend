@@ -12,6 +12,7 @@ import com.szu.afternoon3.platform.dto.*;
 import com.szu.afternoon3.platform.entity.User;
 import com.szu.afternoon3.platform.entity.mongo.*;
 import com.szu.afternoon3.platform.event.PostAuditEvent;
+import com.szu.afternoon3.platform.event.PostAuditPassEvent;
 import com.szu.afternoon3.platform.event.UserDeleteEvent;
 import com.szu.afternoon3.platform.exception.AppException;
 import com.szu.afternoon3.platform.enums.ResultCode;
@@ -439,6 +440,14 @@ public class AdminServiceImpl implements AdminService {
         );
         rabbitTemplate.convertAndSend(RabbitConfig.PLATFORM_EXCHANGE, "post.audit", event);
 
+
+        if (status == 1) {
+            PostAuditPassEvent passEvent = new PostAuditPassEvent();
+            BeanUtils.copyProperties(post,passEvent);
+
+            rabbitTemplate.convertAndSend(RabbitConfig.PLATFORM_EXCHANGE, "post.audit.pass", passEvent);
+
+        }
         log.info("Admin audit post {}: status={}, reason={}, event sent.", postId, status, reason);
     }
 

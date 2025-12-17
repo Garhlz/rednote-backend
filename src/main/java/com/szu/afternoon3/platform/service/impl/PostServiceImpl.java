@@ -3,6 +3,9 @@ package com.szu.afternoon3.platform.service.impl;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONUtil;
+import co.elastic.clients.elasticsearch._types.query_dsl.*;
+import co.elastic.clients.elasticsearch.core.search.Suggester;
+import co.elastic.clients.json.JsonData;
 import com.szu.afternoon3.platform.common.UserContext;
 import com.szu.afternoon3.platform.config.RabbitConfig;
 import com.szu.afternoon3.platform.dto.PostUpdateDTO;
@@ -19,7 +22,6 @@ import com.szu.afternoon3.platform.enums.ResultCode;
 import com.szu.afternoon3.platform.repository.*;
 import com.szu.afternoon3.platform.service.PostService;
 import com.szu.afternoon3.platform.service.UserService;
-import com.szu.afternoon3.platform.util.SearchHelper;
 
 import com.szu.afternoon3.platform.vo.PostVO;
 import com.szu.afternoon3.platform.vo.UserInfo;
@@ -28,25 +30,42 @@ import com.szu.afternoon3.platform.entity.User;
 import com.szu.afternoon3.platform.mapper.UserMapper;
 import com.szu.afternoon3.platform.entity.mongo.SearchHistoryDoc;
 import com.szu.afternoon3.platform.repository.SearchHistoryRepository;
+import lombok.extern.slf4j.Slf4j;
+import lombok.extern.slf4j.XSlf4j;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.*;
+import org.springframework.data.elasticsearch.UncategorizedElasticsearchException;
+import org.springframework.data.elasticsearch.core.query.FetchSourceFilter;
+import org.springframework.data.elasticsearch.core.query.highlight.HighlightParameters;
+import org.springframework.data.elasticsearch.core.suggest.response.Suggest;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.aggregation.Aggregation;
 import org.springframework.data.mongodb.core.aggregation.AggregationResults;
 import org.springframework.data.mongodb.core.query.Criteria;
-import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.TextCriteria;
 import org.springframework.data.mongodb.core.query.TextQuery;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
+
+import com.szu.afternoon3.platform.entity.es.PostEsDoc;
+// 注意引入正确的 Spring Data ES 依赖
+import org.springframework.data.elasticsearch.client.elc.NativeQuery;
+import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
+import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
+import org.springframework.data.elasticsearch.core.SearchHit;
+import org.springframework.data.elasticsearch.core.SearchHits;
+import org.springframework.data.elasticsearch.core.query.HighlightQuery;
+import org.springframework.data.elasticsearch.core.query.highlight.Highlight;
+import org.springframework.data.elasticsearch.core.query.highlight.HighlightField;
 
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 public class PostServiceImpl implements PostService {
 
@@ -65,48 +84,69 @@ public class PostServiceImpl implements PostService {
     @Autowired
     private UserMapper userMapper;
     @Autowired
-    private SearchHelper searchHelper; // 【注入 Helper】
-    @Autowired
     private UserService userService;
     @Autowired
     private SearchHistoryRepository searchHistoryRepository;
-
+    @Autowired
+    private StringRedisTemplate redisTemplate;
     @Autowired
     private RabbitTemplate rabbitTemplate;
 
+    @Autowired
+    private ElasticsearchOperations esOperations; // 注入 ES 操作模板
+
     @Override
-    public Map<String, Object> getPostList(Integer page, Integer size, String tab, String tag) {
-        // TODO 需要处理首页流只返回一个图片/视频的问题，可能还需要压缩精度
-        // 1. 处理分页参数 (Spring Data 是从 0 开始)
+    public Map<String, Object> getPostList(Integer page, Integer size, String tab, String tag, String sort) {
+        // 1. 处理分页参数
         int pageNum = (page == null || page < 1) ? 0 : page - 1;
         int pageSize = (size == null || size < 1) ? 20 : size;
 
-        // 默认按时间倒序
-        Pageable pageable = PageRequest.of(pageNum, pageSize, Sort.by(Sort.Direction.DESC, "createdAt"));
+        // =================================================================================
+        // 【新增逻辑】路由分发：如果是通用"热门"排序，直接交给 ES 处理
+        // =================================================================================
+        // 条件：sort是hot + 不是关注流 + 不是查特定标签
+        if ("hot".equalsIgnoreCase(sort) && !"follow".equalsIgnoreCase(tab) && StrUtil.isBlank(tag)) {
+            // 直接调用 searchPosts，关键词传 null 即可
+            return searchPosts(null, page, size, "hot");
+        }
 
+        // =================================================================================
+        // 【原有逻辑】Mongo 处理场景 (最新、最旧、关注流、标签筛选)
+        // =================================================================================
+
+        // 2. 构建 Mongo 排序
+        Sort mongoSort;
+        if ("new".equalsIgnoreCase(sort)) {
+            mongoSort = Sort.by(Sort.Direction.DESC, "createdAt");
+        } else if ("old".equalsIgnoreCase(sort)) {
+            mongoSort = Sort.by(Sort.Direction.ASC, "createdAt");
+        } else {
+            // 兜底：虽然 hot 走了 ES，但如果用户非要在 "follow" tab 下按热度排，
+            // 或者查特定 tag 按热度排，Mongo 只能简单按点赞倒序兜底
+            mongoSort = Sort.by(Sort.Direction.DESC, "likeCount", "createdAt");
+        }
+
+        Pageable pageable = PageRequest.of(pageNum, pageSize, mongoSort);
         Page<PostDoc> postDocPage;
 
-        // 场景 A: 标签精确筛选 (点击了某个标签)
+        // 场景 A: 标签筛选
         if (StrUtil.isNotBlank(tag)) {
             postDocPage = postRepository.findByTagsContainingAndIsDeleted(tag, 0, pageable);
         }
         // 场景 B: 关注流
         else if ("follow".equalsIgnoreCase(tab)) {
             Long currentUserId = UserContext.getUserId();
-            if (currentUserId == null) {
-                throw new AppException(ResultCode.UNAUTHORIZED);
-            }
+            if (currentUserId == null) throw new AppException(ResultCode.UNAUTHORIZED);
+
             List<UserFollowDoc> follows = userFollowRepository.findFollowingIds(currentUserId);
             if (CollUtil.isEmpty(follows)) {
                 postDocPage = Page.empty(pageable);
             } else {
-                List<Long> targetIds = follows.stream()
-                        .map(UserFollowDoc::getTargetUserId)
-                        .collect(Collectors.toList());
+                List<Long> targetIds = follows.stream().map(UserFollowDoc::getTargetUserId).collect(Collectors.toList());
                 postDocPage = postRepository.findByUserIdInAndStatusAndIsDeleted(targetIds, 1, 0, pageable);
             }
         }
-        // 场景 C: 推荐流 (默认)
+        // 场景 C: 推荐流 (非热门的普通推荐，即按时间倒序)
         else {
             postDocPage = postRepository.findByStatusAndIsDeleted(1, 0, pageable);
         }
@@ -114,63 +154,266 @@ public class PostServiceImpl implements PostService {
         return buildResultMap(postDocPage);
     }
 
+    DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     @Override
-    public Map<String, Object> searchPosts(String keyword, Integer page, Integer size) {
+    public Map<String, Object> searchPosts(String keyword, Integer page, Integer size, String sort) {
         Long currentUserId = UserContext.getUserId();
 
+        // 1. 记录搜索历史 (仅当有关键词时)
         if (currentUserId != null && StrUtil.isNotBlank(keyword)) {
-            UserSearchEvent event = new UserSearchEvent(currentUserId, keyword);
-            // 路由键: search.history
-            rabbitTemplate.convertAndSend(RabbitConfig.PLATFORM_EXCHANGE, "search.history", event);
+            rabbitTemplate.convertAndSend(RabbitConfig.PLATFORM_EXCHANGE, "search.history", new UserSearchEvent(currentUserId, keyword));
         }
 
+        // 2. 参数处理
         int pageNum = (page == null || page < 1) ? 0 : page - 1;
         int pageSize = (size == null || size < 1) ? 20 : size;
 
-        if (StrUtil.isBlank(keyword)) {
-            return buildResultMap(Page.empty(PageRequest.of(pageNum, pageSize)));
-        }
+        // 3. 构建 ES 查询 Builder
+        NativeQueryBuilder queryBuilder = NativeQuery.builder();
 
-        // 1. Jieba 分词
-        String searchString = searchHelper.analyzeKeyword(keyword);
-        if (StrUtil.isBlank(searchString)) {
-            searchString = keyword;
-        }
-
-        // 2. 构建查询
-        TextCriteria criteria = TextCriteria.forDefaultLanguage().matching(searchString);
-        Query query = TextQuery.queryText(criteria).sortByScore();
-        query.addCriteria(Criteria.where("isDeleted").is(0));
-        query.addCriteria(Criteria.where("status").is(1));
-
-        Pageable pageable = PageRequest.of(pageNum, pageSize);
-        query.with(pageable);
-
-        long total = mongoTemplate.count(query, PostDoc.class);
-        List<PostDoc> list;
-
-        // 降级逻辑
-        if (total == 0) {
-            query = new Query();
-            String safeKeyword = java.util.regex.Pattern.quote(keyword);
-            String regex = ".*" + safeKeyword + ".*";
-
-            query.addCriteria(new Criteria().orOperator(
-                    Criteria.where("title").regex(regex, "i"),
-                    Criteria.where("content").regex(regex, "i"),
-                    Criteria.where("tags").regex(regex, "i")
-            ));
-            query.addCriteria(Criteria.where("isDeleted").is(0));
-            query.addCriteria(Criteria.where("status").is(1));
-            query.with(pageable);
-
-            total = mongoTemplate.count(query, PostDoc.class);
-            list = mongoTemplate.find(query, PostDoc.class);
+        // 3.1 构造基础 Query (有词搜词，没词搜全部)
+        // 如果 keyword 为空，说明是 getPostList 转过来的，要查所有帖子
+        Query baseQuery;
+        if (StrUtil.isNotBlank(keyword)) {
+            baseQuery = QueryBuilders.multiMatch()
+                    .query(keyword)
+                    .fields("title^3", "title.pinyin^1.5", "content", "tags^2")
+                    .build()._toQuery();
         } else {
-            list = mongoTemplate.find(query, PostDoc.class);
+            baseQuery = QueryBuilders.matchAll().build()._toQuery();
         }
 
-        return buildResultMap(new PageImpl<>(list, pageable, total));
+        // 3.2 排序策略
+        if ("new".equalsIgnoreCase(sort)) {
+            queryBuilder.withQuery(baseQuery);
+            queryBuilder.withSort(Sort.by(Sort.Direction.DESC, "createdAt"));
+        }
+        else if ("old".equalsIgnoreCase(sort)) {
+            queryBuilder.withQuery(baseQuery);
+            queryBuilder.withSort(Sort.by(Sort.Direction.ASC, "createdAt"));
+        }
+        else if ("likes".equalsIgnoreCase(sort)) {
+            queryBuilder.withQuery(baseQuery);
+            queryBuilder.withSort(Sort.by(Sort.Direction.DESC, "likeCount"));
+        }
+        else {
+            // =============================================================
+            // [F] 综合热度 (Hot/Default) - 使用 Function Score
+            // 核心公式：最终分 = (BM25相关度) * (点赞加成) * (时间衰减)
+            // =============================================================
+            queryBuilder.withQuery(q -> q.functionScore(fs -> fs
+                    .query(baseQuery) // 基础查询
+                    .functions(f -> f
+                            // 函数1：点赞数加分 (使用 log1p 平滑：log(likeCount + 1))
+                            .filter(QueryBuilders.matchAll().build()._toQuery()) // 对所有文档生效
+                            .fieldValueFactor(fv -> fv
+                                    .field("likeCount")
+                                    .modifier(FieldValueFactorModifier.Log1p) // 防止点赞数超级大导致分数失衡
+                                    .factor(1.0)
+                                    .missing(0.0) // 没点赞的默认为0
+                            )
+                    )
+                    .functions(f -> f
+                            // 函数2：高斯衰减 (Gauss Decay)
+                            .filter(QueryBuilders.matchAll().build()._toQuery())
+                            .gauss(g -> g
+                                    .field("createdAt") // 针对创建时间字段
+                                    .placement(p -> p
+                                            .origin(JsonData.of(java.time.LocalDateTime.now()
+                                                    .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS"))))   // 原点：当前时间
+                                            .scale(JsonData.of("3d"))
+                                            .offset(JsonData.of("1d"))
+                                            .decay(0.5)         // 衰减率：到scale时衰减到0.5
+                                    )
+                            )
+                    )
+                    .boostMode(FunctionBoostMode.Multiply) // 乘法模式
+            ));
+
+            // 注意：Function Score 自动按 _score 排序，不需要额外 setSort
+            // 如果想强制保证 _score 一样时按时间排，可以加第二排序键
+            queryBuilder.withSort(Sort.by(Sort.Direction.DESC, "_score"));
+            queryBuilder.withSort(Sort.by(Sort.Direction.DESC, "createdAt"));
+        }
+
+        // 4. 分页与过滤
+        queryBuilder.withPageable(PageRequest.of(pageNum, pageSize));
+        // 不查 content 字段，减少网络传输 IO
+        queryBuilder.withSourceFilter(new FetchSourceFilter(
+                new String[]{"id", "title", "content", "cover", "coverWidth", "coverHeight", "type", "tags", "userId", "userNickname", "userAvatar", "likeCount", "createdAt"},
+                null
+        ));
+        SearchHits<PostEsDoc> searchHits = null;
+        // 5. 执行搜索
+        try {
+           searchHits = esOperations.search(queryBuilder.build(), PostEsDoc.class);
+        } catch (UncategorizedElasticsearchException e) {
+            // 打印具体的响应体，这里面会告诉你是哪个字段、什么原因解析失败
+            log.error("ES 详细报错原因: {}", e.getResponseBody());
+            throw e;
+        }
+
+        // =======================================================
+        // 6. 批量查询交互状态 (保持原逻辑不变)
+        // =======================================================
+        Set<String> likedPostIds = new HashSet<>();
+        if (currentUserId != null && searchHits.hasSearchHits()) {
+            List<String> postIds = searchHits.getSearchHits().stream()
+                    .map(hit -> hit.getContent().getId())
+                    .collect(Collectors.toList());
+            // 这一步去查 MySQL/Mongo 确认用户点赞状态
+            List<PostLikeDoc> likes = postLikeRepository.findByUserIdAndPostIdIn(currentUserId, postIds);
+            likedPostIds = likes.stream().map(PostLikeDoc::getPostId).collect(Collectors.toSet());
+        }
+
+        // 7. 组装结果
+        Set<String> finalLikedPostIds = likedPostIds;
+        List<Map<String, Object>> resultList = searchHits.getSearchHits().stream().map(hit -> {
+            PostEsDoc doc = hit.getContent();
+            Map<String, Object> map = new HashMap<>();
+
+            map.put("id", doc.getId());
+            map.put("title", doc.getTitle());
+            map.put("content", StrUtil.subPre(doc.getContent(), 50));
+            map.put("cover", doc.getCover());
+            map.put("coverWidth", doc.getCoverWidth());
+            map.put("coverHeight", doc.getCoverHeight());
+            map.put("type", doc.getType());
+            map.put("tags", doc.getTags());
+            map.put("likeCount", doc.getLikeCount());
+            map.put("createdAt", formatter.format(doc.getCreatedAt()));
+            // 作者信息
+            Map<String, Object> author = new HashMap<>();
+            author.put("userId", doc.getUserId() != null ? doc.getUserId().toString() : "");
+            author.put("nickname", doc.getUserNickname());
+            author.put("avatar", doc.getUserAvatar());
+            map.put("author", author);
+
+            // 状态
+            map.put("isLiked", finalLikedPostIds.contains(doc.getId()));
+
+            return map;
+        }).collect(Collectors.toList());
+
+        // 8. 返回
+        Map<String, Object> response = new HashMap<>();
+        response.put("records", resultList);
+        response.put("total", searchHits.getTotalHits());
+        response.put("current", pageNum + 1);
+        response.put("size", pageSize);
+
+        return response;
+    }
+
+    @Override
+    public List<String> getSearchSuggestions(String keyword) {
+        if (StrUtil.isBlank(keyword)) {
+            return new ArrayList<>();
+        }
+
+        // 1. 构建查询 `
+        NativeQueryBuilder queryBuilder = NativeQuery.builder();
+        BoolQuery.Builder boolQueryBuilder = QueryBuilders.bool();
+
+        // 【核心修改】判断 keyword 是否包含中文
+        // 正则表达式：[\u4e00-\u9fa5] 匹配常见汉字
+        boolean hasChinese = keyword.matches(".*[\\u4e00-\\u9fa5].*");
+
+        if (hasChinese) {
+            // ==========================================
+            // 场景 A: 输入包含中文 (如 "大学", "深圳")
+            // 策略: 只查 IK 分词字段，不查拼音！防止 "d,x" 匹配到 "年度杏子"
+            // ==========================================
+            boolQueryBuilder
+                    .should(s -> s.matchPhrasePrefix(m -> m
+                            .field("title") // 查原标题 (IK)
+                            .query(keyword)
+                    ))
+                    .should(s -> s.matchPhrasePrefix(m -> m
+                            .field("tags")  // 查原标签 (IK)
+                            .query(keyword)
+                    ));
+        } else {
+            // ==========================================
+            // 场景 B: 纯英文/拼音 (如 "shen", "sz", "shenzhen")
+            // 策略: 查 Pinyin 字段
+            // ==========================================
+            boolQueryBuilder
+                    .should(s -> s.matchPhrasePrefix(m -> m
+                            .field("title.pinyin")
+                            .query(keyword)
+                            .slop(2)
+                    ))
+                    .should(s -> s.matchPhrasePrefix(m -> m
+                            .field("tags.pinyin")
+                            .query(keyword)
+                    ));
+        }
+        queryBuilder.withQuery(boolQueryBuilder.build()._toQuery());
+
+        // 2. 设置分页
+        queryBuilder.withPageable(PageRequest.of(0, 10));
+
+        // 3. 设置高亮
+        HighlightParameters parameters = HighlightParameters.builder()
+                .withPreTags("<em>")
+                .withPostTags("</em>")
+                .withRequireFieldMatch(false)
+                .withNumberOfFragments(1)
+                .withFragmentSize(50)
+                .build();
+
+        List<HighlightField> fields = List.of(
+                new HighlightField("title"),       // 对应中文匹配的高亮
+                new HighlightField("tags"),
+                new HighlightField("title.pinyin"), // 对应拼音匹配的高亮
+                new HighlightField("tags.pinyin")
+        );
+
+        // Spring Data ES 5.x 要求 parameters 在前，fields 在后
+        queryBuilder.withHighlightQuery(new HighlightQuery(
+                new Highlight(parameters, fields),
+                PostEsDoc.class
+        ));
+
+        queryBuilder.withSourceFilter(new FetchSourceFilter(
+                new String[]{"title", "tags"}, null
+        ));
+
+        // 4. 执行搜索
+        SearchHits<PostEsDoc> searchHits = esOperations.search(queryBuilder.build(), PostEsDoc.class);
+
+        // 5. 解析结果
+        // 使用 LinkedHashSet 保证插入顺序：先插的在前面
+        Set<String> suggestions = new LinkedHashSet<>();
+
+        suggestions.add("<em>" + keyword + "/<em>");
+
+        for (org.springframework.data.elasticsearch.core.SearchHit<PostEsDoc> hit : searchHits.getSearchHits()) {
+            // A. 尝试获取标题高亮
+            List<String> hlTitle = hit.getHighlightField("title");
+            List<String> hlTitlePy = hit.getHighlightField("title.pinyin");
+
+            if (CollUtil.isNotEmpty(hlTitle)) {
+                suggestions.add(hlTitle.get(0));
+            } else if (CollUtil.isNotEmpty(hlTitlePy)) {
+                suggestions.add(hlTitlePy.get(0));
+            }
+
+            // B. 尝试获取标签高亮
+            List<String> hlTags = hit.getHighlightField("tags");
+            List<String> hlTagsPy = hit.getHighlightField("tags.pinyin");
+
+            if (CollUtil.isNotEmpty(hlTags)) {
+                suggestions.add(hlTags.get(0));
+            } else if (CollUtil.isNotEmpty(hlTagsPy)) {
+                suggestions.add(hlTagsPy.get(0));
+            }
+        }
+
+        // 6. 返回结果
+        // 限制总数 (包含 keyword 在内最多返回 10 条)
+        return suggestions.stream().limit(10).collect(Collectors.toList());
     }
 
     @Override
@@ -221,8 +464,7 @@ public class PostServiceImpl implements PostService {
             }
         }
 
-        // TODO 新增帖子浏览量的逻辑
-        // 【新增】 记录浏览历史 (只有登录用户才记录)
+        // 记录浏览历史 (只有登录用户才记录)
         Long currentUserId = UserContext.getUserId();
         if (currentUserId != null) {
             // 调用刚才在 UserService 写的异步方法
@@ -232,84 +474,7 @@ public class PostServiceImpl implements PostService {
         return convertToVO(doc, true);
     }
 
-    @Override
-    public List<String> getSearchSuggestions(String keyword) {
-        if (StrUtil.isBlank(keyword)) {
-            return new ArrayList<>();
-        }
 
-        Set<String> suggestions = new LinkedHashSet<>(); // 使用 LinkedHashSet 保持插入顺序
-        suggestions.add(keyword);
-
-        // -------------------------------------------------------
-        // 第一层：搜索历史
-        // -------------------------------------------------------
-        // 逻辑：从 search_histories 表中找出以 keyword 开头的热门词
-        // 调用刚才写好的聚合查询，取前 5 个
-//        List<String> historyWords = searchHistoryRepository.findHotKeywordsStartingWith(keyword, 5);
-//
-//        // 添加到结果集中 (Suggestions 是 LinkedHashSet，会自动去重)
-//        if (CollUtil.isNotEmpty(historyWords)) {
-//            suggestions.addAll(historyWords);
-//        }
-        // -------------------------------------------------------
-        // 第二层：匹配 Tags (保留，这是最高质量的元数据)
-        // -------------------------------------------------------
-        // 使用正则前缀匹配：^keyword (以关键词开头)
-        String regex = "^" + java.util.regex.Pattern.quote(keyword);
-
-        Query tagQuery = new Query();
-        tagQuery.addCriteria(Criteria.where("tags").regex(regex, "i"));
-        tagQuery.addCriteria(Criteria.where("isDeleted").is(0));
-        tagQuery.limit(20);
-        // 只取 tags 字段
-        tagQuery.fields().include("tags");
-
-        List<PostDoc> tagDocs = mongoTemplate.find(tagQuery, PostDoc.class);
-        for (PostDoc doc : tagDocs) {
-            if (CollUtil.isNotEmpty(doc.getTags())) {
-                for (String tag : doc.getTags()) {
-                    // 只保留以 keyword 开头的 tag
-                    if (StrUtil.startWithIgnoreCase(tag, keyword)) {
-                        suggestions.add(tag);
-                    }
-                }
-            }
-            if (suggestions.size() >= 8) break;
-        }
-
-        // -------------------------------------------------------
-        // 第三层：利用分词 (Jieba) 做兜底 (替代原本的 Title 正则)
-        // -------------------------------------------------------
-        if (suggestions.size() < 10) {
-            Query termQuery = new Query();
-            // 关键：查询 searchTerms 数组中以 keyword 开头的词
-            termQuery.addCriteria(Criteria.where("searchTerms").regex(regex, "i"));
-            termQuery.addCriteria(Criteria.where("isDeleted").is(0));
-            termQuery.limit(20);
-            termQuery.fields().include("searchTerms"); // 只取分词结果，不取标题
-
-            List<PostDoc> termDocs = mongoTemplate.find(termQuery, PostDoc.class);
-
-            for (PostDoc doc : termDocs) {
-                if (CollUtil.isNotEmpty(doc.getSearchTerms())) {
-                    for (String term : doc.getSearchTerms()) {
-                        // 过滤掉太短的词，且必须匹配前缀
-                        if (term.length() > 1 && StrUtil.startWithIgnoreCase(term, keyword)) {
-                            suggestions.add(term);
-                        }
-                    }
-                }
-                if (suggestions.size() >= 10) break;
-            }
-        }
-
-        return new ArrayList<>(suggestions);
-    }
-
-
-    @Autowired
-    private StringRedisTemplate redisTemplate;
     /**
      * 获取热门标签 (Redis缓存 + Mongo聚合)
      * 策略：
@@ -476,10 +641,6 @@ public class PostServiceImpl implements PostService {
         // 4. 严格互斥逻辑
         post.setType(dto.getType());
 
-        // 【核心修改】生成分词并存入
-        List<String> terms = searchHelper.generateSearchTerms(dto.getTitle(), dto.getContent(), dto.getTags());
-        post.setSearchTerms(terms);
-
         // --- 资源与封面处理 ---
         List<String> finalResources = new ArrayList<>();
         String finalCover = "";
@@ -531,20 +692,28 @@ public class PostServiceImpl implements PostService {
         // 7. 保存到 MongoDB
         postRepository.save(post);
 
-        // TODO: 发送异步事件通知审核模块 (AI 或 管理端)
-        if(post.getType() != 1) {
-            rabbitTemplate.convertAndSend(RabbitConfig.PLATFORM_EXCHANGE, "post.create",
-                    new PostCreateEvent(post.getId(), post.getContent(), post.getTitle(),post.getResources(),null));
-        } else{
-            rabbitTemplate.convertAndSend(RabbitConfig.PLATFORM_EXCHANGE, "post.create",
-                    new PostCreateEvent(post.getId(), post.getContent(), post.getTitle(),null,post.getResources().get(0)));
-        }
 
+        Integer type =  post.getType();
 
+        PostCreateEvent event = new PostCreateEvent(
+                post.getId(),
+                post.getContent(),
+                post.getTitle(),
+                type != 1 ? post.getResources() : null, // 如果是图片/文字
+                type == 1 ? post.getResources().get(0) : null, // 如果是视频
+                userId,
+                post.getTags(),
+                post.getType(),
+                post.getCover(),
+                post.getCoverWidth(),
+                post.getCoverHeight(),
+                user.getNickname(),
+                user.getAvatar()
+        );
+        // 发送消息
+        rabbitTemplate.convertAndSend(RabbitConfig.PLATFORM_EXCHANGE, "post.create", event);
         return post.getId();
     }
-
-
 
     @Override
     public void deletePost(String postId) {
@@ -656,17 +825,11 @@ public class PostServiceImpl implements PostService {
 
         // 3. 状态重置与保存
         if (needAudit) {
-            // 如果文本变了，重新生成分词
-            List<String> terms = searchHelper.generateSearchTerms(post.getTitle(), post.getContent(), post.getTags());
-            post.setSearchTerms(terms);
+            // 如果打开审核开关，则设置为未审核状态
             post.setStatus(auditEnable ? 0 : 1);
         }
         post.setUpdatedAt(java.time.LocalDateTime.now());
         postRepository.save(post);
-
-        // 4. 清理缓存
-//        String cacheKey = "post:detail:" + postId;
-//        redisTemplate.delete(cacheKey);
 
         // 5. 发布事件
         if (needAudit) {

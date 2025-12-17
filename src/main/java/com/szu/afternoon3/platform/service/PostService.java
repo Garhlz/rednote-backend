@@ -16,9 +16,9 @@ public interface PostService {
      * @param tag 标签筛选
      * @return 包含分页信息的 Map
      */
-    Map<String, Object> getPostList(Integer page, Integer size, String tab, String tag);
+    Map<String, Object> getPostList(Integer page, Integer size, String tab, String tag, String sort);
 
-    Map<String, Object> searchPosts(String keyword, Integer page, Integer size);
+    Map<String, Object> searchPosts(String keyword, Integer page, Integer size, String sort);
 
     // 获取帖子详情
     PostVO getPostDetail(String postId);

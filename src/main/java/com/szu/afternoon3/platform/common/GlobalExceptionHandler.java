@@ -3,10 +3,13 @@ package com.szu.afternoon3.platform.common;
 import com.szu.afternoon3.platform.enums.ResultCode;
 import com.szu.afternoon3.platform.exception.AppException;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 @RestControllerAdvice
 @Slf4j
@@ -42,6 +45,16 @@ public class GlobalExceptionHandler {
         return Result.error(ResultCode.PARAM_ERROR.getCode(), msg);
     }
 
+    @ExceptionHandler(NoResourceFoundException.class)
+    public Result<String> handleNoResourceFoundException(NoResourceFoundException e) {
+        // 打印一个 Warn 日志即可，不需要 Error，避免污染日志文件
+        log.warn("请求路径不存在: /{}", e.getResourcePath());
+
+        // 返回友好的 404 提示
+        // 假设你的 ResultCode.RESOURCE_NOT_FOUND 是 40400 或类似
+        return Result.error(ResultCode.RESOURCE_NOT_FOUND.getCode(), "路径不存在: /" + e.getResourcePath());
+    }
+
     /**
      * 3. 捕获系统未知异常 (Exception)
      * 兜底处理：空指针、数据库连接失败等
@@ -52,4 +65,6 @@ public class GlobalExceptionHandler {
         log.error("系统未知错误", e);
         return Result.error(ResultCode.SYSTEM_ERROR);
     }
+
+
 }

@@ -65,12 +65,21 @@ services:
       # 把容器内的 logs 目录映射到宿主机的 ./logs 目录
       - ./logs:/app/logs
     depends_on:
-      - postgres
-      - mongo
-      - redis
+      postgres:
+        condition: service_started
+      mongo:
+        condition: service_started
+      redis:
+        condition: service_started
+      elasticsearch:
+        condition: service_healthy
     networks:
       - afternoon-net
     restart: always
+    deploy:
+      resources:
+        limits:
+          memory: 768M  # 建议限制在 768M 或 1G
 
   # --- 3. 监控系统 ---
   prometheus:
@@ -154,6 +163,59 @@ services:
       - afternoon-net
     restart: always
 
+  elasticsearch:
+#    build:
+#      context: .
+#      dockerfile: Dockerfile.es
+    image: afternoon-es
+    container_name: afternoon-es
+    restart: always
+    environment:
+      - node.name=es-node-1
+      - cluster.name=afternoon-cluster
+      - discovery.type=single-node
+#      - bootstrap.memory_lock=true
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - xpack.security.enabled=false
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -f http://localhost:9200/_cat/health || exit 1" ]
+      interval: 10s
+      timeout: 10s
+      retries: 10 # 尝试 10 次，允许它启动慢一点
+#    ulimits:
+#      memlock:
+#        soft: -1
+#        hard: -1
+    volumes:
+      - ./es_data:/usr/share/elasticsearch/data
+    expose:
+      - "9200" # 生产环境不需要 ports 映射到宿主机外网，用 expose 给 Nginx/Backend 用即可
+    networks:
+      - afternoon-net # 【修正】必须与 backend 在同一个网络
+    deploy:
+      resources:
+        limits:
+          memory: 1024M
+
+  kibana:
+    image: kibana:8.11.1
+    container_name: afternoon-kibana
+    restart: always
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      # 【关键】配置子路径支持
+      - SERVER_BASEPATH=/kibana
+      - SERVER_REWRITEBASEPATH=true
+    expose:
+      - "5601" # 同样，不需要 ports 映射 5601 到宿主机，通过 Nginx 转发
+    networks:
+      - afternoon-net # 【修正】同上
+    depends_on:
+      - elasticsearch
+    deploy:
+      resources:
+        limits:
+          memory: 512M
 networks:
   afternoon-net:
     driver: bridge

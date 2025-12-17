@@ -12,6 +12,9 @@ import com.szu.afternoon3.platform.service.NotificationService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
+import org.springframework.data.elasticsearch.core.mapping.IndexCoordinates;
+import org.springframework.data.elasticsearch.core.query.UpdateQuery;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
@@ -19,6 +22,8 @@ import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 
 @Component
@@ -43,7 +48,8 @@ public class InteractionEventListener {
     private NotificationService notificationService;
     @Autowired
     private UserMapper userMapper;
-
+    @Autowired
+    private ElasticsearchOperations elasticsearchOperations;
     /**
      * 监听 Interaction 队列
      * 自动反序列化 JSON 为 InteractionEvent 对象
@@ -104,10 +110,45 @@ public class InteractionEventListener {
 
                 // 2. 原子更新计数
                 updatePostCount(postId, "likeCount", 1);
+
+                updateESPostCount(postId, "likeCount", 1);
             }
         } else {
             postLikeRepository.deleteByUserIdAndPostId(userId, postId);
             updatePostCount(postId, "likeCount", -1);
+            updateESPostCount(postId, "likeCount", -1);
+        }
+    }
+
+    /**
+     * 使用脚本进行原子更新，避免并发覆盖，且效率最高
+     */
+    private void updateESPostCount(String postId, String fieldName, int delta) {
+        // 1. 准备脚本：ctx._source.likeCount += params.delta
+        // 注意：ES 脚本中字段名直接用，不需要驼峰转下划线，除非你Mapping里就是下划线
+        String scriptSource = "if (ctx._source." + fieldName + " == null) { " +
+                "   ctx._source." + fieldName + " = params.delta; " +
+                "} else { " +
+                "   ctx._source." + fieldName + " += params.delta; " +
+                "}";
+
+        Map<String, Object> params = new HashMap<>();
+        params.put("delta", delta);
+
+        // 2. 构建更新查询
+        UpdateQuery updateQuery = UpdateQuery.builder(postId)
+                .withScript(scriptSource)
+                .withParams(params)
+                .withLang("painless") // ES 默认脚本语言
+                .withRetryOnConflict(3) // 遇到并发冲突重试3次
+                .build();
+
+        // 3. 执行更新 (针对 PostDoc 所在的 Index)
+        try {
+            elasticsearchOperations.update(updateQuery, IndexCoordinates.of("post_index")); // 替换你的索引名
+        } catch (Exception e) {
+            // 日志记录失败，点赞数不一致通常不是致命错误，可以之后通过定时任务校准
+            log.error("Failed to update post count in ES for postId: {}", postId, e);
         }
     }
 

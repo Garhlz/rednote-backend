@@ -10,10 +10,21 @@ import java.util.List;
 @AllArgsConstructor
 @NoArgsConstructor
 public class PostCreateEvent {
-    private String postId;
+    private String id;
     private String content;
     private String title;
     // TODO 如果是视频/图片审核，还需要 url
     private List<String> images;
     private String video;
+
+    // 【新增】 ES 需要的字段，避免 Listener 回查 DB
+    private Long userId;
+    private List<String> tags;
+    private Integer type;
+    private String cover;
+    private Integer coverWidth;
+    private Integer coverHeight;
+
+    private String userNickname;
+    private String userAvatar;
 }
