@@ -1,0 +1,20 @@
+# 开发环境使用完整的 Go 镜像，包含编译器和工具链
+FROM golang:latest
+
+WORKDIR /app
+
+# 1. 预先下载依赖 (利用 Docker 缓存层)
+COPY go.mod go.sum ./
+# 配置国内代理，加速依赖下载
+ENV GOPROXY=https://goproxy.cn,direct
+RUN go mod download
+# 安装时区 (本地构建网络没问题，这里能过)
+RUN apk add --no-cache tzdata
+ENV TZ=Asia/Shanghai
+
+# 2. 复制源码
+COPY . .
+
+# 3. 开发环境直接运行源码
+# 这样不仅启动快，而且报错能看到具体行号
+CMD ["go", "run", "."]

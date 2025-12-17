@@ -9,11 +9,11 @@ on:
 
 # 定义全局环境变量
 env:
-  JAR_NAME: rednote_backend.jar # 需与 pom.xml 中生成的名字一致
+  JAR_NAME: rednote_backend.jar
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest # 使用 GitHub 提供的最新 Ubuntu 容器
+    runs-on: ubuntu-latest # GitHub 的 Runner 自带 Docker 环境
 
     steps:
       # -----------------------------------------------------------------
@@ -27,40 +27,67 @@ jobs:
         with:
           java-version: '17'
           distribution: 'temurin'
-          cache: 'maven' # 开启 Maven 缓存，下次构建会变快
+          cache: 'maven'
+
+      - name: 🐹 设置 Go 环境
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+          cache: true
 
       # -----------------------------------------------------------------
-      # 2. 本地构建 (对应脚本 Step 1)
+      # 2. 构建阶段 (Java + Go + Docker Image)
       # -----------------------------------------------------------------
-      - name: 📦 Maven 构建 (Build)
+      - name: 📦 Maven 构建 Java JAR
         run: ./mvnw clean package -DskipTests
 
+      - name: 🔨 编译 Go Binary
+        run: |
+          cd sync-sidecar
+          # 编译出 Linux 二进制文件 (供下一步 Docker 打包使用)
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o sync-sidecar-linux .
+
+      - name: 🐳 构建并打包 Docker 镜像
+        run: |
+          cd sync-sidecar
+          echo "Building Docker image..."
+          # 使用本地编译好的二进制文件构建镜像
+          docker build --platform linux/amd64 -t afternoon-sync-sidecar:latest .
+          
+          echo "Saving Docker image to tar.gz..."
+          # 导出镜像并压缩，减少网络传输体积
+          docker save afternoon-sync-sidecar:latest | gzip > sidecar-image.tar.gz
+          
+          # 验证文件是否生成
+          ls -lh sidecar-image.tar.gz
+
       # -----------------------------------------------------------------
-      # 3. 配置 SSH 环境 (为 Rsync 和 SSH 远程命令做准备)
+      # 3. 配置 SSH 环境
       # -----------------------------------------------------------------
       - name: 🔑 配置 SSH 私钥
         uses: webfactory/ssh-agent@v0.9.0
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
-      - name: 🛡️ 添加服务器指纹 (Known Hosts)
-        # 防止第一次连接时弹出 "Are you sure..." 导致卡死
+      - name: 🛡️ 添加服务器指纹
         run: ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
 
       # -----------------------------------------------------------------
-      # 4. 同步文件 (对应脚本 Step 2)
+      # 4. 同步文件到服务器
       # -----------------------------------------------------------------
-      - name: 📤 同步文件到服务器 (Rsync)
+      - name: 📤 同步文件 (Rsync)
         run: |
-          # 1. 同步配置文件 (排除项完全复刻你的脚本)
+          # 1. 同步配置文件 (排除项与 deploy.sh 保持一致)
           echo ">> 同步配置..."
           rsync -rlvz --omit-dir-times --no-perms --no-owner --no-group \
             --exclude 'target' \
+            --exclude 'sync-sidecar' \
             --exclude '.git' \
             --exclude '.idea' \
             --exclude 'logs' \
             --exclude 'pg_data' \
             --exclude 'mongo_data' \
+            --exclude 'es_data' \
             --exclude 'grafana_data' \
             --exclude 'mvnw' \
             --exclude 'src' \
@@ -68,20 +95,32 @@ jobs:
             --exclude 'deploy.sh' \
             . ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:${{ secrets.REMOTE_PROJECT_PATH }}/
           
-          # 2. 确保目标目录存在
+          # 2. 同步 Java JAR
+          echo ">> 同步 Java JAR..."
           ssh ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "mkdir -p ${{ secrets.REMOTE_PROJECT_PATH }}/target"
-          
-          # 3. 同步 JAR 包
-          echo ">> 同步 JAR 包..."
           rsync -avz target/${{ env.JAR_NAME }} ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:${{ secrets.REMOTE_PROJECT_PATH }}/target/
+          
+          # 3. 同步 Sidecar 镜像包 (这里改成了传 tar.gz)
+          echo ">> 同步 Sidecar Image..."
+          rsync -avz --progress sync-sidecar/sidecar-image.tar.gz ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:${{ secrets.REMOTE_PROJECT_PATH }}/
 
       # -----------------------------------------------------------------
-      # 5. 远程重启 (对应脚本 Step 3)
+      # 5. 远程部署
       # -----------------------------------------------------------------
-      - name: 🚀 远程重启 Docker
+      - name: 🚀 远程加载镜像并重启
         run: |
           ssh ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} " \
             cd ${{ secrets.REMOTE_PROJECT_PATH }} && \
-            docker compose up -d --build backend && \
+          
+            # 1. 加载镜像
+            echo '🐳 Loading Docker Image...' && \
+            docker load -i sidecar-image.tar.gz && \
+          
+            # 2. 重启服务
+            # 注意：backend 依然使用 build (它是基于 JAR 构建)，sidecar 使用刚才 load 的 image
+            docker compose up -d --build backend sync-sidecar && \
+          
+            # 3. 清理
+            rm sidecar-image.tar.gz && \
             docker image prune -f \
           "

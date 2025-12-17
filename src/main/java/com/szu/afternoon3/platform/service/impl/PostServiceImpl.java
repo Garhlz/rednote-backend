@@ -60,6 +60,7 @@ import org.springframework.data.elasticsearch.core.query.HighlightQuery;
 import org.springframework.data.elasticsearch.core.query.highlight.Highlight;
 import org.springframework.data.elasticsearch.core.query.highlight.HighlightField;
 
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
@@ -95,71 +96,39 @@ public class PostServiceImpl implements PostService {
     @Autowired
     private ElasticsearchOperations esOperations; // 注入 ES 操作模板
 
+    // 提取为成员变量，避免重复创建 (DateTimeFormatter 是线程安全的)
+    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+
+    // 用于 Function Score 的时间格式化 (ES 要求)
+    private static final DateTimeFormatter ES_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS");
+
+    /**
+     * 获取帖子列表 (入口路由)
+     */
     @Override
     public Map<String, Object> getPostList(Integer page, Integer size, String tab, String tag, String sort) {
-        // 1. 处理分页参数
-        int pageNum = (page == null || page < 1) ? 0 : page - 1;
-        int pageSize = (size == null || size < 1) ? 20 : size;
-
-        // =================================================================================
-        // 【新增逻辑】路由分发：如果是通用"热门"排序，直接交给 ES 处理
-        // =================================================================================
-        // 条件：sort是hot + 不是关注流 + 不是查特定标签
-        if ("hot".equalsIgnoreCase(sort) && !"follow".equalsIgnoreCase(tab) && StrUtil.isBlank(tag)) {
-            // 直接调用 searchPosts，关键词传 null 即可
-            return searchPosts(null, page, size, "hot");
+        // 1. 场景 A: 关注流 (Follow)
+        // 必须走 MongoDB，因为涉及复杂的关系链查询 (User -> Follow -> Post)
+        // 且关注流通常要求强一致性，不需要复杂的 ES 算分
+        if ("follow".equalsIgnoreCase(tab)) {
+            return queryFollowStreamFromMongo(page, size);
         }
 
-        // =================================================================================
-        // 【原有逻辑】Mongo 处理场景 (最新、最旧、关注流、标签筛选)
-        // =================================================================================
-
-        // 2. 构建 Mongo 排序
-        Sort mongoSort;
-        if ("new".equalsIgnoreCase(sort)) {
-            mongoSort = Sort.by(Sort.Direction.DESC, "createdAt");
-        } else if ("old".equalsIgnoreCase(sort)) {
-            mongoSort = Sort.by(Sort.Direction.ASC, "createdAt");
-        } else {
-            // 兜底：虽然 hot 走了 ES，但如果用户非要在 "follow" tab 下按热度排，
-            // 或者查特定 tag 按热度排，Mongo 只能简单按点赞倒序兜底
-            mongoSort = Sort.by(Sort.Direction.DESC, "likeCount", "createdAt");
-        }
-
-        Pageable pageable = PageRequest.of(pageNum, pageSize, mongoSort);
-        Page<PostDoc> postDocPage;
-
-        // 场景 A: 标签筛选
-        if (StrUtil.isNotBlank(tag)) {
-            postDocPage = postRepository.findByTagsContainingAndIsDeleted(tag, 0, pageable);
-        }
-        // 场景 B: 关注流
-        else if ("follow".equalsIgnoreCase(tab)) {
-            Long currentUserId = UserContext.getUserId();
-            if (currentUserId == null) throw new AppException(ResultCode.UNAUTHORIZED);
-
-            List<UserFollowDoc> follows = userFollowRepository.findFollowingIds(currentUserId);
-            if (CollUtil.isEmpty(follows)) {
-                postDocPage = Page.empty(pageable);
-            } else {
-                List<Long> targetIds = follows.stream().map(UserFollowDoc::getTargetUserId).collect(Collectors.toList());
-                postDocPage = postRepository.findByUserIdInAndStatusAndIsDeleted(targetIds, 1, 0, pageable);
-            }
-        }
-        // 场景 C: 推荐流 (非热门的普通推荐，即按时间倒序)
-        else {
-            postDocPage = postRepository.findByStatusAndIsDeleted(1, 0, pageable);
-        }
-
-        return buildResultMap(postDocPage);
+        // 2. 场景 B: 其他所有场景 (首页推荐、标签筛选、热门、最新)
+        // 全部交给 ES 处理，享受高性能和智能排序
+        // keyword 传 null，表示不是搜索框发起的
+        return searchPosts(null, tag, page, size, sort);
     }
 
-    DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    /**
+     * 核心搜索与列表查询方法 (Elasticsearch)
+     * 支持：关键词搜索、标签精确过滤、多种排序策略
+     */
     @Override
-    public Map<String, Object> searchPosts(String keyword, Integer page, Integer size, String sort) {
+    public Map<String, Object> searchPosts(String keyword, String tag, Integer page, Integer size, String sort) {
         Long currentUserId = UserContext.getUserId();
 
-        // 1. 记录搜索历史 (仅当有关键词时)
+        // 1. 记录搜索历史 (仅当是显式的关键词搜索时)
         if (currentUserId != null && StrUtil.isNotBlank(keyword)) {
             rabbitTemplate.convertAndSend(RabbitConfig.PLATFORM_EXCHANGE, "search.history", new UserSearchEvent(currentUserId, keyword));
         }
@@ -171,97 +140,115 @@ public class PostServiceImpl implements PostService {
         // 3. 构建 ES 查询 Builder
         NativeQueryBuilder queryBuilder = NativeQuery.builder();
 
-        // 3.1 构造基础 Query (有词搜词，没词搜全部)
-        // 如果 keyword 为空，说明是 getPostList 转过来的，要查所有帖子
-        Query baseQuery;
+        // =========================================================
+        // Step 3.1: 构建 Bool Query (内容匹配 + 过滤)
+        // =========================================================
+        BoolQuery.Builder boolQueryBuilder = QueryBuilders.bool();
+
+        // A. 关键词匹配 (Must / Should)
         if (StrUtil.isNotBlank(keyword)) {
-            baseQuery = QueryBuilders.multiMatch()
+            boolQueryBuilder.must(QueryBuilders.multiMatch()
                     .query(keyword)
-                    .fields("title^3", "title.pinyin^1.5", "content", "tags^2")
-                    .build()._toQuery();
+                    // 包含 title, content, tags, 以及 pinyin 字段
+                    .fields("title^3", "title.pinyin^1.5", "content", "tags^2", "tags.pinyin^1.0")
+                    .build()._toQuery());
         } else {
-            baseQuery = QueryBuilders.matchAll().build()._toQuery();
+            // 如果没有关键词，匹配所有文档 (用于首页推荐或纯标签筛选)
+            boolQueryBuilder.must(QueryBuilders.matchAll().build()._toQuery());
         }
 
-        // 3.2 排序策略
-        if ("new".equalsIgnoreCase(sort)) {
-            queryBuilder.withQuery(baseQuery);
-            queryBuilder.withSort(Sort.by(Sort.Direction.DESC, "createdAt"));
+        // B. 标签精确过滤 (Filter - 高效且缓存)
+        if (StrUtil.isNotBlank(tag)) {
+            // 使用 .keyword 子字段进行精确匹配
+            boolQueryBuilder.filter(QueryBuilders.term()
+                    .field("tags.keyword")
+                    .value(tag)
+                    .build()._toQuery());
         }
-        else if ("old".equalsIgnoreCase(sort)) {
-            queryBuilder.withQuery(baseQuery);
-            queryBuilder.withSort(Sort.by(Sort.Direction.ASC, "createdAt"));
-        }
-        else if ("likes".equalsIgnoreCase(sort)) {
-            queryBuilder.withQuery(baseQuery);
-            queryBuilder.withSort(Sort.by(Sort.Direction.DESC, "likeCount"));
-        }
-        else {
-            // =============================================================
+
+        // 得到最终的内容查询条件
+        Query finalContentQuery = boolQueryBuilder.build()._toQuery();
+
+        // =========================================================
+        // Step 3.2: 应用排序策略
+        // =========================================================
+        if ("hot".equalsIgnoreCase(sort)) {
             // [F] 综合热度 (Hot/Default) - 使用 Function Score
             // 核心公式：最终分 = (BM25相关度) * (点赞加成) * (时间衰减)
-            // =============================================================
             queryBuilder.withQuery(q -> q.functionScore(fs -> fs
-                    .query(baseQuery) // 基础查询
+                    .query(finalContentQuery) // 将上面的 Bool Query 包裹在 Function Score 内部
                     .functions(f -> f
-                            // 函数1：点赞数加分 (使用 log1p 平滑：log(likeCount + 1))
-                            .filter(QueryBuilders.matchAll().build()._toQuery()) // 对所有文档生效
+                            // 函数1：点赞数加分 (log1p平滑)
+                            .filter(QueryBuilders.matchAll().build()._toQuery())
                             .fieldValueFactor(fv -> fv
                                     .field("likeCount")
-                                    .modifier(FieldValueFactorModifier.Log1p) // 防止点赞数超级大导致分数失衡
+                                    .modifier(FieldValueFactorModifier.Log1p)
                                     .factor(1.0)
-                                    .missing(0.0) // 没点赞的默认为0
+                                    .missing(0.0)
                             )
                     )
                     .functions(f -> f
-                            // 函数2：高斯衰减 (Gauss Decay)
+                            // 函数2：高斯时间衰减
                             .filter(QueryBuilders.matchAll().build()._toQuery())
                             .gauss(g -> g
-                                    .field("createdAt") // 针对创建时间字段
+                                    .field("createdAt")
                                     .placement(p -> p
-                                            .origin(JsonData.of(java.time.LocalDateTime.now()
-                                                    .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS"))))   // 原点：当前时间
-                                            .scale(JsonData.of("3d"))
-                                            .offset(JsonData.of("1d"))
-                                            .decay(0.5)         // 衰减率：到scale时衰减到0.5
+                                            .origin(JsonData.of(LocalDateTime.now().format(ES_TIME_FORMATTER)))
+                                            .scale(JsonData.of("3d"))   // 3天作为一个刻度
+                                            .offset(JsonData.of("1d"))  // 1天内不衰减
+                                            .decay(0.5)                 // 超过 scale 后衰减 50%
                                     )
                             )
                     )
-                    .boostMode(FunctionBoostMode.Multiply) // 乘法模式
+                    .boostMode(FunctionBoostMode.Multiply)
             ));
-
-            // 注意：Function Score 自动按 _score 排序，不需要额外 setSort
-            // 如果想强制保证 _score 一样时按时间排，可以加第二排序键
+            // Function Score 默认按 _score 排序
             queryBuilder.withSort(Sort.by(Sort.Direction.DESC, "_score"));
+            // 兜底排序：如果分数完全一样，按时间倒序
+            queryBuilder.withSort(Sort.by(Sort.Direction.DESC, "createdAt"));
+
+        } else if ("new".equalsIgnoreCase(sort)) {
+            queryBuilder.withQuery(finalContentQuery);
+            queryBuilder.withSort(Sort.by(Sort.Direction.DESC, "createdAt"));
+
+        } else if ("old".equalsIgnoreCase(sort)) {
+            queryBuilder.withQuery(finalContentQuery);
+            queryBuilder.withSort(Sort.by(Sort.Direction.ASC, "createdAt"));
+
+        } else if ("likes".equalsIgnoreCase(sort)) {
+            queryBuilder.withQuery(finalContentQuery);
+            queryBuilder.withSort(Sort.by(Sort.Direction.DESC, "likeCount"));
+
+        } else {
+            // 默认排序 (通常也是 hot，或者 new，视需求而定)
+            queryBuilder.withQuery(finalContentQuery);
             queryBuilder.withSort(Sort.by(Sort.Direction.DESC, "createdAt"));
         }
 
-        // 4. 分页与过滤
+        // 4. 分页与字段过滤
         queryBuilder.withPageable(PageRequest.of(pageNum, pageSize));
-        // 不查 content 字段，减少网络传输 IO
         queryBuilder.withSourceFilter(new FetchSourceFilter(
                 new String[]{"id", "title", "content", "cover", "coverWidth", "coverHeight", "type", "tags", "userId", "userNickname", "userAvatar", "likeCount", "createdAt"},
                 null
         ));
-        SearchHits<PostEsDoc> searchHits = null;
+
         // 5. 执行搜索
+        SearchHits<PostEsDoc> searchHits;
         try {
-           searchHits = esOperations.search(queryBuilder.build(), PostEsDoc.class);
+            searchHits = esOperations.search(queryBuilder.build(), PostEsDoc.class);
         } catch (UncategorizedElasticsearchException e) {
-            // 打印具体的响应体，这里面会告诉你是哪个字段、什么原因解析失败
-            log.error("ES 详细报错原因: {}", e.getResponseBody());
-            throw e;
+            log.error("ES Search Error: {}", e.getResponseBody());
+            throw new AppException(ResultCode.ELASTIC_SEARCH_ERROR);
         }
 
         // =======================================================
-        // 6. 批量查询交互状态 (保持原逻辑不变)
+        // 6. 批量查询交互状态 (MySQL/Mongo 回查)
         // =======================================================
         Set<String> likedPostIds = new HashSet<>();
         if (currentUserId != null && searchHits.hasSearchHits()) {
             List<String> postIds = searchHits.getSearchHits().stream()
                     .map(hit -> hit.getContent().getId())
                     .collect(Collectors.toList());
-            // 这一步去查 MySQL/Mongo 确认用户点赞状态
             List<PostLikeDoc> likes = postLikeRepository.findByUserIdAndPostIdIn(currentUserId, postIds);
             likedPostIds = likes.stream().map(PostLikeDoc::getPostId).collect(Collectors.toSet());
         }
@@ -274,14 +261,21 @@ public class PostServiceImpl implements PostService {
 
             map.put("id", doc.getId());
             map.put("title", doc.getTitle());
-            map.put("content", StrUtil.subPre(doc.getContent(), 50));
+            map.put("content", StrUtil.subPre(doc.getContent(), 50)); // 摘要
             map.put("cover", doc.getCover());
             map.put("coverWidth", doc.getCoverWidth());
             map.put("coverHeight", doc.getCoverHeight());
             map.put("type", doc.getType());
             map.put("tags", doc.getTags());
             map.put("likeCount", doc.getLikeCount());
-            map.put("createdAt", formatter.format(doc.getCreatedAt()));
+
+            // ES 里的 createdAt 是字符串，或者 LocalDateTime，这里统一转一下格式
+            // 如果 ES 存的是 String (yyyy-MM-ddTHH:mm:ss.SSS)，这里需要解析或者直接截取
+            // 建议：如果 PostEsDoc 里 createdAt 是 LocalDateTime，直接 format
+            if (doc.getCreatedAt() != null) {
+                map.put("createdAt", DATE_FORMATTER.format(doc.getCreatedAt()));
+            }
+
             // 作者信息
             Map<String, Object> author = new HashMap<>();
             author.put("userId", doc.getUserId() != null ? doc.getUserId().toString() : "");
@@ -304,6 +298,32 @@ public class PostServiceImpl implements PostService {
 
         return response;
     }
+
+    /**
+     * 辅助方法：从 MongoDB 查询关注流
+     * (保留原有逻辑，抽取为独立方法)
+     */
+    private Map<String, Object> queryFollowStreamFromMongo(Integer page, Integer size) {
+        Long currentUserId = UserContext.getUserId();
+        if (currentUserId == null) throw new AppException(ResultCode.UNAUTHORIZED);
+
+        int pageNum = (page == null || page < 1) ? 0 : page - 1;
+        int pageSize = (size == null || size < 1) ? 20 : size;
+        Pageable pageable = PageRequest.of(pageNum, pageSize, Sort.by(Sort.Direction.DESC, "createdAt"));
+
+        Page<PostDoc> postDocPage;
+
+        List<UserFollowDoc> follows = userFollowRepository.findFollowingIds(currentUserId);
+        if (CollUtil.isEmpty(follows)) {
+            postDocPage = Page.empty(pageable);
+        } else {
+            List<Long> targetIds = follows.stream().map(UserFollowDoc::getTargetUserId).collect(Collectors.toList());
+            postDocPage = postRepository.findByUserIdInAndStatusAndIsDeleted(targetIds, 1, 0, pageable);
+        }
+
+        return buildResultMap(postDocPage); // 假设你有一个通用的 Mongo Page 转 Map 的方法
+    }
+
 
     @Override
     public List<String> getSearchSuggestions(String keyword) {

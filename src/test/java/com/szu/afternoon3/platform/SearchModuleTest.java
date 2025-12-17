@@ -96,7 +96,7 @@ public class SearchModuleTest {
         String keyword = "深圳"; // 我们的测试数据都包含这个意图
 
         // A. 测试按最新排序 (new)
-        Map<String, Object> newResult = postService.searchPosts(keyword, 1, 10, "new");
+        Map<String, Object> newResult = postService.searchPosts(keyword,null, 1, 10, "new");
         List<Map<String, Object>> newRecords = (List<Map<String, Object>>) newResult.get("records");
         
         log.info("按最新排序第一条: {}", newRecords.get(0).get("title"));
@@ -105,7 +105,7 @@ public class SearchModuleTest {
 
 
         // B. 测试按点赞/热度排序 (likes 或 hot)
-        Map<String, Object> hotResult = postService.searchPosts(keyword, 1, 10, "likes");
+        Map<String, Object> hotResult = postService.searchPosts(keyword, null,1, 10, "likes");
         List<Map<String, Object>> hotRecords = (List<Map<String, Object>>) hotResult.get("records");
         
         log.info("按点赞排序第一条: {}", hotRecords.get(0).get("title"));
@@ -119,7 +119,7 @@ public class SearchModuleTest {
      */
     @Test
     public void testSearchContentFilter() {
-        Map<String, Object> result = postService.searchPosts("美食", 1, 10, "new");
+        Map<String, Object> result = postService.searchPosts("美食",null, 1, 10, "new");
         List<Map<String, Object>> records = (List<Map<String, Object>>) result.get("records");
 
         if (records.size() > 0) {

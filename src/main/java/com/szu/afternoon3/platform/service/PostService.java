@@ -18,7 +18,7 @@ public interface PostService {
      */
     Map<String, Object> getPostList(Integer page, Integer size, String tab, String tag, String sort);
 
-    Map<String, Object> searchPosts(String keyword, Integer page, Integer size, String sort);
+    Map<String, Object> searchPosts(String keyword, String tag, Integer page, Integer size, String sort);
 
     // 获取帖子详情
     PostVO getPostDetail(String postId);

@@ -33,6 +33,8 @@
 
     搜索/分析: Elasticsearch 8.11 (IK分词 + Pinyin插件) + Kibana
 
+    数据同步 (Sidecar): Go 1.21 (轻量级消费者，负责 MQ -> ES/Mongo 同步)
+
     消息队列: RabbitMQ 3.12 (异步解耦、流量削峰、死信处理)
 
     AI 能力: Qwen-VL (Spring AI 集成，支持多模态理解)
@@ -52,6 +54,12 @@ graph TD
     
     Boot --> MQ[RabbitMQ]
     MQ -->|异步削峰/解耦| Boot
+    
+    subgraph "异步同步层 (Sidecar Pattern)"
+        MQ -->|订阅变更事件| GoSidecar[Go Sidecar (轻量级消费者)]
+        GoSidecar -->|1. 回查数据| MongoDB
+        GoSidecar -->|2. 写入/更新| ES[(Elasticsearch: 全文检索)]
+    end
     
     Boot --> ES[(Elasticsearch: 全文检索/Tag聚合)]
     
@@ -114,6 +122,17 @@ graph TD
 
 - 安全风控: 内容发布前经过 AI 敏感词与合规性校验。
 
+6. **Sidecar 异构微服务模式 (Polyglot Sidecar)**
+- **架构决策**: 为了在低内存服务器（4GB）上维持高性能运行，我们将资源密集型的“数据同步消费者”从 Java 主进程中剥离。
+- **Go Sidecar**: 使用 Go 语言编写独立的 Sidecar 容器，内存占用仅约 10MB。它专门负责监听 RabbitMQ 的业务变更消息（PostCreate/Update/Delete），并负责将数据从 MongoDB 同步至 Elasticsearch。
+- **优势**: 实现了 **主应用（业务逻辑）** 与 **辅助应用（数据管道）** 的语言级解耦，既保留了 Java 生态的开发效率，又利用了 Go 在高并发和低内存下的运行时优势。
+
+7. **低资源环境下的 CI/CD 最佳实践**
+- **挑战**: 生产环境网络受限（无法流畅访问 Docker Hub/Github）且内存不足，导致直接在服务器上进行 `docker build` 或 `mvn package` 经常失败或 OOM。
+- **解决方案**: 设计了 "Local Build, Remote Load" 的部署流水线。
+    - **Java**: 本地编译 JAR 包 -> 增量传输 -> 服务器复用基础镜像运行。
+    - **Go**: 本地构建全量 Docker 镜像 -> 导出为 tar.gz -> 传输至服务器 -> `docker load` 加载。
+- **效果**: 将部署过程对服务器的 CPU/网络 消耗降至最低，确保了交付的稳定性。
 
 ## 核心模块划分
 

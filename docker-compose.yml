@@ -55,7 +55,6 @@ services:
       - SPRING_PROFILES_ACTIVE=prod
       - MONGO_URI=mongodb://afternoon-mongo:27017/rednote
       - REDIS_HOST=afternoon-redis
-      # 这里的 DB_URL 必须覆盖 .env 文件里的 localhost
       - DB_URL=jdbc:postgresql://afternoon-postgres:5432/platform_db?currentSchema=public
       - SPRING_RABBITMQ_HOST=afternoon-rabbitmq
       - SPRING_RABBITMQ_PORT=5672
@@ -197,25 +196,49 @@ services:
         limits:
           memory: 1024M
 
-  kibana:
-    image: kibana:8.11.1
-    container_name: afternoon-kibana
-    restart: always
+#  kibana:
+#    image: kibana:8.11.1
+#    container_name: afternoon-kibana
+#    restart: always
+#    environment:
+#      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+#      # 【关键】配置子路径支持
+#      - SERVER_BASEPATH=/kibana
+#      - SERVER_REWRITEBASEPATH=true
+#    expose:
+#      - "5601" # 同样，不需要 ports 映射 5601 到宿主机，通过 Nginx 转发
+#    networks:
+#      - afternoon-net # 【修正】同上
+#    depends_on:
+#      - elasticsearch
+#    deploy:
+#      resources:
+#        limits:
+#          memory: 512M
+
+  sync-sidecar:
+    image: afternoon-sync-sidecar:latest
+    container_name: afternoon-sync-sidecar
     environment:
-      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
-      # 【关键】配置子路径支持
-      - SERVER_BASEPATH=/kibana
-      - SERVER_REWRITEBASEPATH=true
-    expose:
-      - "5601" # 同样，不需要 ports 映射 5601 到宿主机，通过 Nginx 转发
-    networks:
-      - afternoon-net # 【修正】同上
+      - RABBITMQ_URL=amqp://admin:admin@rabbitmq:5672/
+      - MONGO_URI=mongodb://mongo:27017
+      - ES_ADDRESS=http://elasticsearch:9200
+      - POST_AUDIT_ENABLE=false
     depends_on:
-      - elasticsearch
+      rabbitmq:
+        condition: service_started
+      mongo:
+        condition: service_started
+      elasticsearch:
+        condition: service_healthy
+    networks:
+      - afternoon-net
+    restart: always
+    # 限制内存：你会发现它只要 20M-50M
     deploy:
       resources:
         limits:
-          memory: 512M
+          memory: 128M
 networks:
   afternoon-net:
     driver: bridge

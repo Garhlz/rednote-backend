@@ -1,34 +1,168 @@
 version: '3.8'
+
 services:
+  # ==========================================
+  # 1. 基础数据库 (PostgreSQL & MongoDB & Redis)
+  # ==========================================
+
+  # PostgreSQL: 关系型数据库 (用户、关注等)
+  postgres-dev:
+    image: postgres:15-alpine
+    container_name: postgres-local-dev
+    ports:
+      - "5432:5432" # 映射到宿主机，Java用 localhost:5432 连接
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: platform_db
+      TZ: Asia/Shanghai
+    volumes:
+      - pg_local_data:/var/lib/postgresql/data
+      # 如果你有初始化SQL脚本，放在这里会自动执行
+      # - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - dev-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # MongoDB: 文档数据库 (帖子、评论)
+  mongodb-dev:
+    image: mongo:6.0
+    container_name: mongo-local-dev
+    ports:
+      - "27017:27017" # 映射到宿主机，Java用 localhost:27017 连接
+    environment:
+      MONGO_INITDB_DATABASE: rednote
+      TZ: Asia/Shanghai
+    volumes:
+      - mongo_local_data:/data/db
+    networks:
+      - dev-net
+
+  # Redis: 缓存 & 计数
+  redis-dev:
+    image: redis:7-alpine
+    container_name: redis-local-dev
+    ports:
+      - "6379:6379" # 映射到宿主机，Java用 localhost:6379 连接
+    environment:
+      TZ: Asia/Shanghai
+    volumes:
+      - redis_local_data:/data
+    networks:
+      - dev-net
+
+  # ==========================================
+  # 2. 消息队列 (RabbitMQ)
+  # ==========================================
+
+  rabbitmq-dev:
+    image: rabbitmq:3.12-management-alpine
+    container_name: mq-local-dev
+    ports:
+      - "5672:5672"   # 消息端口，Java用 localhost:5672 连接
+      - "15672:15672" # 管理面板，浏览器访问 http://localhost:15672
+    environment:
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: admin
+      TZ: Asia/Shanghai
+    volumes:
+      - mq_local_data:/var/lib/rabbitmq
+    networks:
+      - dev-net
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ==========================================
+  # 3. 搜索服务 (Elasticsearch & Kibana)
+  # ==========================================
+
   elasticsearch-dev:
+    # 如果你有 Dockerfile.es (含IK分词器)，使用 build
     build:
       context: .
       dockerfile: Dockerfile.es
+    # 如果没有，可以直接用官方镜像（注意：官方镜像没有IK分词，搜中文会很烂）
+    # image: elasticsearch:8.11.1
     container_name: es-local-dev
     environment:
       - discovery.type=single-node
-      - xpack.security.enabled=false # 开发环境关掉密码，省事
-      - "ES_JAVA_OPTS=-Xms512m -Xmx512m" # 限制内存，留给 IDEA 和 Chrome
+      - xpack.security.enabled=false # 开发环境禁用密码，方便调试
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m" # 限制内存
+      - TZ=Asia/Shanghai
     ports:
-      - "9200:9200"
+      - "9200:9200" # 映射到宿主机，Java用 localhost:9200 连接
     volumes:
       - es_local_data:/usr/share/elasticsearch/data
     networks:
       - dev-net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cat/health || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
 
   kibana-dev:
     image: kibana:8.11.1
     container_name: kibana-local-dev
     environment:
       - ELASTICSEARCH_HOSTS=http://elasticsearch-dev:9200
+      - TZ=Asia/Shanghai
     ports:
-      - "5601:5601"
+      - "5601:5601" # 浏览器访问 http://localhost:5601
     depends_on:
-      - elasticsearch-dev
+      elasticsearch-dev:
+        condition: service_healthy
     networks:
       - dev-net
 
+  # ==========================================
+  # 4. 数据同步 Sidecar (Go)
+  # ==========================================
+
+  sync-sidecar-dev:
+    build:
+      context: ./sync-sidecar
+      dockerfile: Dockerfile.dev # 使用 go run . 开发模式
+    container_name: sidecar-local-dev
+    environment:
+      # --- 容器内部通信 (使用 Service Name) ---
+      - ES_ADDRESS=http://elasticsearch-dev:9200
+      - RABBITMQ_URL=amqp://admin:admin@rabbitmq-dev:5672/
+      - MONGO_URI=mongodb://mongodb-dev:27017
+      - TZ=Asia/Shanghai
+      - POST_AUDIT_ENABLE=false
+      # 禁用代理，防止容器互联失败
+      - no_proxy=elasticsearch-dev,rabbitmq-dev,mongodb-dev,localhost,127.0.0.1
+      - NO_PROXY=elasticsearch-dev,rabbitmq-dev,mongodb-dev,localhost,127.0.0.1
+    volumes:
+      # 挂载源码，本地修改 Go 代码后重启容器即生效
+      - ./sync-sidecar:/app
+    depends_on:
+      elasticsearch-dev:
+        condition: service_healthy
+      rabbitmq-dev:
+        condition: service_healthy
+      mongodb-dev:
+        condition: service_started
+    networks:
+      - dev-net
+
+# ==========================================
+# 数据持久化卷 (删除容器后数据不丢失)
+# ==========================================
 volumes:
+  pg_local_data:
+  mongo_local_data:
+  redis_local_data:
+  mq_local_data:
   es_local_data:
 
 networks:

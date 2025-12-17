@@ -59,9 +59,10 @@ public class PostController {
             @RequestParam String keyword,
             @RequestParam(required = false, defaultValue = "1") Integer page,
             @RequestParam(required = false, defaultValue = "20") Integer size,
+            @RequestParam(required = false) String tag,
             @RequestParam(required = false, defaultValue = "hot") String sort
     ) {
-        Map<String, Object> data = postService.searchPosts(keyword, page, size, sort);
+        Map<String, Object> data = postService.searchPosts(keyword, tag, page, size, sort);
         return Result.success(data);
     }
 
