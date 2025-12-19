@@ -62,3 +62,6 @@ platform_db_backup.sql
 sync-sidecar/sync-sidecar-linux
 
 sync-sidecar/sidecar-image.tar.gz
+
+docker-compose-local.yml
+test_avatar.jpg
