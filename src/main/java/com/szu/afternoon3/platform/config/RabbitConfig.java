@@ -167,23 +167,27 @@ public class RabbitConfig {
 
     @Bean
     public MessageConverter jsonMessageConverter() {
-        Jackson2JsonMessageConverter converter = new Jackson2JsonMessageConverter();
+        // 1. 创建 ObjectMapper 并配置时间模块 (这是关键修正！)
+        com.fasterxml.jackson.databind.ObjectMapper objectMapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        // 注册 Java 8 时间模块
+        objectMapper.registerModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule());
+        // 禁止将日期写为时间戳/数组，强制转为 ISO 字符串 (如 "2023-12-19T10:20:30")
+        objectMapper.disable(com.fasterxml.jackson.databind.SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
 
-        // 1. 手动创建一个 TypeMapper
+        // 2. 将 ObjectMapper 注入 Converter
+        Jackson2JsonMessageConverter converter = new Jackson2JsonMessageConverter(objectMapper);
+
+        // 3. 配置类型映射 (保留你原有的安全配置)
         DefaultJackson2JavaTypeMapper typeMapper = new DefaultJackson2JavaTypeMapper();
-
-        // 2. 解决 "无法解析符号 TypePrecedence": 引用正确的类 Jackson2JavaTypeMapper
+        // 解决 "无法解析符号 TypePrecedence"
         typeMapper.setTypePrecedence(Jackson2JavaTypeMapper.TypePrecedence.TYPE_ID);
-
-        // 3. 解决 "无法解析 setPackagesToScan": 使用 setTrustedPackages 并指定你的 Event 包路径
-        //这是为了防止反序列化漏洞，只有在这个包下的类才允许被反序列化
+        // 配置白名单
         typeMapper.setTrustedPackages(
                 "com.szu.afternoon3.platform.event",
                 "com.szu.afternoon3.platform.entity",
-                "com.szu.afternoon3.platform.entity.mongo", // 解决 ApiLogDoc 报错
-                "com.szu.afternoon3.platform.entity.es"    // 预防 PostEsDoc 报错
+                "com.szu.afternoon3.platform.entity.mongo",
+                "com.szu.afternoon3.platform.entity.es"
         );
-
 
         // 4. 将配置好的 TypeMapper 设置给 Converter
         converter.setJavaTypeMapper(typeMapper);

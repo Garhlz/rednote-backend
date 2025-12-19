@@ -14,6 +14,7 @@ import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.mapping.IndexCoordinates;
+import org.springframework.data.elasticsearch.core.query.ScriptType;
 import org.springframework.data.elasticsearch.core.query.UpdateQuery;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
@@ -124,8 +125,8 @@ public class InteractionEventListener {
      * 使用脚本进行原子更新，避免并发覆盖，且效率最高
      */
     private void updateESPostCount(String postId, String fieldName, int delta) {
-        // 1. 准备脚本：ctx._source.likeCount += params.delta
-        // 注意：ES 脚本中字段名直接用，不需要驼峰转下划线，除非你Mapping里就是下划线
+        // 1. 准备脚本
+        // 你的脚本逻辑很好，考虑了字段为 null 的情况
         String scriptSource = "if (ctx._source." + fieldName + " == null) { " +
                 "   ctx._source." + fieldName + " = params.delta; " +
                 "} else { " +
@@ -138,17 +139,18 @@ public class InteractionEventListener {
         // 2. 构建更新查询
         UpdateQuery updateQuery = UpdateQuery.builder(postId)
                 .withScript(scriptSource)
+                .withScriptType(ScriptType.INLINE) // 【关键修正】必须显式指定脚本类型为内联
                 .withParams(params)
-                .withLang("painless") // ES 默认脚本语言
-                .withRetryOnConflict(3) // 遇到并发冲突重试3次
+                .withLang("painless")
+                .withRetryOnConflict(3)
                 .build();
 
-        // 3. 执行更新 (针对 PostDoc 所在的 Index)
+        // 3. 执行更新
         try {
-            elasticsearchOperations.update(updateQuery, IndexCoordinates.of("post_index")); // 替换你的索引名
+            elasticsearchOperations.update(updateQuery, IndexCoordinates.of("post_index"));
+            log.info("✅ ES Count Updated: postId={}, field={}, delta={}", postId, fieldName, delta);
         } catch (Exception e) {
-            // 日志记录失败，点赞数不一致通常不是致命错误，可以之后通过定时任务校准
-            log.error("Failed to update post count in ES for postId: {}", postId, e);
+            log.error("❌ Failed to update post count in ES for postId: {}", postId, e);
         }
     }
 
