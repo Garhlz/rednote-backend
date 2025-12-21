@@ -5,103 +5,59 @@ import cn.hutool.core.util.StrUtil;
 import com.szu.afternoon3.platform.config.RabbitConfig;
 import com.szu.afternoon3.platform.entity.User;
 import com.szu.afternoon3.platform.entity.mongo.CommentDoc;
+import com.szu.afternoon3.platform.entity.mongo.NotificationDoc;
+import com.szu.afternoon3.platform.entity.mongo.PostAuditLogDoc;
 import com.szu.afternoon3.platform.entity.mongo.PostDoc;
+import com.szu.afternoon3.platform.enums.NotificationType;
 import com.szu.afternoon3.platform.event.PostCreateEvent;
 import com.szu.afternoon3.platform.event.PostDeleteEvent;
 import com.szu.afternoon3.platform.event.PostUpdateEvent;
 import com.szu.afternoon3.platform.mapper.UserMapper;
 import com.szu.afternoon3.platform.repository.*;
+import com.szu.afternoon3.platform.service.NotificationService;
 import com.szu.afternoon3.platform.service.impl.AiServiceImpl;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.annotation.RabbitHandler;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.data.domain.Pageable;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.Update;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
-import java.util.List;
-import java.util.stream.Collectors;
 
 /**
  * 帖子相关事件监听器
- * 统一监听 platform.post.queue，利用 @RabbitHandler 分发不同类型的事件
+ * 统一监听 platform.post.queue
  */
 @Component
 @Slf4j
-// 假设你在 RabbitConfig 中增加了这个队列常量，值为 "platform.post.queue"
-@RabbitListener(queues = "platform.post.queue")
+// 确保 RabbitConfig 中 QUEUE_POST = "platform.post.queue"
+@RabbitListener(queues = RabbitConfig.QUEUE_POST)
 public class PostEventListener {
 
-    @Autowired
-    private PostLikeRepository postLikeRepository;
-    @Autowired
-    private PostCollectRepository postCollectRepository;
-    @Autowired
-    private CommentRepository commentRepository;
-    @Autowired
-    private PostRatingRepository postRatingRepository;
-    @Autowired
-    private StringRedisTemplate redisTemplate;
-    @Autowired
-    private CommentLikeRepository commentLikeRepository;
+    @Autowired private PostLikeRepository postLikeRepository;
+    @Autowired private PostCollectRepository postCollectRepository;
+    @Autowired private CommentRepository commentRepository;
+    @Autowired private PostRatingRepository postRatingRepository;
+
     @Autowired private AiServiceImpl aiService;
     @Autowired private MongoTemplate mongoTemplate;
     @Autowired private UserMapper userMapper;
-    /**
-     * 处理帖子删除
-     */
-    @RabbitHandler
-    public void handlePostDelete(PostDeleteEvent event) {
-        String postId = event.getPostId();
-        log.info("RabbitMQ 收到删帖事件，清理关联数据... postId={}", postId);
+    @Autowired private NotificationService notificationService; // 注入通知服务
 
-        // 1. 清理 Redis 缓存 (如果有)
-        // redisTemplate.delete("post:detail:" + postId);
-
-        // 2. 清理 MongoDB 关联数据
-        try {
-            postLikeRepository.deleteByPostId(postId);
-            postCollectRepository.deleteByPostId(postId);
-            postRatingRepository.deleteByPostId(postId);
-
-            // 方案 A: 完美主义 (数据绝对干净，但性能稍慢)
-            // 第一步：查出该贴下所有评论的 ID (只查 ID，很快)
-//             List<CommentDoc> comments = commentRepository.findByPostIdAndParentIdIsNull(postId, Pageable.unpaged()).getContent();
-//             List<String> commentIds = comments.stream().map(CommentDoc::getId).collect(Collectors.toList());
-
-            // 第二步：批量删除这些评论的点赞
-//             if (CollUtil.isNotEmpty(commentIds)) {
-//                 // 需要在 Repository 加一个 deleteByCommentIdIn(List<String> ids)
-//                 commentLikeRepository.deleteByCommentIdIn(commentIds);
-//             }
-
-            // 方案 B: 实用主义 (推荐)
-            // 直接删除评论，忽略"评论点赞表"里的孤儿数据。
-            // 因为 commentId 已经删了，依附于它的点赞数据永远查不出来，只是占一点点磁盘空间而已。
-            commentRepository.deleteByPostId(postId);
-
-            log.info("删帖清理完成");
-        } catch (Exception e) {
-            log.error("删帖清理失败: postId={}", postId, e);
-        }
-    }
-
-
-    // 读取配置文件的机器人ID
     @Value("${ai.bot.user-id}")
     private Long botUserId;
 
+    /**
+     * 处理发帖：AI 自动评论
+     */
     @RabbitHandler
     public void handlePostCreate(PostCreateEvent event) {
         log.info("RabbitMQ 收到发帖事件: {}", event.getId());
-
         try {
             handleAutoComment(event);
         } catch (Exception e) {
@@ -110,53 +66,100 @@ public class PostEventListener {
     }
 
     /**
-     * 处理自动评论逻辑
+     * 处理修帖：(暂留空)
      */
-    private void handleAutoComment(PostCreateEvent event) {
-        // TODO 审核逻辑
-        // 1. 调用 AI 获取总结
-        String summary = aiService.generatePostSummary(event.getTitle(),event.getContent(), event.getImages(), event.getVideo());
+    @RabbitHandler
+    public void handlePostUpdate(PostUpdateEvent event) {
+        log.debug("RabbitMQ 收到修帖事件: {}", event.getPostId());
+    }
 
-        // 如果 AI 没返回（比如内容太短），直接跳过
-        if (StrUtil.isBlank(summary)) return;
+    /**
+     * 处理删帖：数据清理 + 管理员操作通知
+     */
+    @RabbitHandler
+    public void handlePostDelete(PostDeleteEvent event) {
+        String postId = event.getPostId();
+        log.info("RabbitMQ 收到删帖事件: postId={}, operatorId={}", postId, event.getOperatorId());
 
-        log.info("AI 生成总结评论: {}", summary);
-
-        // 2. 获取机器人用户信息 (为了填充冗余字段)
-        User botUser = userMapper.selectById(botUserId);
-        if (botUser == null) {
-            log.warn("未找到机器人账号 ID={}, 取消评论", botUserId);
-            return;
+        // ----------------------------------------------------
+        // 1. 业务数据清理 (原有逻辑)
+        // ----------------------------------------------------
+        try {
+            postLikeRepository.deleteByPostId(postId);
+            postCollectRepository.deleteByPostId(postId);
+            postRatingRepository.deleteByPostId(postId);
+            commentRepository.deleteByPostId(postId); // 直接删除关联评论
+            log.info("删帖关联数据清理完成");
+        } catch (Exception e) {
+            log.error("删帖数据清理失败", e);
         }
 
-        // 3. 构建评论对象
+        // ----------------------------------------------------
+        // 2. 管理员删除的特殊处理 (新增逻辑)
+        // ----------------------------------------------------
+        if (event.isAdminOp()) {
+            handleAdminDeleteLogAndNotify(event);
+        }
+    }
+
+    // --- Private Methods ---
+
+    private void handleAutoComment(PostCreateEvent event) {
+        String summary = aiService.generatePostSummary(event.getTitle(), event.getContent(), event.getImages(), event.getVideo());
+        if (StrUtil.isBlank(summary)) return;
+
+        User botUser = userMapper.selectById(botUserId);
+        if (botUser == null) return;
+
         CommentDoc comment = new CommentDoc();
         comment.setPostId(event.getId());
         comment.setUserId(botUserId);
-        comment.setUserNickname(botUser.getNickname()); // "AI省流助手"
+        comment.setUserNickname(botUser.getNickname());
         comment.setUserAvatar(botUser.getAvatar());
         comment.setContent(summary);
         comment.setCreatedAt(LocalDateTime.now());
         comment.setLikeCount(0);
         comment.setReplyCount(0);
-        comment.setParentId(null); // 这是一级评论
 
-        // 4. 保存评论
         commentRepository.save(comment);
 
-        // 5. 更新帖子的评论数 (commentCount + 1)
         mongoTemplate.updateFirst(
                 Query.query(Criteria.where("id").is(event.getId())),
                 new Update().inc("commentCount", 1),
                 PostDoc.class
         );
     }
-    /**
-     * 处理帖子更新 (审核逻辑)
-     */
-    @RabbitHandler
-    public void handlePostUpdate(PostUpdateEvent event) {
-        log.info("RabbitMQ 收到修帖事件，重新审核: {}", event.getPostId());
-        // TODO: 重新审核逻辑
+
+    private void handleAdminDeleteLogAndNotify(PostDeleteEvent event) {
+        // A. 发送违规通知
+        NotificationDoc note = new NotificationDoc();
+        note.setReceiverId(event.getAuthorId());
+        note.setSenderId(0L);
+        note.setSenderNickname("映记安全中心");
+        note.setSenderAvatar("https://afternoon3-rednote.oss-cn-shenzhen.aliyuncs.com/default_avatar.jpg");
+        note.setType(NotificationType.SYSTEM_POST_DELETE);
+
+        String reason = event.getReason() != null ? event.getReason() : "违反社区规范";
+        note.setTargetPreview("您的笔记《" + event.getPostTitle() + "》已被移除。原因：" + reason);
+        note.setTargetId(event.getPostId());
+
+        notificationService.save(note);
+
+        // B. 记录操作日志
+        try {
+            PostAuditLogDoc auditLog = new PostAuditLogDoc();
+            auditLog.setPostId(event.getPostId());
+            auditLog.setPostTitle(event.getPostTitle());
+            auditLog.setOperatorId(event.getOperatorId());
+             auditLog.setOperatorName(event.getOperatorName());
+            auditLog.setAuditStatus(3); // 3=强制删除
+            auditLog.setRejectReason(event.getReason());
+            auditLog.setCreatedAt(LocalDateTime.now());
+
+            mongoTemplate.save(auditLog);
+            log.info("管理员删帖日志记录成功");
+        } catch (Exception e) {
+            log.error("保存管理员删帖日志失败", e);
+        }
     }
 }

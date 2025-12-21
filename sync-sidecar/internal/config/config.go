@@ -19,6 +19,11 @@ type AppConfig struct {
 	QueueSearch string
 	QueueEsSync string
 	QueueUser   string
+
+	ExchangeMain string
+	ExchangeDLX  string
+
+	QueueBindings map[string][]string
 }
 
 func LoadConfig() *AppConfig {
@@ -41,6 +46,16 @@ func LoadConfig() *AppConfig {
 		QueueSearch: "platform.search.queue",
 		QueueEsSync: "platform.es.sync.queue",
 		QueueUser:   "platform.user.queue",
+
+		ExchangeMain: "platform.topic.exchange",
+		ExchangeDLX:  "platform.dlx.exchange",
+
+		QueueBindings: map[string][]string{
+			"platform.log.queue":     {"log.#"},
+			"platform.search.queue":  {"search.#"},
+			"platform.user.queue":    {"user.#"},
+			"platform.es.sync.queue": {"post.#", "user.update", "post.audit.pass"},
+		},
 	}
 }
 

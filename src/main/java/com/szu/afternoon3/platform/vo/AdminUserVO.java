@@ -16,4 +16,10 @@ public class AdminUserVO {
     private Long likeCount;
     private Long followCount;
     private Double avgScore;
+
+    private long pendingPostCount;  // 待审核的帖子数(status=0)
+    private Long passedPostCount;   // 审核通过的帖子数 (status=1)
+    private Long rejectedPostCount; // 审核拒绝的帖子数 (status=2)
+
+
 }

@@ -32,8 +32,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.MongoTemplate;
-import org.springframework.data.mongodb.core.aggregation.Aggregation;
-import org.springframework.data.mongodb.core.aggregation.AggregationResults;
+import org.springframework.data.mongodb.core.aggregation.*;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.Update;
@@ -179,6 +178,15 @@ public class AdminServiceImpl implements AdminService {
                         .count().as("postCount")
                         .sum("likeCount").as("totalLikes")
                         .avg("ratingAverage").as("avgScore")
+                        .sum(ConditionalOperators.when(
+                                ComparisonOperators.valueOf("status").equalToValue(0)
+                        ).then(1).otherwise(0)).as("pendingPostCount")
+                        .sum(ConditionalOperators.when(
+                                ComparisonOperators.valueOf("status").equalToValue(1)
+                        ).then(1).otherwise(0)).as("passedPostCount")
+                        .sum(ConditionalOperators.when(
+                                ComparisonOperators.valueOf("status").equalToValue(2)
+                        ).then(1).otherwise(0)).as("rejectedPostCount")
         );
         // 结果转 Map: userId -> 统计对象
         Map<Long, Map> postStatsMap = mongoTemplate.aggregate(postAgg, PostDoc.class, Map.class)
@@ -227,10 +235,16 @@ public class AdminServiceImpl implements AdminService {
                 vo.setPostCount(stats.get("postCount") != null ? ((Number) stats.get("postCount")).longValue() : 0L);
                 vo.setLikeCount(stats.get("totalLikes") != null ? ((Number) stats.get("totalLikes")).longValue() : 0L);
                 vo.setAvgScore(stats.get("avgScore") != null ? ((Number) stats.get("avgScore")).doubleValue() : 0.0);
+                vo.setPendingPostCount(parseToLong(stats.get("pendingPostCount")));
+                vo.setPassedPostCount(parseToLong(stats.get("passedPostCount")));
+                vo.setRejectedPostCount(parseToLong(stats.get("rejectedPostCount")));
             } else {
                 vo.setPostCount(0L);
                 vo.setLikeCount(0L);
                 vo.setAvgScore(0.0);
+                vo.setPendingPostCount(0L);
+                vo.setPassedPostCount(0L);
+                vo.setRejectedPostCount(0L);
             }
 
             // 填充粉丝/关注
@@ -269,76 +283,130 @@ public class AdminServiceImpl implements AdminService {
 
     @Override
     public Map<String, Object> getPostList(AdminPostSearchDTO dto) {
-        Query query = new Query();
+        // 1. 构建基础过滤条件 (Match)
+        Criteria criteria = new Criteria();
+        List<Criteria> andCriteria = new ArrayList<>();
 
-        // 1. [MongoDB] 构建查询条件
-        query.addCriteria(Criteria.where("isDeleted").is(0));
-        query.addCriteria(Criteria.where("status").in(0, 2));
-
-        if (StrUtil.isNotBlank(dto.getTitleKeyword())) {
-            query.addCriteria(Criteria.where("title").regex(dto.getTitleKeyword(), "i"));
+        // === Tab 过滤逻辑 ===
+        int tab = dto.getTab() == null ? 0 : dto.getTab();
+        switch (tab) {
+            case 1: // 待审核
+                andCriteria.add(Criteria.where("status").is(0));
+                andCriteria.add(Criteria.where("isDeleted").is(0));
+                break;
+            case 2: // 已通过
+                andCriteria.add(Criteria.where("status").is(1));
+                andCriteria.add(Criteria.where("isDeleted").is(0));
+                break;
+            case 3: // 已拒绝
+                andCriteria.add(Criteria.where("status").is(2));
+                andCriteria.add(Criteria.where("isDeleted").is(0));
+                break;
+            case 4: // 回收站
+                andCriteria.add(Criteria.where("isDeleted").is(1));
+                break;
+            default: // 0 = 全部
+                // 全部模式下，不限制 status 和 isDeleted，
+                // 但为了不把彻底物理删除的数据查出来(如果你的业务有)，通常不需额外条件
+                // 这里我们要查出所有逻辑删除(isDeleted=1)和正常帖子
+                break;
         }
-        if (dto.getTags() != null && !dto.getTags().isEmpty()) {
-            query.addCriteria(Criteria.where("tags").all(dto.getTags()));
+
+        // === 通用条件过滤 ===
+        if (StrUtil.isNotBlank(dto.getTitleKeyword())) {
+            andCriteria.add(Criteria.where("title").regex(dto.getTitleKeyword(), "i"));
+        }
+        if (CollUtil.isNotEmpty(dto.getTags())) {
+            andCriteria.add(Criteria.where("tags").all(dto.getTags()));
         }
         if (dto.getStartTime() != null && dto.getEndTime() != null) {
-            query.addCriteria(Criteria.where("createdAt")
+            andCriteria.add(Criteria.where("createdAt")
                     .gte(dto.getStartTime().atStartOfDay())
                     .lte(dto.getEndTime().atTime(LocalTime.MAX)));
         }
 
-        // 特殊处理：按邮箱筛选 (需要先查 PG 拿到 userId)
+        // === 邮箱/昵称处理 ===
         if (StrUtil.isNotBlank(dto.getEmail())) {
             User user = userMapper.selectOne(new LambdaQueryWrapper<User>()
                     .eq(User::getEmail, dto.getEmail())
-                    .select(User::getId)); // 只查 ID 优化性能
+                    .select(User::getId));
             if (user != null) {
-                query.addCriteria(Criteria.where("userId").is(user.getId()));
+                andCriteria.add(Criteria.where("userId").is(user.getId()));
             } else {
-                return Map.of("records", new ArrayList<>(), "total", 0);
+                return Map.of("records", new ArrayList<>(), "total", 0L);
             }
         } else if (StrUtil.isNotBlank(dto.getNickname())) {
-            // 按昵称模糊搜，Mongo 有冗余字段，直接查 Mongo
-            query.addCriteria(Criteria.where("userNickname").regex(dto.getNickname(), "i"));
+            andCriteria.add(Criteria.where("userNickname").regex(dto.getNickname(), "i"));
         }
 
-        // 2. [MongoDB] 执行分页查询
-        long total = mongoTemplate.count(query, PostDoc.class);
-        Pageable pageable = PageRequest.of(dto.getPage() - 1, dto.getSize(), Sort.by(Sort.Direction.DESC, "createdAt"));
-        query.with(pageable);
-        List<PostDoc> docs = mongoTemplate.find(query, PostDoc.class);
+        if (!andCriteria.isEmpty()) {
+            criteria.andOperator(andCriteria.toArray(new Criteria[0]));
+        }
 
-        // 3. [PostgreSQL] 批量补全邮箱 (解决 N+1 问题)
-        List<AdminPostVO> records;
+        // 2. 计算总数 (Count)
+        // 聚合分页前必须先查总数，这里直接用 Query 查 count 比较简单
+        long total = mongoTemplate.count(Query.query(criteria), PostDoc.class);
+        if (total == 0) {
+            return Map.of("records", new ArrayList<>(), "total", 0L);
+        }
 
-        if (CollUtil.isEmpty(docs)) {
-            records = new ArrayList<>();
+        // 3. 构建聚合管道 (Aggregation Pipeline)
+        List<AggregationOperation> operations = new ArrayList<>();
+
+        // 3.1 Match (应用过滤条件)
+        operations.add(Aggregation.match(criteria));
+
+        // 3.2 AddFields (核心：计算自定义排序权重)
+        // 仅在 Tab=0 (全部) 时需要这个复杂排序：未审核(0) -> 拒绝(2) -> 删除(isDeleted=1) -> 通过(1)
+        if (tab == 0) {
+            ConditionalOperators.Switch switchOp = ConditionalOperators.switchCases(
+                    // Case 1: isDeleted == 1 -> 权重 30
+                    ConditionalOperators.Switch.CaseOperator.when(
+                            ComparisonOperators.valueOf("isDeleted").equalToValue(1)
+                    ).then(30),
+
+                    // Case 2: status == 0 -> 权重 10
+                    ConditionalOperators.Switch.CaseOperator.when(
+                            ComparisonOperators.valueOf("status").equalToValue(0)
+                    ).then(10),
+
+                    // Case 3: status == 2 -> 权重 20
+                    ConditionalOperators.Switch.CaseOperator.when(
+                            ComparisonOperators.valueOf("status").equalToValue(2)
+                    ).then(20)
+            ).defaultTo(40); // 默认: 已通过 (status=1) -> 权重 40
+
+            operations.add(Aggregation.addFields().addField("sortWeight").withValue(switchOp).build());
+
+            // 排序：先按权重 ASC (10->20->30->40)，再按时间 DESC
+            operations.add(Aggregation.sort(Sort.by(Sort.Direction.ASC, "sortWeight").and(Sort.by(Sort.Direction.DESC, "createdAt"))));
         } else {
-            // 3.1 提取所有作者 ID (去重)
-            Set<Long> userIds = docs.stream()
-                    .map(PostDoc::getUserId)
-                    .collect(Collectors.toSet());
+            // 其他 Tab 只需要按时间倒序
+            operations.add(Aggregation.sort(Sort.Direction.DESC, "createdAt"));
+        }
 
-            // 3.2 批量查询 PG (SELECT id, email FROM users WHERE id IN (...))
+        // 3.3 Skip & Limit (分页)
+        operations.add(Aggregation.skip((long) (dto.getPage() - 1) * dto.getSize()));
+        operations.add(Aggregation.limit(dto.getSize()));
+
+        // 4. 执行聚合查询
+        Aggregation aggregation = Aggregation.newAggregation(operations);
+        List<PostDoc> docs = mongoTemplate.aggregate(aggregation, "posts", PostDoc.class).getMappedResults();
+
+        // 5. [PostgreSQL] 批量补全邮箱 (保持原逻辑不变)
+        List<AdminPostVO> records = new ArrayList<>();
+        if (CollUtil.isNotEmpty(docs)) {
+            Set<Long> userIds = docs.stream().map(PostDoc::getUserId).collect(Collectors.toSet());
             List<User> users = userMapper.selectList(new LambdaQueryWrapper<User>()
                     .in(User::getId, userIds)
-                    .select(User::getId, User::getEmail)); // 只查需要的字段
+                    .select(User::getId, User::getEmail));
+            Map<Long, String> emailMap = users.stream().collect(Collectors.toMap(User::getId, User::getEmail));
 
-            // 3.3 转为 Map<UserId, Email> 方便查找
-            Map<Long, String> emailMap = users.stream()
-                    .collect(Collectors.toMap(User::getId, User::getEmail));
-
-            // 3.4 内存组装
             records = docs.stream().map(doc -> {
                 AdminPostVO vo = new AdminPostVO();
                 BeanUtils.copyProperties(doc, vo);
-
-                // 处理摘要 (防止内容过长)
                 vo.setContent(StrUtil.subPre(doc.getContent(), 50));
-
-                // 补全邮箱
                 vo.setUserEmail(emailMap.get(doc.getUserId()));
-
                 return vo;
             }).collect(Collectors.toList());
         }
@@ -411,32 +479,35 @@ public class AdminServiceImpl implements AdminService {
 
     @Override
     public void auditPost(String postId, Integer status, String reason) {
-        // 1. 先查询帖子 (我们需要知道作者是谁，才能发通知)
+        // 1. 先查询帖子
         PostDoc post = mongoTemplate.findById(postId, PostDoc.class);
         if (post == null) {
             throw new AppException(ResultCode.RESOURCE_NOT_FOUND);
         }
 
-        // 2. 执行更新 (你的原有逻辑)
+        // 2. 获取当前操作管理员的信息 【新增】
+        Long adminId = UserContext.getUserId();
+        User admin = userMapper.selectById(adminId); // 获取管理员昵称
+        String adminName = (admin != null) ? admin.getNickname() : "Unknown Admin";
+
+        // 3. 执行更新 (原有逻辑)
         Update update = new Update();
         update.set("status", status);
-        // 如果是拒绝，建议把理由也存到帖子表里，方便作者修改时看到
         if (status == 2 && StrUtil.isNotBlank(reason)) {
             update.set("rejectReason", reason);
         }
-        // 更新 updateAt
         update.set("updatedAt", LocalDateTime.now());
-
         mongoTemplate.updateFirst(Query.query(Criteria.where("id").is(postId)), update, PostDoc.class);
 
-        // 3. 【核心新增】发送异步事件到 RabbitMQ
-        // 路由键建议定义为 "post.audit"
+        // 4. 【修改】发送异步事件 (填入操作人信息)
         PostAuditEvent event = new PostAuditEvent(
                 post.getId(),
                 post.getUserId(),
                 post.getTitle(),
                 status,
-                reason
+                reason,
+                adminId,    // set operatorId
+                adminName   // set operatorName
         );
         rabbitTemplate.convertAndSend(RabbitConfig.PLATFORM_EXCHANGE, "post.audit", event);
 
@@ -448,7 +519,7 @@ public class AdminServiceImpl implements AdminService {
             rabbitTemplate.convertAndSend(RabbitConfig.PLATFORM_EXCHANGE, "post.audit.pass", passEvent);
 
         }
-        log.info("Admin audit post {}: status={}, reason={}, event sent.", postId, status, reason);
+        log.info("管理员审核帖子 {}: status={}, reason={}, operator={}", postId, status, reason, adminName);
     }
 
     @Override
@@ -739,4 +810,26 @@ public class AdminServiceImpl implements AdminService {
             return vo;
         }).collect(Collectors.toList());
     }
+
+    @Override
+    public List<PostAuditLogVO> getPostAuditHistory(String postId) {
+        // 1. 构建查询
+        Query query = new Query();
+        query.addCriteria(Criteria.where("postId").is(postId));
+
+        // 2. 按时间倒序
+        query.with(Sort.by(Sort.Direction.DESC, "createdAt"));
+
+        // 3. 执行查询
+        List<PostAuditLogDoc> logs = mongoTemplate.find(query, PostAuditLogDoc.class);
+
+        // 4. 转换 VO
+        return logs.stream().map(doc -> {
+            PostAuditLogVO vo = new PostAuditLogVO();
+            BeanUtils.copyProperties(doc, vo);
+            return vo;
+        }).collect(Collectors.toList());
+    }
+
+
 }

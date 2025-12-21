@@ -309,17 +309,18 @@
                 },
                 "example": {
                   "code": 200,
-                  "message": "登录成功",
+                  "message": "操作成功",
                   "data": {
-                    "token": "eyJhbGciOiJIUzI1Ni...",
-                    "userInfo": {
-                      "userId": "10086",
-                      "nickname": "小青",
-                      "avatar": "https://oss...",
-                      "email": "elaine@szu.edu.cn"
-                    },
+                    "token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VySWQiOjksInJvbGUiOiJVU0VSIiwiZXhwIjoxNzY2NTgwNzA4fQ.XlKg1uAD4hp8uMgw5yO2bGjn4BhTewVcBUrg2-uKb0U",
                     "isNewUser": false,
-                    "hasPassword": true
+                    "hasPassword": true,
+                    "userInfo": {
+                      "userId": "9",
+                      "nickname": "映记测试账号",
+                      "avatar": "https://afternoon3-rednote.oss-cn-shenzhen.aliyuncs.com/default_avatar.jpg",
+                      "email": "test5@test.com"
+                    },
+                    "userSig": "eJyrVgrxCdZLrSjILEpVsjIzMLEwMNABi5WlFilZKRnpGShB*MUp2YkFBZkpSlaGZgYGhoZmliYWEJnMlNS8ksy0TLAGS5jyzHQgLyU1JyApzd*i0qw0LC-JJTE4MD8zPdjINDQoyMgpN9jP2LvYLTE4LCo1x8AWqrEkMxfoEkNzM1NLc1NLA4taAA*BL2Y_"
                   }
                 }
               }
@@ -1216,12 +1217,7 @@
                 ]
               },
               "example": {
-                "nickname": "杜沐阳",
-                "avatar": "https://avatars.githubusercontent.com/u/68831312",
-                "bio": "钟爱好者，玩家🇩🇯",
-                "gender": 1,
-                "birthday": "2024-12-10",
-                "region": "华南"
+                "nickname": "映记测试账号-测试版"
               }
             }
           },
@@ -1892,7 +1888,7 @@
             "in": "query",
             "description": "搜索关键词（昵称/邮箱）",
             "required": true,
-            "example": "test",
+            "example": "",
             "schema": {
               "type": "string"
             }
@@ -3120,13 +3116,13 @@
             "name": "tab",
             "in": "query",
             "description": "Tab类型：recommend(推荐), follow(关注)。默认为 recommend",
-            "required": true,
-            "example": "\"recommend\"",
+            "required": false,
+            "example": "recommend",
             "schema": {
               "type": "string",
               "enum": [
-                "\"recommend\"",
-                "\"follow\""
+                "recommend",
+                "follow"
               ],
               "default": "\"recommend\""
             }
@@ -3136,8 +3132,25 @@
             "in": "query",
             "description": "标签筛选（选填）。如果用户点击了具体的标签（如'美食'），则传此参数，此时忽略 tab 参数",
             "required": false,
+            "example": "",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "description": "new/old/likes/hot,默认按照hot排序",
+            "required": false,
+            "example": "likes",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "hot",
+                "new",
+                "old",
+                "likes"
+              ]
             }
           }
         ],
@@ -3215,10 +3228,18 @@
                               },
                               "createdAt": {
                                 "type": "string"
+                              },
+                              "coverHeight": {
+                                "type": "integer"
+                              },
+                              "coverWidth": {
+                                "type": "integer"
                               }
                             },
                             "required": [
-                              "cover"
+                              "cover",
+                              "coverHeight",
+                              "coverWidth"
                             ]
                           }
                         },
@@ -3368,7 +3389,7 @@
             "in": "query",
             "description": "搜索关键词",
             "required": true,
-            "example": "深圳",
+            "example": "sz",
             "schema": {
               "type": "string"
             }
@@ -3391,6 +3412,32 @@
             "schema": {
               "type": "integer",
               "default": 20
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "description": "new/old/likes/hot,默认按照hot排序",
+            "required": false,
+            "example": "",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "hot",
+                "new",
+                "old",
+                "likes"
+              ]
+            }
+          },
+          {
+            "name": "tag",
+            "in": "query",
+            "description": "",
+            "required": false,
+            "example": "",
+            "schema": {
+              "type": "string"
             }
           }
         ],
@@ -3467,10 +3514,18 @@
                               },
                               "createdAt": {
                                 "type": "string"
+                              },
+                              "coverHeight": {
+                                "type": "integer"
+                              },
+                              "coverWidth": {
+                                "type": "integer"
                               }
                             },
                             "required": [
-                              "cover"
+                              "cover",
+                              "coverHeight",
+                              "coverWidth"
                             ]
                           }
                         },
@@ -3552,7 +3607,7 @@
             "in": "path",
             "description": "帖子ID (Mongo ObjectId)",
             "required": true,
-            "example": "693849267b01b2690207492b",
+            "example": "694509693735285a10a6340d",
             "schema": {
               "type": "string"
             }
@@ -3741,7 +3796,7 @@
             "in": "path",
             "description": "需要删除的帖子id，是mongo的string",
             "required": true,
-            "example": "693633b64fdf5a0d330b95c5",
+            "example": "6942af15484b1b1599f6aef9",
             "schema": {
               "type": "string"
             }
@@ -3803,7 +3858,7 @@
             "in": "path",
             "description": "帖子的id,是mongo的string",
             "required": true,
-            "example": "693633874fdf5a0d330b95c4",
+            "example": "6942af15484b1b1599f6aef9",
             "schema": {
               "type": "string"
             }
@@ -3837,21 +3892,21 @@
                     "items": {
                       "type": "string"
                     }
+                  },
+                  "coverHeight": {
+                    "type": "integer"
+                  },
+                  "coverWidth": {
+                    "type": "integer"
                   }
-                }
+                },
+                "required": [
+                  "coverHeight",
+                  "coverWidth"
+                ]
               },
               "example": {
-                "title": "哎呀从最后揽噢红糟糕",
-                "content": "Excepteur elit magna id",
-                "images": [
-                  "https://loremflickr.com/400/400?lock=4505995967633681",
-                  "https://loremflickr.com/400/400?lock=762969650949673"
-                ],
-                "tags": [
-                  "ut ullamco amet tempor",
-                  "commodo",
-                  "ea"
-                ]
+                "title": "测试同步update"
               }
             }
           }
@@ -3881,7 +3936,7 @@
             "in": "query",
             "description": "用户输入的关键词",
             "required": true,
-            "example": "tes",
+            "example": "深圳",
             "schema": {
               "type": "string"
             }
@@ -4216,15 +4271,37 @@
                     },
                     "description": "标签列表，如 ['美食', '探店']",
                     "title": "标签列表"
+                  },
+                  "coverWidth": {
+                    "type": "integer"
+                  },
+                  "coverHeight": {
+                    "type": "integer"
                   }
                 },
                 "required": [
                   "title",
                   "content",
-                  "type"
+                  "type",
+                  "coverWidth",
+                  "coverHeight"
                 ]
               },
-              "example": "{\n    \"title\": \"来了就是深圳人\",\n    \"content\": \"在深圳快速融入城市生活的超实用Tips⚡️：1️⃣ 地铁出行首选“深圳通”小程序，方便快捷；2️⃣ 租房避雷城中村但追求性价比，关注“白石洲、上下沙”区域；3️⃣ 公园之城名不虚传，周末必去深圳湾公园或莲花山；4️⃣ 科技园/福田工作，通勤时间是幸福感关键，尽量住得近；5️⃣ 电子发票和社保绑定“i深圳”App一键搞定；6️⃣ 深圳美食藏在城中村，探店记得找本地人推荐；7️⃣ 深圳速度不只是工作，也是学习成长的速度，多利用图书馆和社区大学资源！\"，\n    \"type\": 0,\n    \"images\": [\n        \"https://loremflickr.com/400/400?lock=1985490835845064\",\n        \"https://loremflickr.com/400/400?lock=5441318881668706\",\n        \"https://loremflickr.com/400/400?lock=8657558931351548\"\n    ],\n    \"tags\": [\n        \"labore aliquip ad\",\n        \"enim aute mollit est adipisicing\"\n    ]\n}"
+              "example": {
+                "title": "深圳",
+                "content": "深圳",
+                "images": [
+                  "https://afternoon3-rednote.oss-cn-shenzhen.aliyuncs.com/szu-logo.png",
+                  "https://afternoon3-rednote.oss-cn-shenzhen.aliyuncs.com/szu-campus1.jpg",
+                  "https://afternoon3-rednote.oss-cn-shenzhen.aliyuncs.com/shadow.jpg"
+                ],
+                "type": 0,
+                "tags": [
+                  "深圳",
+                  "大学",
+                  "test"
+                ]
+              }
             }
           },
           "required": true
@@ -4346,9 +4423,9 @@
     },
     "/api/tag/ai-generate": {
       "post": {
-        "summary": "AI推荐tag",
+        "summary": "ai生成推荐tag",
         "deprecated": false,
-        "description": "ai根据title和content生成tag",
+        "description": "",
         "tags": [],
         "parameters": [],
         "requestBody": {
@@ -4362,13 +4439,30 @@
                   },
                   "content": {
                     "type": "string"
+                  },
+                  "images": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "video": {
+                    "type": "string"
                   }
                 },
                 "required": [
                   "content"
                 ]
               },
-              "examples": {}
+              "example": {
+                "title": "深圳大学真好",
+                "content": "在南海之滨的创新沃土上，深圳大学以 42 载锐意前行，书写了中国高等教育的奋进传奇。作为 “特区大学、窗口大学、实验大学”，它从北大、清华、人大援建的起点出发，秉持 “自立、自律、自强” 的校训，快速成长为特色鲜明的高水平综合性大学，跑出了令人瞩目的 “深大速度”。这里有硬核的学术实力作支撑：34 个国家级一流本科专业建设点、26 个博士点构筑起完善的学科体系，4 个全球前 1‰学科、20 个全球前 1% 学科彰显顶尖实力，5 个全国重点实验室、3 个国家工程实验室等 150 余个高端科研平台，让创新成果持续涌现，仅 2024 年就斩获 4 项广东省科学技术一等奖。两院院士领衔的 242 位国家级高层次人才师资队伍，与腾讯、华为等企业构建的 “环深大创新创业生态圈”，实现了科教融合与产教协同的深度衔接。这里有滋养成长的优质生态：2.72 平方公里的粤海、丽湖两校区，荔枝成林、湖海环绕，兼具 “全国最美校园” 的景致与 60 亿元教学科研仪器设备的硬核配置，474.9 万册纸本资源与 13.97 万种电子期刊搭建起知识殿堂。33 个特色实验班、14 个本研一体卓越班与多元微专业，让每位学子都能找到成长路径，而平均每 10 名本科生就有 1 人获省级以上科技竞赛奖项、毕业生平均 49 个岗位可选的亮眼数据，更印证了其人才培养的卓越成效。从率先推行高校管理体制改革，到培养 30 余万扎根粤港澳大湾区的创新创业人才；从世界大学排名稳步攀升，到人工智能学院等新兴学科紧跟国家战略，深圳大学始终与城市同频、与时代共振，用创新精神与实干品格，成为新时代中国高等教育改革发展的生动典范。",
+                "images": [
+                  "https://afternoon3-rednote.oss-cn-shenzhen.aliyuncs.com/szu-logo.png",
+                  "https://afternoon3-rednote.oss-cn-shenzhen.aliyuncs.com/szu-campus1.jpg",
+                  "https://afternoon3-rednote.oss-cn-shenzhen.aliyuncs.com/shadow.jpg"
+                ]
+              }
             }
           },
           "required": true
@@ -4409,7 +4503,8 @@
                   ]
                 }
               }
-            }
+            },
+            "headers": {}
           }
         },
         "security": [
@@ -4585,7 +4680,7 @@
                 ]
               },
               "example": {
-                "postId": "693644a98ed84a6cc5bce5a3"
+                "postId": "693d12247a34472e0da632d4"
               }
             }
           },
@@ -5787,6 +5882,34 @@
         "summary": "一键已读",
         "deprecated": false,
         "description": "用户进入消息列表页，或点击“清除未读”时，调用该接口",
+        "tags": [],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {}
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "jwt": []
+          }
+        ]
+      }
+    },
+    "/api/dev/seed": {
+      "post": {
+        "summary": "获取测试数据",
+        "deprecated": false,
+        "description": "",
         "tags": [],
         "parameters": [],
         "responses": {

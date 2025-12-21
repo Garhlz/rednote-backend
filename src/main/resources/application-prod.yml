@@ -73,6 +73,12 @@ mybatis-plus:
       logic-delete-value: 1
       logic-not-delete-value: 0
 
+logging:
+  level:
+    root: INFO # 全局默认是 INFO
+    # 将 Listener 包单独设为 INFO (生产环境)
+    com.szu.afternoon3.platform.listener: INFO
+
 ai:
   deepseek:
     url: https://api.deepseek.com/chat/completions

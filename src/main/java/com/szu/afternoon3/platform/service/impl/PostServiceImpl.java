@@ -7,6 +7,7 @@ import co.elastic.clients.elasticsearch._types.query_dsl.*;
 import co.elastic.clients.elasticsearch.core.search.Suggester;
 import co.elastic.clients.json.JsonData;
 import com.szu.afternoon3.platform.common.UserContext;
+import com.szu.afternoon3.platform.component.SensitiveWordFilter;
 import com.szu.afternoon3.platform.config.RabbitConfig;
 import com.szu.afternoon3.platform.dto.PostUpdateDTO;
 import com.szu.afternoon3.platform.entity.mongo.PostCollectDoc;
@@ -95,6 +96,9 @@ public class PostServiceImpl implements PostService {
 
     @Autowired
     private ElasticsearchOperations esOperations; // 注入 ES 操作模板
+
+    @Autowired
+    private SensitiveWordFilter sensitiveWordFilter;
 
     // 提取为成员变量，避免重复创建 (DateTimeFormatter 是线程安全的)
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
@@ -639,7 +643,29 @@ public class PostServiceImpl implements PostService {
         if (userId == null) {
             throw new AppException(ResultCode.UNAUTHORIZED);
         }
-
+        // ================== 【新增】敏感词拦截 ==================
+        // 1. 校验标题
+        if (sensitiveWordFilter.hasSensitiveWord(dto.getTitle())) {
+            List<String> words = sensitiveWordFilter.findAll(dto.getTitle());
+            throw new AppException(ResultCode.PARAM_ERROR, "标题包含违规词：" + words.get(0));
+//            throw new AppException(ResultCode.PARAM_ERROR, "标题包含敏感词，请修改");
+        }
+        // 2. 校验正文
+        if (sensitiveWordFilter.hasSensitiveWord(dto.getContent())) {
+            // 进阶写法：告诉用户具体哪个词违规（可选，看需求）
+             List<String> words = sensitiveWordFilter.findAll(dto.getContent());
+             throw new AppException(ResultCode.PARAM_ERROR, "内容包含违规词：" + words.get(0));
+//            throw new AppException(ResultCode.PARAM_ERROR, "内容包含敏感词，请修改");
+        }
+        // 3. 校验标签 (遍历 List)
+        if (dto.getTags() != null) {
+            for (String tag : dto.getTags()) {
+                if (sensitiveWordFilter.hasSensitiveWord(tag)) {
+                    throw new AppException(ResultCode.PARAM_ERROR, "标签包含敏感词：" + tag);
+                }
+            }
+        }
+        // =======================================================
         // 2. 获取用户详细信息 (用于 MongoDB 冗余存储)
         User user = userMapper.selectById(userId);
         if (user == null) {
@@ -736,11 +762,15 @@ public class PostServiceImpl implements PostService {
     }
 
     @Override
-    public void deletePost(String postId) {
+    public void deletePost(String postId, String reason) { // 【修改】增加 reason 参数
         // 1. 获取当前登录用户
         Long currentUserId = UserContext.getUserId();
         if (currentUserId == null) {
             throw new AppException(ResultCode.UNAUTHORIZED);
+        }
+        User user = userMapper.selectById(currentUserId);
+        if (user == null) {
+            throw new AppException(ResultCode.USER_NOT_FOUND);
         }
 
         // 2. 查询帖子是否存在
@@ -749,27 +779,36 @@ public class PostServiceImpl implements PostService {
             throw new AppException(ResultCode.RESOURCE_NOT_FOUND, "帖子不存在或已删除");
         }
 
-        // 3. 权限校验：必须是作者本人 OR 管理员
+        // 3. 权限校验 & 判定身份
+        boolean isAdminOp = false;
         if (!post.getUserId().equals(currentUserId)) {
-            // 如果不是作者，查一下数据库看是不是管理员
-            User user = userMapper.selectById(currentUserId);
-            if (user == null || !"ADMIN".equalsIgnoreCase(user.getRole())) {
+            // 不是作者，检查是否为管理员
+            if (!"ADMIN".equalsIgnoreCase(user.getRole())) {
                 throw new AppException(ResultCode.UNAUTHORIZED, "无权删除他人帖子");
             }
+            isAdminOp = true;
         }
 
-        // 4. 执行逻辑删除 (Soft Delete)
-        // 我们只标记帖子为删除，关联数据的清理交给 Listener 异步处理
+        // 4. 执行逻辑删除
         post.setIsDeleted(1);
-        post.setStatus(2); // 可选：标记状态为审核失败或特定状态，防止被搜索出来
+//        post.setStatus(3); // 建议：状态3表示"已删除/回收站"，区别于 2(审核拒绝)
+        // TODO 新增帖子的删除状态，其他地方也要跟着维护
         post.setUpdatedAt(java.time.LocalDateTime.now());
-
         postRepository.save(post);
 
-        // 5. 发布事件 (Spring Event)
-        // 解耦：Service 只管改状态，后续的 Redis 清理、关联数据删除交给 Listener
-        rabbitTemplate.convertAndSend(RabbitConfig.PLATFORM_EXCHANGE, "post.delete",
-                new PostDeleteEvent(postId, currentUserId));
+        // 5. 【增强】发布事件
+        // 将必要信息带给 Listener，实现异步解耦
+        PostDeleteEvent event = new PostDeleteEvent(
+                postId,
+                currentUserId,
+                user.getNickname(),
+                post.getUserId(), // authorId
+                post.getTitle(),  // postTitle
+                reason,           // reason
+                isAdminOp           // isAdminOp
+        );
+
+        rabbitTemplate.convertAndSend(RabbitConfig.PLATFORM_EXCHANGE, "post.delete", event);
     }
 
     @Override
@@ -790,16 +829,36 @@ public class PostServiceImpl implements PostService {
 
         boolean needAudit = false;
 
-        // 1. 更新基本文本
+        // 1. 更新基本文本 (修改此处逻辑)
         if (StrUtil.isNotBlank(dto.getTitle())) {
+            // 【新增】校验新标题
+            if (sensitiveWordFilter.hasSensitiveWord(dto.getTitle())) {
+                List<String> words = sensitiveWordFilter.findAll(dto.getTitle());
+                throw new AppException(ResultCode.PARAM_ERROR, "标题包含违规词：" + words.get(0));
+//                throw new AppException(ResultCode.PARAM_ERROR, "标题包含敏感词");
+            }
             post.setTitle(dto.getTitle());
             needAudit = true;
         }
+
         if (StrUtil.isNotBlank(dto.getContent())) {
+            // 【新增】校验新内容
+            if (sensitiveWordFilter.hasSensitiveWord(dto.getContent())) {
+                List<String> words = sensitiveWordFilter.findAll(dto.getContent());
+                throw new AppException(ResultCode.PARAM_ERROR, "内容包含违规词：" + words.get(0));
+//                throw new AppException(ResultCode.PARAM_ERROR, "内容包含敏感词");
+            }
             post.setContent(dto.getContent());
             needAudit = true;
         }
+
         if (dto.getTags() != null) {
+            // 【新增】校验新标签
+            for (String tag : dto.getTags()) {
+                if (sensitiveWordFilter.hasSensitiveWord(tag)) {
+                    throw new AppException(ResultCode.PARAM_ERROR, "标签包含敏感词：" + tag);
+                }
+            }
             post.setTags(dto.getTags());
             needAudit = true;
         }

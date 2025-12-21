@@ -124,7 +124,7 @@ public class PostController {
     @DeleteMapping("/{id}")
     @OperationLog(module = "帖子模块", description = "删除帖子", bizId = "#postId")
     public Result<Void> deletePost(@PathVariable("id") String postId) {
-        postService.deletePost(postId);
+        postService.deletePost(postId,null);
         return Result.success();
     }
 

@@ -15,4 +15,7 @@ public class PostAuditEvent implements Serializable {
     private String postTitle; // 帖子标题 (用于通知展示)
     private Integer status;  // 1=通过, 2=拒绝
     private String reason;   // 拒绝理由
+    // --- 【新增】操作人信息，用于生成审核记录 ---
+    private Long operatorId;    // 管理员ID
+    private String operatorName;// 管理员昵称
 }

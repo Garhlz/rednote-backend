@@ -2,7 +2,8 @@ import http from 'k6/http';
 import { check, sleep, group } from 'k6';
 
 // ================= 配置区域 =================
-const BASE_URL = 'http://8.148.145.178'; // 替换为你的服务器 IP 或 localhost
+//const BASE_URL = 'http://8.148.145.178'; // 替换为你的服务器 IP 或 localhost
+const BASE_URL = 'http://localhost:8080';
 const TEST_USER = {
   account: "test5@test.com", // 确保数据库里有这个用户
   password: "123456"  // 确保密码正确
@@ -12,9 +13,12 @@ const TEST_USER = {
 export const options = {
   // 压测阶段配置
   stages: [
-    { duration: '10s', target: 10 }, // 热身：10秒内升到10个并发
-    { duration: '1m', target: 50 },  // 施压：保持50个并发跑1分钟 (你可以根据服务器情况调整)
-    { duration: '10s', target: 0 },  // 冷却：10秒内降回0
+//    { duration: '10s', target: 10 }, // 热身：10秒内升到10个并发
+//    { duration: '1m', target: 50 },  // 施压：保持50个并发跑1分钟 (你可以根据服务器情况调整)
+//    { duration: '10s', target: 0 },  // 冷却：10秒内降回0
+    { duration: '10s', target: 500 },
+    { duration: '30s', target: 500 },
+    { duration: '10s', target: 0 },
   ],
   // 阈值设置：如果95%的请求超过1秒，或者错误率超过1%，则算失败
   thresholds: {
@@ -87,19 +91,22 @@ export default function (data) {
     }
   });
 
-  // 行为 C: 搜索 (10% 的概率，这是最考验 CPU/ES 的操作)
-  if (Math.random() < 0.1) {
+  // 行为 C: 搜索 (20% 的概率，这是最考验 CPU/ES 的操作)
+  if (Math.random() < 0.2) {
     group('Search Action', function () {
-      const keywords = ['深圳', '大学','技术','测试'];
+      const keywords = ['深圳','大学','技术','测试'];
       const kw = keywords[Math.floor(Math.random() * keywords.length)];
-
+      const encodedKw = encodeURIComponent(kw);
       // 1. 模拟输入时的自动补全 (Suggest)
-      http.get(`${BASE_URL}/api/post/search/suggest?keyword=${kw}`, { headers });
+      http.get(`${BASE_URL}/api/post/search/suggest?keyword=${encodedKw}`, { headers });
 
       sleep(0.5); // 输完字停顿一下
 
       // 2. 真正的搜索
-      http.get(`${BASE_URL}/api/post/search?keyword=${kw}&page=1&size=20`, { headers });
+      const searchRes = http.get(`${BASE_URL}/api/post/search?keyword=${encodedKw}&page=1&size=20`, { headers });
+            check(searchRes, {
+                'search status 200': (r) => r.status === 200,
+            });
     });
   }
 

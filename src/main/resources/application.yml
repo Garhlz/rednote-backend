@@ -13,7 +13,7 @@ server:
       # 默认是 io * 8 = 16。
       # 在内存受限时，不要设置得太高（例如 200），因为每个 Java 线程都需要独立的 Stack 内存（默认 1MB）。
       # 设置为 32-64 足够应对大多数中小规模并发。
-      worker: 32
+      worker: 100
 
       # 缓冲区大小：Undertow 分配内存的单位。
       buffer-size: 16384
@@ -37,7 +37,16 @@ spring:
     date-format: yyyy-MM-dd HH:mm:ss
     time-zone: GMT+8
     default-property-inclusion: always # 即使字段是 null 也返回（方便前端判断）
-
+  datasource:
+    hikari:
+      # 【调优】建议设置为 30-50
+      # 公式参考：Core_count * 2 + effective_spindle_count
+      # 但在 Docker 容器里，主要看内存，给 30 试试
+      maximum-pool-size: 30
+      # 连接超时时间，默认 30s，如果等待太久会报错，可以保持不变
+      connection-timeout: 30000
+      # 最小空闲连接
+      minimum-idle: 10
   # --- 文件上传限制 ---
   servlet:
     multipart:

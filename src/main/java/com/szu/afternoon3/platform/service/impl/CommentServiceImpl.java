@@ -3,6 +3,7 @@ package com.szu.afternoon3.platform.service.impl;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
 import com.szu.afternoon3.platform.common.UserContext;
+import com.szu.afternoon3.platform.component.SensitiveWordFilter;
 import com.szu.afternoon3.platform.config.RabbitConfig;
 import com.szu.afternoon3.platform.dto.CommentCreateDTO;
 import com.szu.afternoon3.platform.entity.User;
@@ -48,11 +49,22 @@ public class CommentServiceImpl implements CommentService {
     @Autowired
     private CommentLikeRepository commentLikeRepository; // 检查是否点赞
     @Autowired private PostRepository postRepository;
+    @Autowired
+    private SensitiveWordFilter sensitiveWordFilter;
+
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void createComment(CommentCreateDTO dto) {
         Long currentUserId = UserContext.getUserId();
         User user = userMapper.selectById(currentUserId);
+
+        // ================== 【新增】敏感词拦截 ==================
+        // 强拦截
+        if (sensitiveWordFilter.hasSensitiveWord(dto.getContent())) {
+            List<String> words = sensitiveWordFilter.findAll(dto.getContent());
+            throw new AppException(ResultCode.PARAM_ERROR, "评论包含违规词：" + words.get(0));
+//            throw new AppException(ResultCode.PARAM_ERROR, "评论包含敏感词，请文明发言");
+        }
 
         // 0. 【修复】先校验帖子是否存在，并获取帖子作者信息 (用于通知)
         PostDoc post = postRepository.findById(dto.getPostId())
@@ -112,6 +124,7 @@ public class CommentServiceImpl implements CommentService {
 
         rabbitTemplate.convertAndSend(RabbitConfig.PLATFORM_EXCHANGE, "comment.create", event);
     }
+
     @Override
     public Map<String, Object> getRootComments(String postId, Integer page, Integer size) {
         Long currentUserId = UserContext.getUserId();

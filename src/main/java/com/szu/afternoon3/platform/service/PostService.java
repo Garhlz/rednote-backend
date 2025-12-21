@@ -52,7 +52,7 @@ public interface PostService {
      */
     String createPost(PostCreateDTO dto);
 
-    void deletePost(String postId);
+    void deletePost(String postId, String reason);
 
     /**
      * 修改帖子

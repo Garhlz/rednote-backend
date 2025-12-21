@@ -10,5 +10,6 @@ public enum NotificationType {
     REPLY,          // 回复了评论
     SYSTEM,          // 系统通知
     SYSTEM_AUDIT_PASS,   // 审核通过
-    SYSTEM_AUDIT_REJECT  // 审核拒绝
+    SYSTEM_AUDIT_REJECT,  // 审核拒绝
+    SYSTEM_POST_DELETE  // 帖子删除通知
 }

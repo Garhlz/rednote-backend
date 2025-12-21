@@ -72,10 +72,25 @@ mybatis-plus:
 
 logging:
   level:
-    # 只有这个包下的 Mapper 才打印 DEBUG 级别的 SQL 日志
-    com.szu.afternoon3.platform.mapper: DEBUG
-    org.springframework.data.mongodb.core.MongoTemplate: DEBUG
-    org.mongodb.driver.protocol.command: DEBUG
+    root: INFO
+    # 1. Listener: 保持 DEBUG，配合你刚才代码里的 log.debug，
+    # 这样你能看到业务流转（如：收到点赞、发帖），但因为你代码里已经过滤了高频废话，所以不会太吵。
+    com.szu.afternoon3.platform.listener: DEBUG
+
+    # 2. MyBatis (SQL): 建议改为 INFO
+    # 除非你在修 SQL 语句的 Bug，否则平时不要开 DEBUG。
+    # DEBUG 级别不仅打印 SQL，还会打印查询出的每一行结果（Result Set），非常占屏幕。
+    com.szu.afternoon3.platform.mapper: INFO
+
+    # 3. MongoDB Template: 建议改为 INFO
+    # DEBUG 会打印生成的 Query 对象。如果你信任 Spring Data 的查询生成，平时不需要看。
+    org.springframework.data.mongodb.core.MongoTemplate: INFO
+
+    # 4. 【罪魁祸首】MongoDB 驱动协议: 必须改为 WARN 或 ERROR
+    # 这里是打印底层 TCP/IP 协议包的，开发时几乎永远不需要看这个，除非你在调试 MongoDB 驱动本身的 Bug。
+    org.mongodb.driver.protocol.command: WARN
+
+
 ai:
   deepseek:
     url: https://api.deepseek.com/chat/completions

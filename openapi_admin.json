@@ -1,0 +1,3572 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "管理员端接口",
+    "description": "郑煜坤负责的第二次迭代内容。导入后请全选内部文件夹拖拽至上级，然后删除本文件夹。",
+    "version": "1.0.0"
+  },
+  "tags": [
+    {
+      "name": "AdminAuth"
+    },
+    {
+      "name": "AdminProfile"
+    },
+    {
+      "name": "UserMgr"
+    },
+    {
+      "name": "ContentAudit"
+    }
+  ],
+  "paths": {
+    "/api/admin/auth/login": {
+      "post": {
+        "summary": "管理员登录",
+        "deprecated": false,
+        "description": "输入用户名和密码进行登录，获取 Token。",
+        "tags": [
+          "AdminAuth"
+        ],
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "title": "登录提交表单",
+                "type": "object",
+                "properties": {
+                  "account": {
+                    "title": "用户名",
+                    "type": "string",
+                    "description": "管理员账号",
+                    "example": "admin"
+                  },
+                  "password": {
+                    "title": "密码",
+                    "type": "string",
+                    "description": "管理员密码",
+                    "example": "123456"
+                  }
+                },
+                "required": [
+                  "account",
+                  "password"
+                ]
+              },
+              "example": {
+                "account": "garhlz257@gmail.com",
+                "password": "123456"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "登录成功响应",
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "title": "状态码",
+                      "type": "integer",
+                      "description": "200表示成功",
+                      "example": 200
+                    },
+                    "msg": {
+                      "title": "提示信息",
+                      "type": "string",
+                      "example": "登录成功"
+                    },
+                    "data": {
+                      "title": "业务数据",
+                      "type": "object",
+                      "properties": {
+                        "token": {
+                          "title": "鉴权令牌",
+                          "type": "string",
+                          "description": "后续请求需带在Header中"
+                        }
+                      },
+                      "required": [
+                        "token"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "msg",
+                    "data"
+                  ]
+                },
+                "example": {
+                  "code": 200,
+                  "msg": "登录成功",
+                  "data": {
+                    "token": "deserunt aliquip pariatur irure veniam"
+                  }
+                }
+              }
+            },
+            "headers": {}
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "登录失败响应",
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "title": "状态码",
+                      "type": "integer",
+                      "example": 400
+                    },
+                    "msg": {
+                      "title": "错误提示",
+                      "type": "string",
+                      "example": "用户名或密码错误"
+                    },
+                    "data": {
+                      "title": "数据",
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "msg"
+                  ]
+                },
+                "example": {
+                  "code": 400,
+                  "msg": "用户名或密码错误",
+                  "data": null
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "jwt": []
+          }
+        ]
+      }
+    },
+    "/api/admin/auth/send-code": {
+      "post": {
+        "summary": "发送验证码",
+        "deprecated": false,
+        "description": "用于忘记密码或修改密码场景。",
+        "tags": [
+          "AdminAuth"
+        ],
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "title": "发送验证码参数",
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "title": "接收邮箱",
+                    "type": "string",
+                    "format": "email",
+                    "description": "目标邮箱地址"
+                  }
+                },
+                "required": [
+                  "email"
+                ]
+              },
+              "example": {
+                "email": "garhlz257@gmail.com"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "发送成功响应",
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "title": "状态码",
+                      "type": "integer",
+                      "example": 200
+                    },
+                    "msg": {
+                      "title": "提示信息",
+                      "type": "string",
+                      "example": "验证码已发送"
+                    },
+                    "data": {
+                      "title": "业务数据",
+                      "type": "object",
+                      "properties": {},
+                      "nullable": true
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "msg"
+                  ]
+                },
+                "example": {
+                  "code": 200,
+                  "msg": "验证码已发送",
+                  "data": {}
+                }
+              }
+            },
+            "headers": {}
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                },
+                "example": {
+                  "code": 40302,
+                  "message": "无权限访问",
+                  "data": null
+                }
+              }
+            },
+            "headers": {}
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                },
+                "example": {
+                  "code": 40401,
+                  "message": "该账号未注册",
+                  "data": null
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "jwt": []
+          }
+        ]
+      }
+    },
+    "/api/admin/auth/reset-password": {
+      "post": {
+        "summary": "登录页重置密码",
+        "deprecated": false,
+        "description": "未登录状态下通过邮箱验证码重置密码。",
+        "tags": [
+          "AdminAuth"
+        ],
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "title": "重置密码参数",
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "title": "用户邮箱",
+                    "type": "string"
+                  },
+                  "code": {
+                    "title": "验证码",
+                    "type": "string",
+                    "description": "邮箱收到的验证码"
+                  },
+                  "newPassword": {
+                    "title": "新密码",
+                    "type": "string",
+                    "description": "新设置的密码"
+                  }
+                },
+                "required": [
+                  "email",
+                  "code",
+                  "newPassword"
+                ]
+              },
+              "example": {
+                "email": "ffxlmf.klv40@yahoo.cn",
+                "code": "61",
+                "newPassword": "MrDkB4zZanUh7G0"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "重置成功响应",
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "title": "状态码",
+                      "type": "integer",
+                      "example": 200
+                    },
+                    "msg": {
+                      "title": "提示信息",
+                      "type": "string",
+                      "example": "重置成功"
+                    },
+                    "data": {
+                      "title": "业务数据",
+                      "type": "object",
+                      "properties": {},
+                      "nullable": true
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "msg"
+                  ]
+                },
+                "example": {
+                  "code": 200,
+                  "msg": "重置成功",
+                  "data": {}
+                }
+              }
+            },
+            "headers": {}
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "重置失败响应",
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "title": "状态码",
+                      "type": "integer",
+                      "example": 400
+                    },
+                    "msg": {
+                      "title": "错误提示",
+                      "type": "string",
+                      "example": "验证码错误或已过期"
+                    },
+                    "data": {
+                      "title": "数据",
+                      "type": "null"
+                    }
+                  }
+                },
+                "example": {
+                  "code": 400,
+                  "msg": "验证码错误或已过期",
+                  "data": null
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "jwt": []
+          }
+        ]
+      }
+    },
+    "/api/admin/auth/logout": {
+      "post": {
+        "summary": "退出登录",
+        "deprecated": false,
+        "description": "登出系统。",
+        "tags": [
+          "AdminAuth"
+        ],
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "title": "退出成功响应",
+                "type": "object",
+                "properties": {
+                  "code": {
+                    "title": "状态码",
+                    "type": "integer",
+                    "example": 200
+                  },
+                  "msg": {
+                    "title": "提示信息",
+                    "type": "string",
+                    "example": "已退出登录"
+                  },
+                  "data": {
+                    "title": "业务数据",
+                    "type": "object",
+                    "properties": {},
+                    "nullable": true
+                  }
+                },
+                "required": [
+                  "code",
+                  "msg"
+                ]
+              },
+              "example": {
+                "code": 200,
+                "msg": "已退出登录",
+                "data": null
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "退出成功响应",
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "title": "状态码",
+                      "type": "integer",
+                      "example": 200
+                    },
+                    "msg": {
+                      "title": "提示信息",
+                      "type": "string",
+                      "example": "已退出登录"
+                    },
+                    "data": {
+                      "title": "业务数据",
+                      "type": "object",
+                      "properties": {},
+                      "nullable": true
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "msg"
+                  ]
+                },
+                "example": {
+                  "code": 200,
+                  "msg": "已退出登录",
+                  "data": {}
+                }
+              }
+            },
+            "headers": {}
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "退出失败响应",
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "title": "状态码",
+                      "type": "integer",
+                      "example": 401
+                    },
+                    "msg": {
+                      "title": "错误提示",
+                      "type": "string",
+                      "example": "未登录或Token过期"
+                    },
+                    "data": {
+                      "title": "数据",
+                      "type": "null"
+                    }
+                  }
+                },
+                "example": {
+                  "code": 401,
+                  "msg": "未登录或Token过期",
+                  "data": null
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "jwt": []
+          }
+        ]
+      }
+    },
+    "/api/admin/auth/test/register": {
+      "post": {
+        "summary": "测试：创建管理员用户",
+        "deprecated": false,
+        "description": "",
+        "tags": [],
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "nickname": {
+                    "type": "string"
+                  },
+                  "password": {
+                    "type": "string"
+                  },
+                  "email": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "nickname",
+                  "password",
+                  "email"
+                ]
+              },
+              "example": {
+                "nickname": "elaine",
+                "password": "123456",
+                "email": "garhlz257@163.com"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {}
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "jwt": []
+          }
+        ]
+      }
+    },
+    "/api/admin/profile/info": {
+      "get": {
+        "summary": "获取管理员账户信息",
+        "deprecated": false,
+        "description": "获取当前登录管理员的基础信息。",
+        "tags": [
+          "AdminProfile"
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "userId": {
+                          "type": "string"
+                        },
+                        "nickname": {
+                          "type": "string"
+                        },
+                        "avatar": {
+                          "type": "string"
+                        },
+                        "email": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "userId",
+                        "nickname",
+                        "avatar",
+                        "email"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                },
+                "example": {
+                  "code": 200,
+                  "message": "操作成功",
+                  "data": {
+                    "userId": "15",
+                    "nickname": "elaine",
+                    "avatar": "https://afternoon3-rednote.oss-cn-shenzhen.aliyuncs.com/default_avatar.jpg",
+                    "email": "garhlz257@gmail.com"
+                  }
+                }
+              }
+            },
+            "headers": {}
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "未授权响应",
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "title": "状态码",
+                      "type": "integer",
+                      "example": 401
+                    },
+                    "msg": {
+                      "title": "错误提示",
+                      "type": "string",
+                      "example": "Token无效"
+                    },
+                    "data": {
+                      "title": "数据",
+                      "type": "null"
+                    }
+                  }
+                },
+                "example": {
+                  "code": 401,
+                  "msg": "Token无效",
+                  "data": null
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "jwt": []
+          }
+        ]
+      }
+    },
+    "/api/admin/profile/password": {
+      "post": {
+        "summary": "账户页修改密码",
+        "deprecated": false,
+        "description": "登录状态下修改密码，修改成功后需强制登出。",
+        "tags": [
+          "AdminProfile"
+        ],
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string"
+                  },
+                  "code": {
+                    "type": "string"
+                  },
+                  "newPassword": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "email",
+                  "code",
+                  "newPassword"
+                ]
+              },
+              "example": {
+                "email": "ffxlmf.klv40@yahoo.cn",
+                "code": "61",
+                "newPassword": "MrDkB4zZanUh7G0"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "修改成功响应",
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "title": "状态码",
+                      "type": "integer",
+                      "example": 200
+                    },
+                    "msg": {
+                      "title": "提示信息",
+                      "type": "string",
+                      "example": "修改成功，请重新登录"
+                    },
+                    "data": {
+                      "title": "业务数据",
+                      "type": "object",
+                      "properties": {},
+                      "nullable": true
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "msg"
+                  ]
+                },
+                "example": {
+                  "code": 200,
+                  "msg": "修改成功，请重新登录",
+                  "data": null
+                }
+              }
+            },
+            "headers": {}
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "修改失败响应",
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "title": "状态码",
+                      "type": "integer",
+                      "example": 400
+                    },
+                    "msg": {
+                      "title": "错误提示",
+                      "type": "string",
+                      "example": "验证码错误"
+                    },
+                    "data": {
+                      "title": "数据",
+                      "type": "null"
+                    }
+                  }
+                },
+                "example": {
+                  "code": 400,
+                  "msg": "验证码错误",
+                  "data": null
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "jwt": []
+          }
+        ]
+      }
+    },
+    "/api//admin/user/list": {
+      "post": {
+        "summary": "获取用户列表",
+        "deprecated": false,
+        "description": "分页查询小程序用户列表。",
+        "tags": [
+          "UserMgr"
+        ],
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "nickname": {
+                    "type": "string"
+                  },
+                  "email": {
+                    "type": "string"
+                  },
+                  "startTime": {
+                    "type": "string"
+                  },
+                  "endTime": {
+                    "type": "string"
+                  },
+                  "page": {
+                    "type": "integer"
+                  },
+                  "size": {
+                    "type": "integer"
+                  }
+                }
+              },
+              "example": {
+                "page": 1,
+                "size": 30
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "total": {
+                          "type": "integer"
+                        },
+                        "records": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "integer"
+                              },
+                              "email": {
+                                "type": "string"
+                              },
+                              "nickname": {
+                                "type": "string"
+                              },
+                              "registerTime": {
+                                "type": "string"
+                              },
+                              "postCount": {
+                                "type": "integer"
+                              },
+                              "fanCount": {
+                                "type": "integer"
+                              },
+                              "likeCount": {
+                                "type": "integer"
+                              },
+                              "followCount": {
+                                "type": "integer"
+                              },
+                              "avgScore": {
+                                "type": "integer"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "email",
+                              "nickname",
+                              "registerTime",
+                              "postCount",
+                              "fanCount",
+                              "likeCount",
+                              "followCount",
+                              "avgScore"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "total",
+                        "records"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                },
+                "example": {
+                  "code": 200,
+                  "message": "操作成功",
+                  "data": {
+                    "total": 18,
+                    "records": [
+                      {
+                        "id": 14,
+                        "email": "admin1@test.com",
+                        "nickname": "elaine",
+                        "registerTime": "2025-12-12T17:47:39.795979",
+                        "postCount": 0,
+                        "fanCount": 0,
+                        "likeCount": 0,
+                        "followCount": 0,
+                        "avgScore": 0
+                      },
+                      {
+                        "id": 15,
+                        "email": "garhlz257@gmail.com",
+                        "nickname": "elaine",
+                        "registerTime": "2025-12-12T17:48:29.77561",
+                        "postCount": 0,
+                        "fanCount": 0,
+                        "likeCount": 0,
+                        "followCount": 0,
+                        "avgScore": 0
+                      },
+                      {
+                        "id": 10,
+                        "email": "1719295572@qq.com",
+                        "nickname": "zyt",
+                        "registerTime": "2025-12-09T08:45:30.264214",
+                        "postCount": 0,
+                        "fanCount": 0,
+                        "likeCount": 0,
+                        "followCount": 0,
+                        "avgScore": 0
+                      },
+                      {
+                        "id": 16,
+                        "email": "garhlz257@163.com",
+                        "nickname": "elaine",
+                        "registerTime": "2025-12-13T02:43:34.874059",
+                        "postCount": 0,
+                        "fanCount": 0,
+                        "likeCount": 0,
+                        "followCount": 0,
+                        "avgScore": 0
+                      },
+                      {
+                        "id": 4,
+                        "email": "smoke_prod_1@szu.edu.cn",
+                        "nickname": "生产环境测试员",
+                        "registerTime": "2025-12-01T04:26:30.385505",
+                        "postCount": 0,
+                        "fanCount": 0,
+                        "likeCount": 0,
+                        "followCount": 0,
+                        "avgScore": 0
+                      },
+                      {
+                        "id": 5,
+                        "email": "smoke_test@szu.edu.cn",
+                        "nickname": "冒烟测试员",
+                        "registerTime": "2025-12-01T17:32:34.133259",
+                        "postCount": 0,
+                        "fanCount": 0,
+                        "likeCount": 0,
+                        "followCount": 0,
+                        "avgScore": 0
+                      },
+                      {
+                        "id": 6,
+                        "email": "test2@szu.edu.cn",
+                        "nickname": "冒烟测试员",
+                        "registerTime": "2025-12-01T17:41:23.165041",
+                        "postCount": 0,
+                        "fanCount": 0,
+                        "likeCount": 0,
+                        "followCount": 0,
+                        "avgScore": 0
+                      },
+                      {
+                        "id": 17,
+                        "email": "ai_bot@szu.edu.cn",
+                        "nickname": "AI省流助手",
+                        "registerTime": "2025-12-12T19:53:09.075142",
+                        "postCount": 0,
+                        "fanCount": 0,
+                        "likeCount": 0,
+                        "followCount": 0,
+                        "avgScore": 0
+                      },
+                      {
+                        "id": 13,
+                        "email": "admin@test.com",
+                        "nickname": "admin",
+                        "registerTime": "2025-12-11T13:10:15.221613",
+                        "postCount": 0,
+                        "fanCount": 0,
+                        "likeCount": 0,
+                        "followCount": 0,
+                        "avgScore": 0
+                      },
+                      {
+                        "id": 19,
+                        "email": "photo@test.com",
+                        "nickname": "PhotoLife",
+                        "registerTime": "2025-12-13T15:13:38.123768",
+                        "postCount": 2,
+                        "fanCount": 0,
+                        "likeCount": 3,
+                        "followCount": 2,
+                        "avgScore": 0
+                      }
+                    ]
+                  }
+                }
+              }
+            },
+            "headers": {}
+          },
+          "500": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "服务器错误响应",
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "title": "状态码",
+                      "type": "integer",
+                      "example": 500
+                    },
+                    "msg": {
+                      "title": "错误提示",
+                      "type": "string",
+                      "example": "数据库查询失败"
+                    },
+                    "data": {
+                      "title": "数据",
+                      "type": "null"
+                    }
+                  }
+                },
+                "example": {
+                  "code": 500,
+                  "msg": "数据库查询失败",
+                  "data": null
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "jwt": []
+          }
+        ]
+      }
+    },
+    "/api/admin/user/{id}": {
+      "get": {
+        "summary": "获取用户详情",
+        "deprecated": false,
+        "description": "查看特定用户的详细数据。",
+        "tags": [
+          "UserMgr"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "example": 16,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "integer"
+                        },
+                        "email": {
+                          "type": "string"
+                        },
+                        "nickname": {
+                          "type": "string"
+                        },
+                        "avatar": {
+                          "type": "string"
+                        },
+                        "bio": {
+                          "type": "string"
+                        },
+                        "gender": {
+                          "type": "integer"
+                        },
+                        "region": {
+                          "type": "null"
+                        },
+                        "registerTime": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "integer"
+                        },
+                        "postCount": {
+                          "type": "integer"
+                        },
+                        "followCount": {
+                          "type": "integer"
+                        },
+                        "givenLikeCount": {
+                          "type": "integer"
+                        },
+                        "givenCollectCount": {
+                          "type": "integer"
+                        },
+                        "givenCommentCount": {
+                          "type": "integer"
+                        },
+                        "givenRateCount": {
+                          "type": "integer"
+                        },
+                        "fanCount": {
+                          "type": "integer"
+                        },
+                        "receivedLikeCount": {
+                          "type": "integer"
+                        },
+                        "receivedCollectCount": {
+                          "type": "integer"
+                        },
+                        "receivedCommentCount": {
+                          "type": "integer"
+                        },
+                        "avgPostScore": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "email",
+                        "nickname",
+                        "avatar",
+                        "bio",
+                        "gender",
+                        "region",
+                        "registerTime",
+                        "status",
+                        "postCount",
+                        "followCount",
+                        "givenLikeCount",
+                        "givenCollectCount",
+                        "givenCommentCount",
+                        "givenRateCount",
+                        "fanCount",
+                        "receivedLikeCount",
+                        "receivedCollectCount",
+                        "receivedCommentCount",
+                        "avgPostScore"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                },
+                "example": {
+                  "code": 200,
+                  "message": "操作成功",
+                  "data": {
+                    "id": 16,
+                    "email": "garhlz257@163.com",
+                    "nickname": "elaine",
+                    "avatar": "https://afternoon3-rednote.oss-cn-shenzhen.aliyuncs.com/default_avatar.jpg",
+                    "bio": "",
+                    "gender": 0,
+                    "region": null,
+                    "registerTime": "2025-12-13T02:43:34.874059",
+                    "status": 1,
+                    "postCount": 0,
+                    "followCount": 0,
+                    "givenLikeCount": 0,
+                    "givenCollectCount": 0,
+                    "givenCommentCount": 0,
+                    "givenRateCount": 0,
+                    "fanCount": 0,
+                    "receivedLikeCount": 0,
+                    "receivedCollectCount": 0,
+                    "receivedCommentCount": 0,
+                    "avgPostScore": 0
+                  }
+                }
+              }
+            },
+            "headers": {}
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "未找到资源响应",
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "title": "状态码",
+                      "type": "integer",
+                      "example": 404
+                    },
+                    "msg": {
+                      "title": "错误提示",
+                      "type": "string",
+                      "example": "用户不存在"
+                    },
+                    "data": {
+                      "title": "数据",
+                      "type": "null"
+                    }
+                  }
+                },
+                "example": {
+                  "code": 404,
+                  "msg": "用户不存在",
+                  "data": null
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "jwt": []
+          }
+        ]
+      },
+      "post": {
+        "summary": "删除用户",
+        "deprecated": false,
+        "description": "填写原因后执行删除。",
+        "tags": [
+          "UserMgr"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "title": "删除用户参数",
+                "type": "object",
+                "properties": {
+                  "reason": {
+                    "title": "删除原因",
+                    "type": "string",
+                    "description": "管理员填写的删除理由"
+                  }
+                },
+                "required": [
+                  "reason"
+                ]
+              },
+              "example": {
+                "reason": "eiusmod sit laborum ex sint"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "删除成功响应",
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "title": "状态码",
+                      "type": "integer",
+                      "example": 200
+                    },
+                    "msg": {
+                      "title": "提示信息",
+                      "type": "string",
+                      "example": "用户已删除"
+                    },
+                    "data": {
+                      "title": "业务数据",
+                      "type": "object",
+                      "properties": {},
+                      "nullable": true
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "msg"
+                  ]
+                },
+                "example": {
+                  "code": 200,
+                  "msg": "用户已删除",
+                  "data": null
+                }
+              }
+            },
+            "headers": {}
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "禁止操作响应",
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "title": "状态码",
+                      "type": "integer",
+                      "example": 403
+                    },
+                    "msg": {
+                      "title": "错误提示",
+                      "type": "string",
+                      "example": "权限不足，无法删除"
+                    },
+                    "data": {
+                      "title": "数据",
+                      "type": "null"
+                    }
+                  }
+                },
+                "example": {
+                  "code": 403,
+                  "msg": "权限不足，无法删除",
+                  "data": null
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "jwt": []
+          }
+        ]
+      }
+    },
+    "/api/admin/post/audit-list": {
+      "post": {
+        "summary": "获取内容审核列表",
+        "deprecated": false,
+        "description": "分页获取帖子列表。",
+        "tags": [
+          "ContentAudit"
+        ],
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "nickname": {
+                    "type": "string"
+                  },
+                  "email": {
+                    "type": "string"
+                  },
+                  "startTime": {
+                    "type": "string"
+                  },
+                  "endTime": {
+                    "type": "string"
+                  },
+                  "tags": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "titleKeyword": {
+                    "type": "string"
+                  },
+                  "page": {
+                    "type": "integer"
+                  },
+                  "size": {
+                    "type": "integer"
+                  },
+                  "tab": {
+                    "type": "integer",
+                    "description": "* Tab 类型:\n     * 0 或 null = 全部 (执行自定义排序)\n     * 1 = 待审核 (status=0)\n     * 2 = 已通过 (status=1)\n     * 3 = 已拒绝 (status=2)\n     * 4 = 回收站 (isDeleted=1)"
+                  }
+                }
+              },
+              "example": {
+                "tab": 2
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "total": {
+                          "type": "integer"
+                        },
+                        "records": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "status": {
+                                "type": "integer"
+                              },
+                              "title": {
+                                "type": "string"
+                              },
+                              "content": {
+                                "type": "string"
+                              },
+                              "userId": {
+                                "type": "integer"
+                              },
+                              "userEmail": {
+                                "type": "string"
+                              },
+                              "userNickname": {
+                                "type": "string"
+                              },
+                              "userAvatar": {
+                                "type": "string"
+                              },
+                              "createTime": {
+                                "type": "null"
+                              },
+                              "tags": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              },
+                              "type": {
+                                "type": "integer"
+                              },
+                              "resources": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              },
+                              "cover": {
+                                "type": "string"
+                              },
+                              "coverWidth": {
+                                "type": "integer"
+                              },
+                              "coverHeight": {
+                                "type": "integer"
+                              }
+                            }
+                          }
+                        }
+                      },
+                      "required": [
+                        "total",
+                        "records"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                },
+                "example": {
+                  "code": 200,
+                  "message": "操作成功",
+                  "data": {
+                    "total": 1,
+                    "records": [
+                      {
+                        "id": "693fae15a7f63f5102d5084a",
+                        "status": 2,
+                        "title": "测试视频接口",
+                        "content": "测试视频接口测试视频接口测试视频接口测试视频接口测试视频接口测试视频接口测试视频接口测试视频接口测试",
+                        "userId": 9,
+                        "userEmail": "test5@test.com",
+                        "userNickname": "映记测试账号",
+                        "userAvatar": "https://afternoon3-rednote.oss-cn-shenzhen.aliyuncs.com/default_avatar.jpg",
+                        "createTime": null,
+                        "tags": [
+                          "洱海",
+                          "风景"
+                        ],
+                        "type": 1,
+                        "resources": [
+                          "https://afternoon3-rednote.oss-cn-shenzhen.aliyuncs.com/erhai-lake.mp4"
+                        ],
+                        "cover": "https://afternoon3-rednote.oss-cn-shenzhen.aliyuncs.com/erhai-lake.mp4?x-oss-process=video/snapshot,t_1000,f_jpg,w_0,h_0,m_fast",
+                        "coverWidth": 1280,
+                        "coverHeight": 720
+                      }
+                    ]
+                  }
+                }
+              }
+            },
+            "headers": {}
+          },
+          "500": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "服务器错误响应",
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "title": "状态码",
+                      "type": "integer",
+                      "example": 500
+                    },
+                    "msg": {
+                      "title": "错误提示",
+                      "type": "string",
+                      "example": "系统繁忙，请稍后再试"
+                    },
+                    "data": {
+                      "title": "数据",
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "msg"
+                  ]
+                },
+                "example": {
+                  "code": 500,
+                  "msg": "系统繁忙，请稍后再试",
+                  "data": null
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "jwt": []
+          }
+        ]
+      }
+    },
+    "/api/admin/post/{id}": {
+      "get": {
+        "summary": "获取帖子详情",
+        "deprecated": false,
+        "description": "点击列表中的查看按钮调用。",
+        "tags": [
+          "ContentAudit"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "example": "693fae15a7f63f5102d5084a",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "author": {
+                          "type": "object",
+                          "properties": {
+                            "userId": {
+                              "type": "string"
+                            },
+                            "nickname": {
+                              "type": "string"
+                            },
+                            "avatar": {
+                              "type": "string"
+                            },
+                            "email": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "userId",
+                            "nickname",
+                            "avatar",
+                            "email"
+                          ]
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "content": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "integer"
+                        },
+                        "cover": {
+                          "type": "string"
+                        },
+                        "images": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "video": {
+                          "type": "string"
+                        },
+                        "likeCount": {
+                          "type": "integer"
+                        },
+                        "collectCount": {
+                          "type": "integer"
+                        },
+                        "commentCount": {
+                          "type": "integer"
+                        },
+                        "isLiked": {
+                          "type": "null"
+                        },
+                        "isCollected": {
+                          "type": "null"
+                        },
+                        "isFollowed": {
+                          "type": "null"
+                        },
+                        "ratingAverage": {
+                          "type": "integer"
+                        },
+                        "ratingCount": {
+                          "type": "integer"
+                        },
+                        "myScore": {
+                          "type": "null"
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "tags": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "coverWidth": {
+                          "type": "integer"
+                        },
+                        "coverHeight": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "author",
+                        "title",
+                        "content",
+                        "type",
+                        "cover",
+                        "images",
+                        "video",
+                        "likeCount",
+                        "collectCount",
+                        "commentCount",
+                        "isLiked",
+                        "isCollected",
+                        "isFollowed",
+                        "ratingAverage",
+                        "ratingCount",
+                        "myScore",
+                        "createdAt",
+                        "tags",
+                        "coverWidth",
+                        "coverHeight"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                },
+                "example": {
+                  "code": 200,
+                  "message": "操作成功",
+                  "data": {
+                    "id": "693fae15a7f63f5102d5084a",
+                    "author": {
+                      "userId": "9",
+                      "nickname": "映记测试账号",
+                      "avatar": "https://afternoon3-rednote.oss-cn-shenzhen.aliyuncs.com/default_avatar.jpg",
+                      "email": "test5@test.com"
+                    },
+                    "title": "测试视频接口",
+                    "content": "测试视频接口测试视频接口测试视频接口测试视频接口测试视频接口测试视频接口测试视频接口测试视频接口测试视频接口测试视频接口测试视频接口测试视频接口测试视频接口测试视频接口测试视频接口测试视频接口测试视频接口",
+                    "type": 1,
+                    "cover": "https://afternoon3-rednote.oss-cn-shenzhen.aliyuncs.com/erhai-lake.mp4?x-oss-process=video/snapshot,t_1000,f_jpg,w_0,h_0,m_fast",
+                    "images": [
+                      "...",
+                      "..."
+                    ],
+                    "video": "https://afternoon3-rednote.oss-cn-shenzhen.aliyuncs.com/erhai-lake.mp4",
+                    "likeCount": 1,
+                    "collectCount": 0,
+                    "commentCount": 1,
+                    "isLiked": null,
+                    "isCollected": null,
+                    "isFollowed": null,
+                    "ratingAverage": 0,
+                    "ratingCount": 0,
+                    "myScore": null,
+                    "createdAt": "2025-12-15T14:43:33.743",
+                    "tags": [
+                      "洱海",
+                      "风景"
+                    ],
+                    "coverWidth": 1280,
+                    "coverHeight": 720
+                  }
+                }
+              }
+            },
+            "headers": {}
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "未找到资源响应",
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "title": "状态码",
+                      "type": "integer",
+                      "example": 404
+                    },
+                    "msg": {
+                      "title": "错误提示",
+                      "type": "string",
+                      "example": "帖子不存在或已被删除"
+                    },
+                    "data": {
+                      "title": "数据",
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "msg"
+                  ]
+                },
+                "example": {
+                  "code": 404,
+                  "msg": "帖子不存在或已被删除",
+                  "data": null
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "jwt": []
+          }
+        ]
+      }
+    },
+    "/api/admin/post/{id}/audit": {
+      "post": {
+        "summary": "审核帖子",
+        "deprecated": false,
+        "description": "提交审核结果，通过或拒绝。",
+        "tags": [
+          "ContentAudit"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "example": "6947725ecb6fa1497839c29e",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "title": "审核提交参数",
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "type": "integer",
+                    "title": "审核动作",
+                    "description": "1:通过; 2:不通过"
+                  },
+                  "reason": {
+                    "title": "撤回原因",
+                    "type": "string",
+                    "description": "当 action 为 reject 时必填，否则可不填"
+                  }
+                },
+                "required": [
+                  "status"
+                ]
+              },
+              "example": {
+                "status": "2",
+                "reason": "测试删除帖子"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "操作成功响应",
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "title": "状态码",
+                      "type": "integer",
+                      "example": 200
+                    },
+                    "message": {
+                      "title": "提示信息",
+                      "type": "string",
+                      "example": "审核操作完成"
+                    },
+                    "data": {
+                      "title": "业务数据",
+                      "type": "object",
+                      "properties": {},
+                      "nullable": true
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ]
+                },
+                "example": {
+                  "code": 200,
+                  "msg": "审核操作完成",
+                  "data": null
+                }
+              }
+            },
+            "headers": {}
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "参数错误响应",
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "title": "状态码",
+                      "type": "integer",
+                      "example": 400
+                    },
+                    "msg": {
+                      "title": "错误提示",
+                      "type": "string",
+                      "example": "拒绝时必须填写原因"
+                    },
+                    "data": {
+                      "title": "数据",
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "msg"
+                  ]
+                },
+                "example": {
+                  "code": 400,
+                  "msg": "拒绝时必须填写原因",
+                  "data": null
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "jwt": []
+          }
+        ]
+      }
+    },
+    "/api/admin/post/{postId}/audit/ai": {
+      "post": {
+        "summary": "ai审核帖子",
+        "deprecated": false,
+        "description": "",
+        "tags": [],
+        "parameters": [
+          {
+            "name": "postId",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "example": "693fae15a7f63f5102d5084a",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "conclusion": {
+                          "type": "string"
+                        },
+                        "riskType": {
+                          "type": "string"
+                        },
+                        "confidence": {
+                          "type": "number"
+                        },
+                        "suggestion": {
+                          "type": "string"
+                        },
+                        "postId": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "conclusion",
+                        "riskType",
+                        "confidence",
+                        "suggestion",
+                        "postId"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                },
+                "example": {
+                  "code": 200,
+                  "message": "操作成功",
+                  "data": {
+                    "conclusion": "PASS",
+                    "riskType": "无",
+                    "confidence": 0.98,
+                    "suggestion": "帖子内容展示了深圳大学的校园风光和校徽，文字描述积极正面，未发现色情低俗、血腥暴力、政治敏感、恶意广告或人身攻击等风险。整体合规，建议通过审核。",
+                    "postId": "693fece9064987397086eab5"
+                  }
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "jwt": []
+          }
+        ]
+      }
+    },
+    "/api/admin/post/{postId}/audit-history": {
+      "get": {
+        "summary": "获取帖子审核历史",
+        "deprecated": false,
+        "description": "",
+        "tags": [],
+        "parameters": [
+          {
+            "name": "postId",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "example": "693c5c9951cd4f43d5167f5e",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {}
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "jwt": []
+          }
+        ]
+      }
+    },
+    "/api/admin/post/{postId}": {
+      "delete": {
+        "summary": "管理员删除帖子",
+        "deprecated": false,
+        "description": "",
+        "tags": [],
+        "parameters": [
+          {
+            "name": "postId",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "example": "693c5c9951cd4f43d5167f5e",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "reason",
+            "in": "query",
+            "description": "",
+            "required": false,
+            "example": "测试删除帖子",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {}
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "jwt": []
+          }
+        ]
+      }
+    },
+    "/api/admin/log/admin": {
+      "post": {
+        "summary": "查询管理员日志",
+        "deprecated": false,
+        "description": "",
+        "tags": [],
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "page": {
+                    "type": "integer"
+                  },
+                  "size": {
+                    "type": "integer"
+                  },
+                  "userId": {
+                    "type": "integer"
+                  },
+                  "keyword": {
+                    "type": "string",
+                    "description": "模糊搜索关键词，会匹配“操作描述”或“接口路径”"
+                  },
+                  "status": {
+                    "type": "integer",
+                    "description": "状态码，如 200 成功，500 失败"
+                  },
+                  "bizId": {
+                    "type": "string",
+                    "description": "业务ID精确筛选（如被操作的账号、帖子ID）"
+                  },
+                  "startTime": {
+                    "type": "string"
+                  },
+                  "endTime": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "page",
+                  "size",
+                  "userId",
+                  "keyword",
+                  "status",
+                  "bizId",
+                  "startTime",
+                  "endTime"
+                ]
+              },
+              "example": {}
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "total": {
+                          "type": "integer"
+                        },
+                        "size": {
+                          "type": "integer"
+                        },
+                        "current": {
+                          "type": "integer"
+                        },
+                        "records": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "logType": {
+                                "type": "string"
+                              },
+                              "module": {
+                                "type": "string"
+                              },
+                              "description": {
+                                "type": "string"
+                              },
+                              "bizId": {
+                                "type": "string"
+                              },
+                              "traceId": {
+                                "type": "string"
+                              },
+                              "userId": {
+                                "type": "integer"
+                              },
+                              "username": {
+                                "type": "null"
+                              },
+                              "role": {
+                                "type": "string"
+                              },
+                              "method": {
+                                "type": "string"
+                              },
+                              "uri": {
+                                "type": "string"
+                              },
+                              "ip": {
+                                "type": "string"
+                              },
+                              "params": {
+                                "type": "string"
+                              },
+                              "status": {
+                                "type": "integer"
+                              },
+                              "errorMsg": {
+                                "type": "null"
+                              },
+                              "timeCost": {
+                                "type": "integer"
+                              },
+                              "createdAt": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "logType",
+                              "module",
+                              "description",
+                              "bizId",
+                              "traceId",
+                              "userId",
+                              "username",
+                              "role",
+                              "method",
+                              "uri",
+                              "ip",
+                              "params",
+                              "status",
+                              "errorMsg",
+                              "timeCost",
+                              "createdAt"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "total",
+                        "size",
+                        "current",
+                        "records"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                },
+                "example": {
+                  "code": 200,
+                  "message": "操作成功",
+                  "data": {
+                    "total": 5,
+                    "size": 20,
+                    "current": 1,
+                    "records": [
+                      {
+                        "id": "656e...",
+                        "logType": "ADMIN_OPER",
+                        "module": "后台认证",
+                        "description": "管理员登录",
+                        "bizId": "admin@szu.edu.cn",
+                        "traceId": "a1b2c3d4...",
+                        "userId": 1,
+                        "username": null,
+                        "role": "ADMIN",
+                        "method": "POST",
+                        "uri": "/admin/auth/login",
+                        "ip": "127.0.0.1",
+                        "params": "[{\"account\":\"admin@szu.edu.cn\",\"password\":\"******\"}]",
+                        "status": 200,
+                        "errorMsg": null,
+                        "timeCost": 45,
+                        "createdAt": "2023-11-25 10:30:00"
+                      },
+                      {
+                        "id": "656f...",
+                        "logType": "ADMIN_OPER",
+                        "module": "后台用户管理",
+                        "description": "删除用户",
+                        "bizId": "10086",
+                        "traceId": "x9y8z7...",
+                        "userId": 1,
+                        "username": null,
+                        "role": "ADMIN",
+                        "method": "POST",
+                        "uri": "/admin/user/10086",
+                        "ip": "192.168.1.5",
+                        "params": "[10086, {\"reason\":\"发布违规内容\"}]",
+                        "status": 200,
+                        "errorMsg": null,
+                        "timeCost": 120,
+                        "createdAt": "2023-11-25 11:00:00"
+                      }
+                    ]
+                  }
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "jwt": []
+          }
+        ]
+      }
+    },
+    "/api/admin/log/user": {
+      "post": {
+        "summary": "查询用户日志",
+        "deprecated": false,
+        "description": "",
+        "tags": [],
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "page": {
+                    "type": "integer"
+                  },
+                  "size": {
+                    "type": "integer"
+                  },
+                  "userId": {
+                    "type": "integer"
+                  },
+                  "keyword": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "type": "integer"
+                  },
+                  "bizId": {
+                    "type": "string"
+                  },
+                  "startTime": {
+                    "type": "string"
+                  },
+                  "endTime": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "page",
+                  "size",
+                  "userId",
+                  "keyword",
+                  "status",
+                  "bizId",
+                  "startTime",
+                  "endTime"
+                ]
+              },
+              "example": {}
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "total": {
+                          "type": "integer"
+                        },
+                        "current": {
+                          "type": "integer"
+                        },
+                        "size": {
+                          "type": "integer"
+                        },
+                        "records": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "logType": {
+                                "type": "string"
+                              },
+                              "module": {
+                                "type": "string"
+                              },
+                              "description": {
+                                "type": "string"
+                              },
+                              "bizId": {
+                                "type": "null"
+                              },
+                              "traceId": {
+                                "type": "string"
+                              },
+                              "userId": {
+                                "type": "integer",
+                                "nullable": true
+                              },
+                              "username": {
+                                "type": "null"
+                              },
+                              "role": {
+                                "type": "string",
+                                "nullable": true
+                              },
+                              "method": {
+                                "type": "string"
+                              },
+                              "uri": {
+                                "type": "string"
+                              },
+                              "ip": {
+                                "type": "string"
+                              },
+                              "params": {
+                                "type": "string"
+                              },
+                              "status": {
+                                "type": "integer"
+                              },
+                              "errorMsg": {
+                                "type": "null"
+                              },
+                              "timeCost": {
+                                "type": "integer"
+                              },
+                              "createdAt": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "logType",
+                              "module",
+                              "description",
+                              "bizId",
+                              "traceId",
+                              "userId",
+                              "username",
+                              "role",
+                              "method",
+                              "uri",
+                              "ip",
+                              "params",
+                              "status",
+                              "errorMsg",
+                              "timeCost",
+                              "createdAt"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "total",
+                        "current",
+                        "size",
+                        "records"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                },
+                "example": {
+                  "code": 200,
+                  "message": "操作成功",
+                  "data": {
+                    "total": 2178,
+                    "current": 1,
+                    "size": 20,
+                    "records": [
+                      {
+                        "id": "6940cd0108135f60d593a404",
+                        "logType": "USER_OPER",
+                        "module": "通用",
+                        "description": "printHello",
+                        "bizId": null,
+                        "traceId": "20bff2e254bf4e43bf641bd8f62c5822",
+                        "userId": null,
+                        "username": null,
+                        "role": null,
+                        "method": "GET",
+                        "uri": "/api/auth/test",
+                        "ip": "113.84.170.217",
+                        "params": "",
+                        "status": 200,
+                        "errorMsg": null,
+                        "timeCost": 0,
+                        "createdAt": "2025-12-16T11:07:45.906"
+                      },
+                      {
+                        "id": "6940ccf808135f60d593a403",
+                        "logType": "USER_OPER",
+                        "module": "通用",
+                        "description": "printHello",
+                        "bizId": null,
+                        "traceId": "0cc860858d7e4e2094e8966a7c7992b0",
+                        "userId": null,
+                        "username": null,
+                        "role": null,
+                        "method": "GET",
+                        "uri": "/api/auth/test",
+                        "ip": "113.84.170.217",
+                        "params": "",
+                        "status": 200,
+                        "errorMsg": null,
+                        "timeCost": 0,
+                        "createdAt": "2025-12-16T11:07:36.405"
+                      },
+                      {
+                        "id": "6940cceb08135f60d593a402",
+                        "logType": "USER_OPER",
+                        "module": "通用",
+                        "description": "printHello",
+                        "bizId": null,
+                        "traceId": "4f072b26ceb64d029c9d81b3e1d41f8c",
+                        "userId": null,
+                        "username": null,
+                        "role": null,
+                        "method": "GET",
+                        "uri": "/api/auth/test",
+                        "ip": "113.84.170.217",
+                        "params": "",
+                        "status": 200,
+                        "errorMsg": null,
+                        "timeCost": 0,
+                        "createdAt": "2025-12-16T11:07:23.454"
+                      },
+                      {
+                        "id": "6940cc0c08135f60d593a401",
+                        "logType": "USER_OPER",
+                        "module": "通用",
+                        "description": "printHello",
+                        "bizId": null,
+                        "traceId": "fa771a6704e840699f48357d42657065",
+                        "userId": null,
+                        "username": null,
+                        "role": null,
+                        "method": "GET",
+                        "uri": "/api/auth/test",
+                        "ip": "112.97.80.184",
+                        "params": "",
+                        "status": 200,
+                        "errorMsg": null,
+                        "timeCost": 2,
+                        "createdAt": "2025-12-16T11:03:39.56"
+                      },
+                      {
+                        "id": "6940c7275407f63afd5cd563",
+                        "logType": "USER_OPER",
+                        "module": "通用",
+                        "description": "printHello",
+                        "bizId": null,
+                        "traceId": "2eadd5ed85cc47668718d10f9fd7d248",
+                        "userId": null,
+                        "username": null,
+                        "role": null,
+                        "method": "GET",
+                        "uri": "/api/auth/test",
+                        "ip": "172.18.0.10",
+                        "params": "",
+                        "status": 200,
+                        "errorMsg": null,
+                        "timeCost": 0,
+                        "createdAt": "2025-12-16T10:42:47.446"
+                      },
+                      {
+                        "id": "69403b4b5407f63afd5cd562",
+                        "logType": "USER_OPER",
+                        "module": "帖子模块",
+                        "description": "浏览帖子流",
+                        "bizId": null,
+                        "traceId": "e83ede66437c434a857dda293d05d12e",
+                        "userId": 23,
+                        "username": null,
+                        "role": "USER",
+                        "method": "GET",
+                        "uri": "/api/post/list",
+                        "ip": "172.18.0.10",
+                        "params": "[1,10,\"recommend\"]",
+                        "status": 200,
+                        "errorMsg": null,
+                        "timeCost": 48,
+                        "createdAt": "2025-12-16T00:46:03.663"
+                      },
+                      {
+                        "id": "69403b4b5407f63afd5cd561",
+                        "logType": "USER_OPER",
+                        "module": "帖子模块",
+                        "description": "浏览帖子流",
+                        "bizId": null,
+                        "traceId": "e9f868e4b7f8410d94195d87c1a2902b",
+                        "userId": 23,
+                        "username": null,
+                        "role": "USER",
+                        "method": "GET",
+                        "uri": "/api/post/list",
+                        "ip": "172.18.0.10",
+                        "params": "[1,10,\"follow\"]",
+                        "status": 200,
+                        "errorMsg": null,
+                        "timeCost": 13,
+                        "createdAt": "2025-12-16T00:46:03.623"
+                      },
+                      {
+                        "id": "69403b4b5407f63afd5cd560",
+                        "logType": "USER_OPER",
+                        "module": "标签模块",
+                        "description": "获取热门标签",
+                        "bizId": null,
+                        "traceId": "38321aa45c1c4882a78b272684f327ed",
+                        "userId": 23,
+                        "username": null,
+                        "role": "USER",
+                        "method": "GET",
+                        "uri": "/api/tag/hot",
+                        "ip": "172.18.0.10",
+                        "params": "",
+                        "status": 200,
+                        "errorMsg": null,
+                        "timeCost": 6,
+                        "createdAt": "2025-12-16T00:46:03.486"
+                      },
+                      {
+                        "id": "694038e85407f63afd5cd55f",
+                        "logType": "USER_OPER",
+                        "module": "帖子模块",
+                        "description": "浏览帖子流",
+                        "bizId": null,
+                        "traceId": "0991640938284d38a71f6ea71592b67c",
+                        "userId": 23,
+                        "username": null,
+                        "role": "USER",
+                        "method": "GET",
+                        "uri": "/api/post/list",
+                        "ip": "172.18.0.10",
+                        "params": "[1,10,\"recommend\"]",
+                        "status": 200,
+                        "errorMsg": null,
+                        "timeCost": 24,
+                        "createdAt": "2025-12-16T00:35:52.877"
+                      },
+                      {
+                        "id": "694038e85407f63afd5cd55e",
+                        "logType": "USER_OPER",
+                        "module": "帖子模块",
+                        "description": "浏览帖子流",
+                        "bizId": null,
+                        "traceId": "9498605cf2624b1bb33b80d6c97f6e8a",
+                        "userId": 23,
+                        "username": null,
+                        "role": "USER",
+                        "method": "GET",
+                        "uri": "/api/post/list",
+                        "ip": "172.18.0.10",
+                        "params": "[1,10,\"follow\"]",
+                        "status": 200,
+                        "errorMsg": null,
+                        "timeCost": 6,
+                        "createdAt": "2025-12-16T00:35:52.856"
+                      },
+                      {
+                        "id": "694038e85407f63afd5cd55d",
+                        "logType": "USER_OPER",
+                        "module": "标签模块",
+                        "description": "获取热门标签",
+                        "bizId": null,
+                        "traceId": "7988e8ef8cb94ec7b4ec263c6c137da9",
+                        "userId": 23,
+                        "username": null,
+                        "role": "USER",
+                        "method": "GET",
+                        "uri": "/api/tag/hot",
+                        "ip": "172.18.0.10",
+                        "params": "",
+                        "status": 200,
+                        "errorMsg": null,
+                        "timeCost": 11,
+                        "createdAt": "2025-12-16T00:35:52.696"
+                      },
+                      {
+                        "id": "694038d65407f63afd5cd55c",
+                        "logType": "USER_OPER",
+                        "module": "帖子模块",
+                        "description": "浏览帖子流",
+                        "bizId": null,
+                        "traceId": "9719da8eb24d428aa50652d223e9f571",
+                        "userId": 23,
+                        "username": null,
+                        "role": "USER",
+                        "method": "GET",
+                        "uri": "/api/post/list",
+                        "ip": "172.18.0.10",
+                        "params": "[1,10,\"recommend\"]",
+                        "status": 200,
+                        "errorMsg": null,
+                        "timeCost": 19,
+                        "createdAt": "2025-12-16T00:35:34.03"
+                      },
+                      {
+                        "id": "694038d65407f63afd5cd55b",
+                        "logType": "USER_OPER",
+                        "module": "帖子模块",
+                        "description": "浏览帖子流",
+                        "bizId": null,
+                        "traceId": "fe9ceacbe9fb4c18a08bc023dc7f4b9c",
+                        "userId": 23,
+                        "username": null,
+                        "role": "USER",
+                        "method": "GET",
+                        "uri": "/api/post/list",
+                        "ip": "172.18.0.10",
+                        "params": "[1,10,\"follow\"]",
+                        "status": 200,
+                        "errorMsg": null,
+                        "timeCost": 4,
+                        "createdAt": "2025-12-16T00:35:34"
+                      },
+                      {
+                        "id": "694038d55407f63afd5cd55a",
+                        "logType": "USER_OPER",
+                        "module": "标签模块",
+                        "description": "获取热门标签",
+                        "bizId": null,
+                        "traceId": "aa36fe80aa434863909c41a2e1d2b7f0",
+                        "userId": 23,
+                        "username": null,
+                        "role": "USER",
+                        "method": "GET",
+                        "uri": "/api/tag/hot",
+                        "ip": "172.18.0.10",
+                        "params": "",
+                        "status": 200,
+                        "errorMsg": null,
+                        "timeCost": 10,
+                        "createdAt": "2025-12-16T00:35:33.765"
+                      },
+                      {
+                        "id": "694038bf5407f63afd5cd559",
+                        "logType": "USER_OPER",
+                        "module": "帖子模块",
+                        "description": "浏览帖子流",
+                        "bizId": null,
+                        "traceId": "6fb1611646864b1996b64da52b85e7f0",
+                        "userId": 23,
+                        "username": null,
+                        "role": "USER",
+                        "method": "GET",
+                        "uri": "/api/post/list",
+                        "ip": "172.18.0.10",
+                        "params": "[1,10,\"recommend\"]",
+                        "status": 200,
+                        "errorMsg": null,
+                        "timeCost": 30,
+                        "createdAt": "2025-12-16T00:35:11.739"
+                      },
+                      {
+                        "id": "694038bf5407f63afd5cd558",
+                        "logType": "USER_OPER",
+                        "module": "帖子模块",
+                        "description": "浏览帖子流",
+                        "bizId": null,
+                        "traceId": "4e8afb7bd9ac4a3b99e7078340711333",
+                        "userId": 23,
+                        "username": null,
+                        "role": "USER",
+                        "method": "GET",
+                        "uri": "/api/post/list",
+                        "ip": "172.18.0.10",
+                        "params": "[1,10,\"follow\"]",
+                        "status": 200,
+                        "errorMsg": null,
+                        "timeCost": 4,
+                        "createdAt": "2025-12-16T00:35:11.7"
+                      },
+                      {
+                        "id": "694038bf5407f63afd5cd557",
+                        "logType": "USER_OPER",
+                        "module": "标签模块",
+                        "description": "获取热门标签",
+                        "bizId": null,
+                        "traceId": "8f61ef95a4184cbbb8dc627147c8874e",
+                        "userId": 23,
+                        "username": null,
+                        "role": "USER",
+                        "method": "GET",
+                        "uri": "/api/tag/hot",
+                        "ip": "172.18.0.10",
+                        "params": "",
+                        "status": 200,
+                        "errorMsg": null,
+                        "timeCost": 2,
+                        "createdAt": "2025-12-16T00:35:11.457"
+                      },
+                      {
+                        "id": "694038bf5407f63afd5cd556",
+                        "logType": "USER_OPER",
+                        "module": "标签模块",
+                        "description": "获取热门标签",
+                        "bizId": null,
+                        "traceId": "c2a699b81fc942cf8709c4914351dc12",
+                        "userId": 23,
+                        "username": null,
+                        "role": "USER",
+                        "method": "GET",
+                        "uri": "/api/tag/hot",
+                        "ip": "172.18.0.10",
+                        "params": "",
+                        "status": 200,
+                        "errorMsg": null,
+                        "timeCost": 9,
+                        "createdAt": "2025-12-16T00:35:11.339"
+                      },
+                      {
+                        "id": "694038945407f63afd5cd555",
+                        "logType": "USER_OPER",
+                        "module": "帖子模块",
+                        "description": "浏览帖子流",
+                        "bizId": null,
+                        "traceId": "76253fc60d554e8da241658262012b52",
+                        "userId": 23,
+                        "username": null,
+                        "role": "USER",
+                        "method": "GET",
+                        "uri": "/api/post/list",
+                        "ip": "172.18.0.10",
+                        "params": "[1,10,\"recommend\"]",
+                        "status": 200,
+                        "errorMsg": null,
+                        "timeCost": 20,
+                        "createdAt": "2025-12-16T00:34:28.519"
+                      },
+                      {
+                        "id": "694038945407f63afd5cd554",
+                        "logType": "USER_OPER",
+                        "module": "帖子模块",
+                        "description": "浏览帖子流",
+                        "bizId": null,
+                        "traceId": "c652f8738b834fa6ab06d9d840a47399",
+                        "userId": 23,
+                        "username": null,
+                        "role": "USER",
+                        "method": "GET",
+                        "uri": "/api/post/list",
+                        "ip": "172.18.0.10",
+                        "params": "[1,10,\"follow\"]",
+                        "status": 200,
+                        "errorMsg": null,
+                        "timeCost": 4,
+                        "createdAt": "2025-12-16T00:34:28.483"
+                      }
+                    ]
+                  }
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "jwt": []
+          }
+        ]
+      }
+    },
+    "/api/admin/stats/top-views": {
+      "get": {
+        "summary": "查看帖子浏览量排行",
+        "deprecated": false,
+        "description": "",
+        "tags": [],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "cover": {
+                            "type": "string"
+                          },
+                          "viewCount": {
+                            "type": "integer"
+                          },
+                          "likeCount": {
+                            "type": "integer"
+                          },
+                          "commentCount": {
+                            "type": "integer"
+                          },
+                          "collectCount": {
+                            "type": "integer"
+                          },
+                          "ratingAverage": {
+                            "type": "integer"
+                          },
+                          "userNickname": {
+                            "type": "string"
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "title",
+                          "cover",
+                          "viewCount",
+                          "likeCount",
+                          "commentCount",
+                          "collectCount",
+                          "ratingAverage",
+                          "userNickname",
+                          "createdAt"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                },
+                "example": {
+                  "code": 200,
+                  "message": "操作成功",
+                  "data": [
+                    {
+                      "id": "693d0f62add946254e35d2bb",
+                      "title": "深夜加班的快乐 lfA",
+                      "cover": "https://images.unsplash.com/photo-1497366216548-37526070297c",
+                      "viewCount": 0,
+                      "likeCount": 4,
+                      "commentCount": 2,
+                      "collectCount": 0,
+                      "ratingAverage": 0,
+                      "userNickname": "StudentMike",
+                      "createdAt": "2025-12-13"
+                    },
+                    {
+                      "id": "693d0f62add946254e35d2ae",
+                      "title": "周末去海边采风 lGT",
+                      "cover": "https://images.unsplash.com/photo-1507525428034-b723cf961d3e",
+                      "viewCount": 0,
+                      "likeCount": 3,
+                      "commentCount": 5,
+                      "collectCount": 0,
+                      "ratingAverage": 0,
+                      "userNickname": "TechGeek",
+                      "createdAt": "2025-12-13"
+                    },
+                    {
+                      "id": "693d02c8f61b4365ab09e6ba",
+                      "title": "学校食堂的新菜品 it6",
+                      "cover": "https://images.unsplash.com/photo-1504674900247-0877df9cc836",
+                      "viewCount": 0,
+                      "likeCount": 0,
+                      "commentCount": 0,
+                      "collectCount": 0,
+                      "ratingAverage": 0,
+                      "userNickname": "TechGeek",
+                      "createdAt": "2025-12-13"
+                    },
+                    {
+                      "id": "693d0f62add946254e35d2b9",
+                      "title": "Java 21 新特性尝鲜 3uW",
+                      "cover": "https://afternoon3-rednote.oss-cn-shenzhen.aliyuncs.com/default_avatar.jpg",
+                      "viewCount": 0,
+                      "likeCount": 1,
+                      "commentCount": 1,
+                      "collectCount": 0,
+                      "ratingAverage": 0,
+                      "userNickname": "FoodieJane",
+                      "createdAt": "2025-12-13"
+                    },
+                    {
+                      "id": "693d0f62add946254e35d2b5",
+                      "title": "求助：Spring Boot 启动报错 uZe",
+                      "cover": "https://afternoon3-rednote.oss-cn-shenzhen.aliyuncs.com/default_avatar.jpg",
+                      "viewCount": 0,
+                      "likeCount": 3,
+                      "commentCount": 3,
+                      "collectCount": 0,
+                      "ratingAverage": 0,
+                      "userNickname": "PhotoLife",
+                      "createdAt": "2025-12-13"
+                    },
+                    {
+                      "id": "693d0c40579b0b45a9ac9a51",
+                      "title": "新入手的机械键盘 dbn",
+                      "cover": "https://images.unsplash.com/photo-1587829741301-dc798b91a603",
+                      "viewCount": 0,
+                      "likeCount": 4,
+                      "commentCount": 6,
+                      "collectCount": 0,
+                      "ratingAverage": 0,
+                      "userNickname": "FoodieJane",
+                      "createdAt": "2025-12-13"
+                    },
+                    {
+                      "id": "693d0f62add946254e35d2bc",
+                      "title": "深夜加班的快乐 0b4",
+                      "cover": "https://images.unsplash.com/photo-1497366216548-37526070297c",
+                      "viewCount": 0,
+                      "likeCount": 3,
+                      "commentCount": 2,
+                      "collectCount": 0,
+                      "ratingAverage": 0,
+                      "userNickname": "CatLover",
+                      "createdAt": "2025-12-13"
+                    },
+                    {
+                      "id": "693c5e7ac386944631812f98",
+                      "title": "年度杏子击减去不包括开",
+                      "cover": "https://loremflickr.com/400/400?lock=1985490835845064",
+                      "viewCount": 0,
+                      "likeCount": 0,
+                      "commentCount": 0,
+                      "collectCount": 0,
+                      "ratingAverage": 0,
+                      "userNickname": "所天娇",
+                      "createdAt": "2025-12-13"
+                    },
+                    {
+                      "id": "693d0f62add946254e35d2b4",
+                      "title": "求助：Spring Boot 启动报错 Qkl",
+                      "cover": "https://afternoon3-rednote.oss-cn-shenzhen.aliyuncs.com/default_avatar.jpg",
+                      "viewCount": 0,
+                      "likeCount": 3,
+                      "commentCount": 2,
+                      "collectCount": 0,
+                      "ratingAverage": 0,
+                      "userNickname": "TechGeek",
+                      "createdAt": "2025-12-13"
+                    },
+                    {
+                      "id": "693d0c3f579b0b45a9ac9a4e",
+                      "title": "新入手的机械键盘 aq0",
+                      "cover": "https://images.unsplash.com/photo-1587829741301-dc798b91a603",
+                      "viewCount": 0,
+                      "likeCount": 4,
+                      "commentCount": 6,
+                      "collectCount": 0,
+                      "ratingAverage": 0,
+                      "userNickname": "TechGeek",
+                      "createdAt": "2025-12-13"
+                    },
+                    {
+                      "id": "693d0f62add946254e35d2b8",
+                      "title": "学校食堂的新菜品 gZd",
+                      "cover": "https://images.unsplash.com/photo-1504674900247-0877df9cc836",
+                      "viewCount": 0,
+                      "likeCount": 2,
+                      "commentCount": 2,
+                      "collectCount": 0,
+                      "ratingAverage": 0,
+                      "userNickname": "FoodieJane",
+                      "createdAt": "2025-12-13"
+                    },
+                    {
+                      "id": "693d0f62add946254e35d2b6",
+                      "title": "求助：Spring Boot 启动报错 CHy",
+                      "cover": "https://afternoon3-rednote.oss-cn-shenzhen.aliyuncs.com/default_avatar.jpg",
+                      "viewCount": 0,
+                      "likeCount": 2,
+                      "commentCount": 2,
+                      "collectCount": 0,
+                      "ratingAverage": 0,
+                      "userNickname": "PhotoLife",
+                      "createdAt": "2025-12-13"
+                    },
+                    {
+                      "id": "693d0c40579b0b45a9ac9a50",
+                      "title": "新入手的机械键盘 eli",
+                      "cover": "https://images.unsplash.com/photo-1587829741301-dc798b91a603",
+                      "viewCount": 0,
+                      "likeCount": 3,
+                      "commentCount": 5,
+                      "collectCount": 0,
+                      "ratingAverage": 0,
+                      "userNickname": "FoodieJane",
+                      "createdAt": "2025-12-13"
+                    },
+                    {
+                      "id": "693d0f62add946254e35d2ba",
+                      "title": "Java 21 新特性尝鲜 Pxl",
+                      "cover": "https://afternoon3-rednote.oss-cn-shenzhen.aliyuncs.com/default_avatar.jpg",
+                      "viewCount": 0,
+                      "likeCount": 2,
+                      "commentCount": 4,
+                      "collectCount": 0,
+                      "ratingAverage": 0,
+                      "userNickname": "StudentMike",
+                      "createdAt": "2025-12-13"
+                    },
+                    {
+                      "id": "693c75abc021b069deb80824",
+                      "title": "来了就是深圳人",
+                      "cover": "https://loremflickr.com/400/400?lock=1985490835845064",
+                      "viewCount": 0,
+                      "likeCount": 0,
+                      "commentCount": 7,
+                      "collectCount": 0,
+                      "ratingAverage": 0,
+                      "userNickname": "所天娇",
+                      "createdAt": "2025-12-13"
+                    },
+                    {
+                      "id": "693d0c40579b0b45a9ac9a52",
+                      "title": "学校食堂的新菜品 Iiz",
+                      "cover": "https://images.unsplash.com/photo-1504674900247-0877df9cc836",
+                      "viewCount": 0,
+                      "likeCount": 3,
+                      "commentCount": 1,
+                      "collectCount": 0,
+                      "ratingAverage": 0,
+                      "userNickname": "StudentMike",
+                      "createdAt": "2025-12-13"
+                    },
+                    {
+                      "id": "693c5c9951cd4f43d5167f5e",
+                      "title": "考古学惟独跳在在附属噢许多",
+                      "cover": "https://loremflickr.com/400/400?lock=5640052667389008",
+                      "viewCount": 0,
+                      "likeCount": 0,
+                      "commentCount": 0,
+                      "collectCount": 0,
+                      "ratingAverage": 0,
+                      "userNickname": "所天娇",
+                      "createdAt": "2025-12-13"
+                    },
+                    {
+                      "id": "693c7524c021b069deb80821",
+                      "title": "年度杏子击减去不包括开",
+                      "cover": "https://loremflickr.com/400/400?lock=1985490835845064",
+                      "viewCount": 0,
+                      "likeCount": 0,
+                      "commentCount": 1,
+                      "collectCount": 0,
+                      "ratingAverage": 0,
+                      "userNickname": "所天娇",
+                      "createdAt": "2025-12-13"
+                    },
+                    {
+                      "id": "693d0c3f579b0b45a9ac9a4f",
+                      "title": "深夜加班的快乐 E57",
+                      "cover": "https://images.unsplash.com/photo-1497366216548-37526070297c",
+                      "viewCount": 0,
+                      "likeCount": 2,
+                      "commentCount": 4,
+                      "collectCount": 0,
+                      "ratingAverage": 0,
+                      "userNickname": "PhotoLife",
+                      "createdAt": "2025-12-13"
+                    },
+                    {
+                      "id": "693d0f62add946254e35d2b7",
+                      "title": "新入手的机械键盘 YOu",
+                      "cover": "https://images.unsplash.com/photo-1587829741301-dc798b91a603",
+                      "viewCount": 0,
+                      "likeCount": 1,
+                      "commentCount": 1,
+                      "collectCount": 0,
+                      "ratingAverage": 0,
+                      "userNickname": "PhotoLife",
+                      "createdAt": "2025-12-13"
+                    }
+                  ]
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "jwt": []
+          }
+        ]
+      }
+    },
+    "/admin/sync/mongo-to-es": {
+      "post": {
+        "summary": "全量同步mongo数据到es",
+        "deprecated": false,
+        "description": "",
+        "tags": [],
+        "parameters": [
+          {
+            "name": "X-Admin-Token",
+            "in": "header",
+            "description": "",
+            "required": false,
+            "example": "szu123",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {}
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "jwt": []
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "schemas": {},
+    "responses": {
+      "成功": {
+        "description": "",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "code": {
+                  "type": "integer"
+                },
+                "message": {
+                  "type": "string"
+                },
+                "data": {
+                  "type": "object",
+                  "properties": {}
+                }
+              },
+              "required": [
+                "code",
+                "message",
+                "data"
+              ]
+            },
+            "examples": {
+              "示例 1": {
+                "summary": "示例 1",
+                "value": {
+                  "code": 200,
+                  "message": "success",
+                  "data": null
+                }
+              }
+            }
+          }
+        }
+      },
+      "请求参数错误": {
+        "description": "",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "code": {
+                  "type": "integer"
+                },
+                "message": {
+                  "description": "description: 必填项缺失、格式不对（如邮箱格式错）",
+                  "type": "string"
+                },
+                "data": {
+                  "type": "null"
+                }
+              },
+              "required": [
+                "code",
+                "message",
+                "data"
+              ]
+            },
+            "examples": {
+              "示例 1": {
+                "summary": "示例 1",
+                "value": {
+                  "code": 40001,
+                  "message": "请求参数错误",
+                  "data": null
+                }
+              }
+            }
+          }
+        }
+      },
+      "验证码错误或已失效": {
+        "description": "",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "code": {
+                  "type": "integer"
+                },
+                "message": {
+                  "description": "description: 绑定邮箱/重置密码时，验证码输错",
+                  "type": "string"
+                },
+                "data": {
+                  "type": "null"
+                }
+              },
+              "required": [
+                "code",
+                "message",
+                "data"
+              ]
+            },
+            "examples": {
+              "示例 1": {
+                "summary": "示例 1",
+                "value": {
+                  "code": 40002,
+                  "message": "验证码错误或已失效",
+                  "data": null
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "jwt": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  },
+  "servers": [],
+  "security": [
+    {
+      "jwt": []
+    }
+  ]
+}

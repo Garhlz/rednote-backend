@@ -146,6 +146,39 @@ services:
       - "9100" # 在 Docker 网络内部暴露端口
     networks:
       - afternoon-net
+  cadvisor:
+    # 1. 使用刚才 load 进来的本地镜像名，不要用 gcr.io
+    image: ghcr.io/google/cadvisor:v0.53.0
+    container_name: afternoon-cadvisor
+    restart: always
+
+    # 2. 【关键】核心权限配置 (对应 README 的 --privileged 和 --device)
+    privileged: true
+    cgroup: host
+    devices:
+      - /dev/kmsg
+
+    # 3. 挂载点 (严格照抄 README，否则读不到宿主机指标)
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /sys/fs/cgroup:/sys/fs/cgroup:ro
+    # 4. 端口映射
+    # 映射到 8081 以避免和后端 8080 冲突，或者仅 expose 给 Prometheus
+    ports:
+      - "8081:8080"
+
+    networks:
+      - afternoon-net
+    command:
+      - '--housekeeping_interval=10s'
+      - '--store_container_labels=true'
+
+
   rabbitmq:
     image: rabbitmq:3.12-management-alpine
     container_name: afternoon-rabbitmq

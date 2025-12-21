@@ -89,7 +89,7 @@ public class CommentEventListener {
         }
         if (!"CREATE".equals(event.getType())) return;
 
-        log.info("RabbitMQ 处理评论创建: commentId={}", event.getCommentId());
+        log.debug("RabbitMQ 处理评论创建: commentId={}", event.getCommentId());
 
         // 更新帖子总评论数 +1 (Atomic)
         mongoTemplate.updateFirst(
@@ -233,7 +233,7 @@ public class CommentEventListener {
         if (!"DELETE".equals(event.getType())) return;
 
         String commentId = event.getCommentId();
-        log.info("RabbitMQ 处理评论删除: commentId={}", commentId);
+        log.debug("RabbitMQ 处理评论删除: commentId={}", commentId);
 
         // 1. 【新增】清理该评论的点赞记录
         // 对应 Repository 里的 void deleteByCommentId(String commentId);

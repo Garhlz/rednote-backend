@@ -44,4 +44,9 @@ public interface AdminService {
     Map<String, Object> getUserLogs(LogSearchDTO dto);
 
     List<AdminPostStatVO> getPostViewRanking(int limit);
+
+    /**
+     * 获取指定帖子的审核历史记录
+     */
+    List<PostAuditLogVO> getPostAuditHistory(String postId);
 }

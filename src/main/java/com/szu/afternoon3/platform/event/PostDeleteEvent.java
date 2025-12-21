@@ -1,5 +1,6 @@
 package com.szu.afternoon3.platform.event;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -8,13 +9,16 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class PostDeleteEvent {
-    /**
-     * 被删除的帖子ID
-     */
     private String postId;
+    private Long operatorId;    // 操作人ID (谁点的删除)
 
-    /**
-     * 操作者的ID (可能是作者，也可能是管理员)
-     */
-    private Long operatorId;
+    private String operatorName;
+    // === 【新增字段】用于生成通知和日志 ===
+    private Long authorId;      // 帖子作者ID (给谁发通知)
+    private String postTitle;   // 帖子标题 (通知里展示)
+    private String reason;      // 删除原因 (如果是管理员删除)
+
+    // 必须要手动映射，否则出错！
+    @JsonProperty("adminOp")
+    private boolean isAdminOp;  // 是否是管理员操作
 }

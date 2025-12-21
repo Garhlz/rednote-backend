@@ -12,6 +12,7 @@ import com.szu.afternoon3.platform.mapper.UserMapper;
 import com.szu.afternoon3.platform.repository.PostRepository;
 import com.szu.afternoon3.platform.service.*;
 import com.szu.afternoon3.platform.vo.*;
+import io.swagger.v3.oas.annotations.Operation;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
@@ -47,6 +48,9 @@ public class AdminController {
 
     @Autowired
     private AiService aiService;
+
+    @Autowired
+    private PostService postService;
     /**
      * 管理员登录
      * @param loginDTO 登录参数
@@ -205,6 +209,23 @@ public class AdminController {
         return Result.success();
     }
 
+    @GetMapping("/post/{postId}/audit-history")
+    @OperationLog(module = "后台内容审核", description = "获取帖子审核历史")
+    public Result<List<PostAuditLogVO>> getPostAuditHistory(@PathVariable String postId) {
+        return Result.success(adminService.getPostAuditHistory(postId));
+    }
+
+    @DeleteMapping("/post/{postId}")
+    @OperationLog(module = "后台内容审核",description = "管理员强制删除帖子") // 你的 AOP 会自动记录 ApiLogDoc
+    public Result<Void> deletePost(
+            @PathVariable String postId,
+            @RequestParam(required = false) String reason
+    ) {
+        // 直接复用 Service，reason 会传给 Listener
+        postService.deletePost(postId, reason);
+        return Result.success();
+    }
+
     /**
      * 查询管理员操作日志
      * @param dto 查询条件
@@ -268,4 +289,8 @@ public class AdminController {
         List<AdminPostStatVO> list = adminService.getPostViewRanking(limit);
         return Result.success(list);
     }
+
+
+
+
 }

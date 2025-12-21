@@ -10,3 +10,7 @@ scrape_configs:
     static_configs:
       # 直接使用容器名访问，Docker会自动解析IP
       - targets: ['afternoon-node-exporter:9100']
+  - job_name: 'cadvisor'
+    static_configs:
+      # 注意：在 docker 网络内部，直接用服务名:容器内端口(8080)
+      - targets: [ 'cadvisor:8080' ]

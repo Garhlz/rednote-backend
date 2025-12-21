@@ -57,7 +57,7 @@ public class InteractionEventListener {
      */
     @RabbitListener(queues = RabbitConfig.QUEUE_INTERACTION)
     public void handleInteraction(InteractionEvent event) {
-        log.info("RabbitMQ 收到交互消息: {}", event);
+        log.debug("RabbitMQ 收到交互消息: {}", event);
         try {
             switch (event.getType()) {
                 case "LIKE":
@@ -148,7 +148,7 @@ public class InteractionEventListener {
         // 3. 执行更新
         try {
             elasticsearchOperations.update(updateQuery, IndexCoordinates.of("post_index"));
-            log.info("✅ ES Count Updated: postId={}, field={}, delta={}", postId, fieldName, delta);
+            log.debug("✅ ES Count Updated: postId={}, field={}, delta={}", postId, fieldName, delta);
         } catch (Exception e) {
             log.error("❌ Failed to update post count in ES for postId: {}", postId, e);
         }

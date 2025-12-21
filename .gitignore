@@ -65,3 +65,12 @@ sync-sidecar/sidecar-image.tar.gz
 
 docker-compose-local.yml
 test_avatar.jpg
+
+arthas-boot.jar
+arthas-output/
+
+es_data/
+
+raw_dict/
+
+platform.iml
