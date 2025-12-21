@@ -120,10 +120,11 @@ public class AuthServiceImpl implements AuthService {
      */
     private LoginVO buildLoginVO(User user, boolean isNewUser) {
         // 生成 JWT Token
-        String token = jwtUtil.createToken(user.getId(), user.getRole());
-
+        String accessToken = jwtUtil.createAccessToken(user.getId(), user.getRole(), user.getNickname());
+        String refreshToken = jwtUtil.createRefreshToken(user.getId());
         LoginVO vo = new LoginVO();
-        vo.setToken(token);
+        vo.setToken(accessToken);
+        vo.setRefreshToken(refreshToken);
         vo.setIsNewUser(isNewUser);
         // 判断是否已设置密码 (用于前端判断是否引导用户设置密码)
         vo.setHasPassword(StrUtil.isNotBlank(user.getPassword()));
@@ -271,5 +272,47 @@ public class AuthServiceImpl implements AuthService {
 
         userMapper.insert(user);
         return user.getId();
+    }
+
+    @Override
+    public LoginVO refreshToken(String refreshToken) {
+        // admin可以直接复用
+//        log.info("refreshToken: {}", refreshToken);
+        // 1. 校验 Refresh Token 是否有效
+        if (!jwtUtil.validateToken(refreshToken)) {
+            throw new AppException(ResultCode.TOKEN_EXPIRED, "登录凭证已失效，请重新登录");
+        }
+
+        JWT jwt = jwtUtil.parseToken(refreshToken);
+
+        // 2. 校验类型 (防止用 Access Token 来刷新)
+        String type = (String) jwt.getPayload("type");
+        if (!"refresh".equals(type)) {
+            throw new AppException(ResultCode.PARAM_ERROR, "凭证类型错误");
+        }
+
+        // 3. 拿到 ID，查库获取最新信息 (因为 Access Token 需要最新的昵称和角色)
+        Long userId = Long.valueOf(jwt.getPayload("userId").toString());
+        User user = userMapper.selectById(userId);
+        if (user == null) {
+            throw new AppException(ResultCode.USER_NOT_FOUND);
+        }
+        // 检查用户状态是否被封禁
+        if (user.getStatus() != 1) {
+            throw new AppException(ResultCode.ACCOUNT_BANNED);
+        }
+
+        // 4. 【核心】签发双 Token (滑动过期)
+        // 每次刷新都给一个新的 Refresh Token，只要用户保持活跃，理论上可以永远不重新登录
+        String newAccessToken = jwtUtil.createAccessToken(user.getId(), user.getRole(), user.getNickname());
+        String newRefreshToken = jwtUtil.createRefreshToken(user.getId());
+
+        // 5. 组装返回
+        LoginVO vo = new LoginVO();
+        vo.setToken(newAccessToken);       // 兼容前端字段名
+        vo.setRefreshToken(newRefreshToken);
+        // vo.setUserInfo(...) // 刷新接口通常不需要返回用户信息，省流量
+
+        return vo;
     }
 }

@@ -22,7 +22,6 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -62,11 +61,11 @@ public class NotificationIntegrationTest {
         // 2. 创建两个测试用户 (PostgreSQL)
         // 发送者
         sender = createUser("Sender_XiaoQing");
-        senderToken = "Bearer " + jwtUtil.createToken(sender.getId(), "USER");
+        senderToken = "Bearer " + jwtUtil.createAccessToken(sender.getId(), "USER", sender.getNickname());
 
         // 接收者
         receiver = createUser("Receiver_YouYou");
-        receiverToken = "Bearer " + jwtUtil.createToken(receiver.getId(), "USER");
+        receiverToken = "Bearer " + jwtUtil.createAccessToken(receiver.getId(), "USER", receiver.getNickname());
 
         // 3. 接收者发一篇帖子 (MongoDB)
         PostDoc post = new PostDoc();

@@ -114,7 +114,7 @@ public class WebLogAspect {
         logDoc.setTimeCost(timeCost);
         logDoc.setUserId(UserContext.getUserId());
         logDoc.setRole(UserContext.getRole());
-        // logDoc.setUsername(...) // 建议不查库，前端根据 userId 查，或者让 UserContext 带进来
+        logDoc.setUsername(UserContext.getNickname());
 
         String ip = getIpAddress(request);
         logDoc.setIp(ip);

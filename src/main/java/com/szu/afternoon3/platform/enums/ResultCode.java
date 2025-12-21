@@ -18,7 +18,8 @@ public enum ResultCode {
 
     /* 401: 认证相关 */
     UNAUTHORIZED(40101, "请先登录"),
-    TOKEN_EXPIRED(40102, "登录已过期，请重新登录"),
+    TOKEN_EXPIRED(40102, "登录已过期"),
+    USER_LOGGED_OUT(40103, "用户已注销，请重新登录"),
 
     /* 403: 权限相关 */
     ACCOUNT_BANNED(40301, "账号已被禁用"),

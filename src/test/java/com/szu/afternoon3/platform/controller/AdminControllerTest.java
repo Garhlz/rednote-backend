@@ -1,9 +1,7 @@
 package com.szu.afternoon3.platform.controller;
 
-import cn.hutool.core.collection.ListUtil;
 import cn.hutool.crypto.digest.BCrypt;
 import cn.hutool.json.JSONUtil;
-import com.szu.afternoon3.platform.common.RedisKey;
 import com.szu.afternoon3.platform.dto.*;
 import com.szu.afternoon3.platform.entity.User;
 import com.szu.afternoon3.platform.entity.mongo.PostDoc;
@@ -27,7 +25,6 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.List;
 
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
@@ -79,7 +76,7 @@ public class AdminControllerTest {
         admin.setStatus(1);
         userMapper.insert(admin);
         this.adminId = admin.getId();
-        this.adminToken = "Bearer " + jwtUtil.createToken(admin.getId(), "ADMIN");
+        this.adminToken = "Bearer " + jwtUtil.createAccessToken(admin.getId(), "ADMIN", admin.getNickname());
 
         // 3. 创建普通用户 (尝试越权)
         User user = new User();
@@ -88,7 +85,7 @@ public class AdminControllerTest {
         user.setRole("USER"); // 关键：角色为 USER
         user.setStatus(1);
         userMapper.insert(user);
-        this.userToken = "Bearer " + jwtUtil.createToken(user.getId(), "USER");
+        this.userToken = "Bearer " + jwtUtil.createAccessToken(user.getId(), "USER", user.getNickname());
 
         // 4. 创建目标用户 (用于被删除/查看详情)
         User target = new User();

@@ -6,6 +6,8 @@ import cn.hutool.jwt.JWTUtil;
 import com.szu.afternoon3.platform.common.UserContext;
 import com.szu.afternoon3.platform.exception.AppException;
 import com.szu.afternoon3.platform.enums.ResultCode;
+import com.szu.afternoon3.platform.mapper.UserMapper;
+import com.szu.afternoon3.platform.util.JwtUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
@@ -23,7 +25,10 @@ import java.nio.charset.StandardCharsets;
 public class TokenInterceptor implements HandlerInterceptor {
     @Autowired
     private StringRedisTemplate redisTemplate; // [新增] 注入 Redis
-
+    @Autowired
+    private UserMapper userMapper;
+    @Autowired
+    private JwtUtil jwtUtil; // 注入工具类，不再直接用 Hutool 静态方法
     @Value("${szu.jwt.secret}")
     private String secretKey;
 
@@ -31,71 +36,60 @@ public class TokenInterceptor implements HandlerInterceptor {
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
-        // 1. 如果不是映射到方法直接通过（比如处理静态资源，或者 OPTIONS 请求）
         if (!(handler instanceof HandlerMethod)) {
             return true;
         }
 
-        // 2. 获取 Header 中的 Authorization
         String authHeader = request.getHeader("Authorization");
-
-        // 3. 基础校验：Header 是否存在，格式是否为 "Bearer <token>"
         if (StrUtil.isBlank(authHeader) || !authHeader.startsWith("Bearer ")) {
-            // 这里抛出异常，会被 GlobalExceptionHandler 捕获，返回 401 给前端
             throw new AppException(ResultCode.UNAUTHORIZED);
         }
 
-        // 4. 截取 Token
         String token = authHeader.substring(7);
 
-        // [新增] 检查 Redis 黑名单
-        // 如果 Redis 里有这个 Key，说明用户已经登出了
-        Boolean isBlocked = redisTemplate.hasKey(TOKEN_BLOCK_PREFIX + token);
-        if (isBlocked) {
-            throw new AppException(ResultCode.TOKEN_EXPIRED, "登录已注销");
+        // 1. 检查 Redis 黑名单 (逻辑保持不变)
+        if (redisTemplate.hasKey(TOKEN_BLOCK_PREFIX + token)) {
+            throw new AppException(ResultCode.USER_LOGGED_OUT);
+        }
+
+        // 2. 校验签名和过期
+        if (!jwtUtil.validateToken(token)) {
+            throw new AppException(ResultCode.TOKEN_EXPIRED);
         }
 
         try {
-            // 5. 校验 Token 签名 (Hutool)
-            boolean verify = JWTUtil.verify(token, secretKey.getBytes(StandardCharsets.UTF_8));
-            if (!verify) {
-                throw new AppException(ResultCode.TOKEN_EXPIRED);
+            JWT jwt = jwtUtil.parseToken(token);
+
+            // 3. 【新增】类型检查：必须是 Access Token
+            String type = (String) jwt.getPayload("type");
+            // 兼容旧 Token (没有 type 字段的) 或明确校验 "access"
+            if (StrUtil.isNotBlank(type) && !"access".equals(type)) {
+                throw new AppException(ResultCode.UNAUTHORIZED, "凭证类型错误");
             }
 
-            // 6. 校验 Token 是否过期 (Hutool 默认会校验 exp 字段，但手动 validate 更保险)
-            try {
-                JWTUtil.parseToken(token).validate(0); // 0 表示不做容忍时间的偏差
-            } catch (Exception e) {
-                throw new AppException(ResultCode.TOKEN_EXPIRED);
-            }
+            // 4. 解析数据
+            Long userId = Long.valueOf(jwt.getPayload("userId").toString());
+            String role = (String) jwt.getPayload("role");
+            if (role == null) role = "USER";
 
-            // 7. 解析 userId
-            JWT jwt = JWTUtil.parseToken(token);
-            // 注意：payload 里的数字可能被解析为 Integer，建议转 String 再转 Long 安全
-            Object userIdObj = jwt.getPayload("userId");
-            if (userIdObj == null) {
-                throw new AppException(ResultCode.UNAUTHORIZED);
-            }
-            Long userId = Long.valueOf(userIdObj.toString());
+            // 5. 【新增】提取 Nickname (免查库优化)
+            String nickname = (String) jwt.getPayload("nickname");
+            if (StrUtil.isBlank(nickname)) nickname = "用户"; // 兜底
 
-            // 【新增】解析 Role 并放入上下文
-            Object roleObj = jwt.getPayload("role");
-            String role = (roleObj != null) ? roleObj.toString() : "USER"; // 默认 USER 防空指针
-
-            // 8. 放入 ThreadLocal
+            // 6. 放入上下文
             UserContext.setUserId(userId);
             UserContext.setRole(role);
-            // 放行
+            UserContext.setNickname(nickname); // 设置昵称
+
             return true;
 
         } catch (AppException e) {
-            throw e; // 已经是我们定义的异常，直接抛出
+            throw e;
         } catch (Exception e) {
-            log.error("Token解析异常", e);
-            throw new AppException(ResultCode.TOKEN_EXPIRED); // 其他解析错误统一视为无效
+            log.error("Token解析详细异常", e);
+            throw new AppException(ResultCode.TOKEN_EXPIRED);
         }
     }
-
     @Override
     public void afterCompletion(HttpServletRequest request, HttpServletResponse response, Object handler, Exception ex) throws Exception {
         // 请求结束，必须清理 ThreadLocal，防止内存泄漏和数据污染

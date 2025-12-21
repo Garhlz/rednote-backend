@@ -6,7 +6,8 @@ package com.szu.afternoon3.platform.common;
  */
 public class UserContext {
     private static final ThreadLocal<Long> USER_HOLDER = new ThreadLocal<>();
-    // 【新增】存储当前用户的角色
+    // 新增 nickname 容器
+    private static final ThreadLocal<String> NICKNAME_HOLDER = new ThreadLocal<>();
     private static final ThreadLocal<String> ROLE_HOLDER = new ThreadLocal<>();
 
     public static void setUserId(Long userId) {
@@ -17,18 +18,25 @@ public class UserContext {
         return USER_HOLDER.get();
     }
 
-    // 【新增】
+    public static void setNickname(String nickname) {
+        NICKNAME_HOLDER.set(nickname);
+    }
+
+    public static String getNickname() {
+        return NICKNAME_HOLDER.get();
+    }
+
     public static void setRole(String role) {
         ROLE_HOLDER.set(role);
     }
 
-    // 【新增】
     public static String getRole() {
         return ROLE_HOLDER.get();
     }
 
     public static void clear() {
         USER_HOLDER.remove();
-        ROLE_HOLDER.remove(); // 【新增】
+        ROLE_HOLDER.remove();
+        NICKNAME_HOLDER.remove(); // 记得清理
     }
 }

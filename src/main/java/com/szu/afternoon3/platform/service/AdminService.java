@@ -2,6 +2,7 @@ package com.szu.afternoon3.platform.service;
 
 import com.szu.afternoon3.platform.dto.*;
 import com.szu.afternoon3.platform.vo.*;
+import jakarta.servlet.http.HttpServletResponse;
 
 import java.util.List;
 import java.util.Map;
@@ -49,4 +50,8 @@ public interface AdminService {
      * 获取指定帖子的审核历史记录
      */
     List<PostAuditLogVO> getPostAuditHistory(String postId);
+
+    AdminStatsVO getDataStatistics();
+
+    void exportLogs(LogSearchDTO dto, HttpServletResponse response);
 }

@@ -94,8 +94,13 @@ public class AuthController {
         return Result.success(userId);
     }
 
-    @GetMapping("test")
+    @GetMapping("/test")
     public Result<String> printHello(){
         return Result.success("Hello, world!");
+    }
+
+    @PostMapping("/refresh")
+    public Result<LoginVO> refreshToken(@RequestBody RefreshTokenDTO dto) {
+        return Result.success(authService.refreshToken(dto.getRefreshToken()));
     }
 }

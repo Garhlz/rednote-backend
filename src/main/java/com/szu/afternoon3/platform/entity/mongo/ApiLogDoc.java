@@ -43,6 +43,7 @@ public class ApiLogDoc {
     private String errorMsg;
     private Long timeCost;
 
-    @Indexed(expireAfterSeconds = 2592000)
+    // 90天 * 24小时 * 60分钟 * 60秒 = 7776000
+    @Indexed(expireAfterSeconds = 7776000)
     private LocalDateTime createdAt;
 }

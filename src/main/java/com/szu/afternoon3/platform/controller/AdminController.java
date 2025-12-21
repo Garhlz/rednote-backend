@@ -14,6 +14,7 @@ import com.szu.afternoon3.platform.service.*;
 import com.szu.afternoon3.platform.vo.*;
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -120,6 +121,10 @@ public class AdminController {
         return Result.success(userId);
     }
 
+    @PostMapping("/auth/refresh")
+    public Result<LoginVO> refreshToken(@RequestBody RefreshTokenDTO dto) {
+        return Result.success(authService.refreshToken(dto.getRefreshToken()));
+    }
     /**
      * 获取管理员个人信息
      * @return 管理员信息
@@ -210,13 +215,13 @@ public class AdminController {
     }
 
     @GetMapping("/post/{postId}/audit-history")
-    @OperationLog(module = "后台内容审核", description = "获取帖子审核历史")
+    @OperationLog(module = "后台内容审核", description = "获取帖子审核历史", bizId = "#postId")
     public Result<List<PostAuditLogVO>> getPostAuditHistory(@PathVariable String postId) {
         return Result.success(adminService.getPostAuditHistory(postId));
     }
 
     @DeleteMapping("/post/{postId}")
-    @OperationLog(module = "后台内容审核",description = "管理员强制删除帖子") // 你的 AOP 会自动记录 ApiLogDoc
+    @OperationLog(module = "后台内容审核", description = "管理员强制删除帖子", bizId = "#postId") // 补全 bizId
     public Result<Void> deletePost(
             @PathVariable String postId,
             @RequestParam(required = false) String reason
@@ -246,6 +251,17 @@ public class AdminController {
     @OperationLog(module = "后台日志审计", description = "查询用户日志")
     public Result<Map<String, Object>> getUserLogs(@RequestBody LogSearchDTO dto) {
         return Result.success(adminService.getUserLogs(dto));
+    }
+
+    /**
+     * 导出操作日志
+     * @param dto 查询条件
+     * @param response HTTP响应对象
+     */
+    @GetMapping("/log/export")
+    @OperationLog(module = "后台日志审计", description = "导出操作日志")
+    public void exportLogs(LogSearchDTO dto, HttpServletResponse response) {
+        adminService.exportLogs(dto, response);
     }
 
     /**
@@ -291,6 +307,11 @@ public class AdminController {
     }
 
 
+    @GetMapping("/stats")
+    @OperationLog(module = "数据统计", description = "获取后台首页统计数据")
+    public Result<AdminStatsVO> getStats() {
+        return Result.success(adminService.getDataStatistics());
+    }
 
 
 }

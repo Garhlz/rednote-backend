@@ -40,4 +40,10 @@ public class LogSearchDTO {
      */
     private Integer page = 1;
     private Integer size = 20;
+
+    // 【新增】支持按昵称模糊搜 (更人性化)
+    private String username;
+
+    // 【新增】支持按模块精确筛 (对应产品说的“操作类型”)
+    private String module;
 }

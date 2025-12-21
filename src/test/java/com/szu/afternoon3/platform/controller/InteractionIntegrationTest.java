@@ -72,7 +72,7 @@ public class InteractionIntegrationTest {
         this.userId = user.getId();
 
         // 4. 生成 Token
-        this.token = "Bearer " + jwtUtil.createToken(userId, "USER");
+        this.token = "Bearer " + jwtUtil.createAccessToken(userId, "USER", user.getNickname());
 
         // 5. 创建测试帖子
         PostDoc post = new PostDoc();

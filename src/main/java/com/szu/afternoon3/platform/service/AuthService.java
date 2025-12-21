@@ -21,4 +21,6 @@ public interface AuthService {
      * @return 用户ID
      */
     Long createTestUser(TestUserCreateDTO dto);
+
+    LoginVO refreshToken(String refreshToken);
 }

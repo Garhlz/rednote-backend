@@ -3,7 +3,10 @@ package com.szu.afternoon3.platform.service.impl;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.crypto.digest.BCrypt;
+import cn.hutool.poi.excel.ExcelUtil;
+import cn.hutool.poi.excel.ExcelWriter;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.szu.afternoon3.platform.common.UserContext;
@@ -23,6 +26,7 @@ import com.szu.afternoon3.platform.service.AdminService;
 import com.szu.afternoon3.platform.util.JwtUtil;
 import com.szu.afternoon3.platform.util.TencentImUtil;
 import com.szu.afternoon3.platform.vo.*;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.BeanUtils;
@@ -40,8 +44,12 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.IOException;
+import java.net.URLEncoder;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -96,9 +104,11 @@ public class AdminServiceImpl implements AdminService {
     }
 
     private LoginVO buildLoginVO(User user) {
-        String token = jwtUtil.createToken(user.getId(), user.getRole());
+        String accessToken = jwtUtil.createAccessToken(user.getId(), user.getRole(), user.getNickname());
+        String refreshToken =  jwtUtil.createRefreshToken(user.getId());
         LoginVO vo = new LoginVO();
-        vo.setToken(token);
+        vo.setToken(accessToken);
+        vo.setRefreshToken(refreshToken);
         vo.setHasPassword(true);
         vo.setIsNewUser(false);
 
@@ -689,29 +699,42 @@ public class AdminServiceImpl implements AdminService {
     private Map<String, Object> queryLogs(String logType, LogSearchDTO dto) {
         Query query = new Query();
 
-        // 1. 强制固定日志类型
+        // 1. 强制固定日志类型 (Admin/User)
         query.addCriteria(Criteria.where("logType").is(logType));
 
-        // 2. 动态拼接条件
+        // 2. 精确匹配条件
         if (dto.getUserId() != null) {
             query.addCriteria(Criteria.where("userId").is(dto.getUserId()));
         }
-
         if (dto.getStatus() != null) {
             query.addCriteria(Criteria.where("status").is(dto.getStatus()));
         }
-
-        // 精确查询业务ID (例如查询某个帖子的所有操作历史)
         if (StrUtil.isNotBlank(dto.getBizId())) {
             query.addCriteria(Criteria.where("bizId").is(dto.getBizId()));
         }
 
-        // 模糊查询：同时匹配 "中文描述" 或 "请求路径"
+        // 【新增】操作类型(模块)精确筛选
+        if (StrUtil.isNotBlank(dto.getModule())) {
+            query.addCriteria(Criteria.where("module").is(dto.getModule()));
+        }
+
+        // 3. 模糊查询条件 (使用 orOperator 组合)
+        List<Criteria> orCriteria = new ArrayList<>();
+
+        // 关键词搜 描述 或 路径
         if (StrUtil.isNotBlank(dto.getKeyword())) {
-            query.addCriteria(new Criteria().orOperator(
-                    Criteria.where("description").regex(dto.getKeyword(), "i"), // i 表示忽略大小写
-                    Criteria.where("uri").regex(dto.getKeyword(), "i")
-            ));
+            orCriteria.add(Criteria.where("description").regex(dto.getKeyword(), "i"));
+            orCriteria.add(Criteria.where("uri").regex(dto.getKeyword(), "i"));
+        }
+
+        // 【新增】操作人昵称模糊搜
+        if (StrUtil.isNotBlank(dto.getUsername())) {
+            orCriteria.add(Criteria.where("username").regex(dto.getUsername(), "i"));
+        }
+
+        // 如果有模糊条件，加入查询
+        if (!orCriteria.isEmpty()) {
+            query.addCriteria(new Criteria().orOperator(orCriteria.toArray(new Criteria[0])));
         }
 
         // 时间范围查询
@@ -831,5 +854,178 @@ public class AdminServiceImpl implements AdminService {
         }).collect(Collectors.toList());
     }
 
+    @Override
+    public AdminStatsVO getDataStatistics() {
+        AdminStatsVO vo = new AdminStatsVO();
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime todayStart = LocalDate.now().atStartOfDay();
+        LocalDateTime sevenDaysAgoStart = LocalDate.now().minusDays(6).atStartOfDay(); // 近7天包含今天
 
+        // ==========================================
+        // 1. 顶部卡片：今日数据
+        // ==========================================
+
+        // 1.1 今日新增用户 (PG)
+        Long todayUserCount = userMapper.selectCount(new LambdaQueryWrapper<User>()
+                .ge(User::getCreatedAt, todayStart));
+        vo.setTodayNewUsers(todayUserCount);
+
+        // 1.2 今日发帖量 (Mongo)
+        long todayPostCount = mongoTemplate.count(Query.query(
+                Criteria.where("createdAt").gte(todayStart)), PostDoc.class);
+        vo.setTodayNewPosts(todayPostCount);
+
+
+        // ==========================================
+        // 2. 图表数据：近7天趋势
+        // ==========================================
+        // 准备最近 7 天的日期列表 (作为 X 轴标准)
+        List<String> last7Days = new ArrayList<>();
+        DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+        for (int i = 6; i >= 0; i--) {
+            last7Days.add(LocalDate.now().minusDays(i).format(fmt));
+        }
+
+        // 2.1 用户增长趋势 (PostgreSQL)
+        // SQL: SELECT TO_CHAR(created_at, 'YYYY-MM-DD') as date, COUNT(*) as count
+        //      FROM users WHERE created_at >= ? GROUP BY date
+        QueryWrapper<User> userQuery = new QueryWrapper<>();
+        userQuery.select("TO_CHAR(created_at, 'yyyy-MM-dd') as date", "COUNT(*) as count")
+                .ge("created_at", sevenDaysAgoStart)
+                .groupBy("TO_CHAR(created_at, 'yyyy-MM-dd')");
+
+        List<Map<String, Object>> userTrendRaw = userMapper.selectMaps(userQuery);
+        // 转 Map 方便查找: {"2023-12-01": 10, ...}
+        Map<String, Long> userTrendMap = userTrendRaw.stream().collect(Collectors.toMap(
+                m -> (String) m.get("date"),
+                m -> ((Number) m.get("count")).longValue()
+        ));
+
+        // 2.2 发帖趋势 (MongoDB Aggregation)
+        Aggregation agg = Aggregation.newAggregation(
+                Aggregation.match(Criteria.where("createdAt").gte(sevenDaysAgoStart)),
+                Aggregation.project().and(DateOperators.dateOf("createdAt").toString("%Y-%m-%d")).as("date"),
+                Aggregation.group("date").count().as("count")
+        );
+        List<Map> postTrendRaw = mongoTemplate.aggregate(agg, "posts", Map.class).getMappedResults();
+        Map<String, Long> postTrendMap = postTrendRaw.stream().collect(Collectors.toMap(
+                m -> (String) m.get("_id"), // group 的 key 是 _id
+                m -> ((Number) m.get("count")).longValue()
+        ));
+
+        // 2.3 组装并补 全 0 值
+        vo.setUserTrend(buildChartData(last7Days, userTrendMap));
+        vo.setPostTrend(buildChartData(last7Days, postTrendMap));
+
+
+        // ==========================================
+        // 3. 饼图：用户地区分布 (PostgreSQL)
+        // ==========================================
+        // SQL: SELECT region, COUNT(*) as count FROM users GROUP BY region
+        QueryWrapper<User> regionQuery = new QueryWrapper<>();
+        regionQuery.select("region", "COUNT(*) as count")
+                .groupBy("region");
+        List<Map<String, Object>> regionRaw = userMapper.selectMaps(regionQuery);
+
+        List<AdminStatsVO.NameValueVO> regionStats = regionRaw.stream()
+                .map(m -> {
+                    String region = (String) m.get("region");
+                    // 处理空地区
+                    if (StrUtil.isBlank(region)) region = "未知";
+                    Long count = ((Number) m.get("count")).longValue();
+                    return new AdminStatsVO.NameValueVO(region, count);
+                })
+                .sorted((a, b) -> Long.compare(b.getValue(), a.getValue())) // 按人数降序
+                .collect(Collectors.toList());
+
+        vo.setRegionStats(regionStats);
+
+        return vo;
+    }
+
+    /**
+     * 辅助方法：根据日期基准列表，填充数据，补 0
+     */
+    private AdminStatsVO.ChartDataVO buildChartData(List<String> dates, Map<String, Long> dataMap) {
+        AdminStatsVO.ChartDataVO chartData = new AdminStatsVO.ChartDataVO();
+        chartData.setDates(dates);
+
+        List<Long> values = new ArrayList<>();
+        for (String date : dates) {
+            values.add(dataMap.getOrDefault(date, 0L));
+        }
+        chartData.setValues(values);
+        return chartData;
+    }
+
+    @Override
+    public void exportLogs(LogSearchDTO dto, HttpServletResponse response) {
+        // 1. 构建查询条件 (逻辑复用 queryLogs，但这里为了独立性重写一遍，且不分页)
+        Query query = new Query();
+
+        // 强制只导出管理员日志 (通常需求如此，也可根据 dto 动态定)
+        query.addCriteria(Criteria.where("logType").is("ADMIN_OPER"));
+
+        if (dto.getUserId() != null) {
+            query.addCriteria(Criteria.where("userId").is(dto.getUserId()));
+        }
+        if (dto.getStatus() != null) {
+            query.addCriteria(Criteria.where("status").is(dto.getStatus()));
+        }
+        if (StrUtil.isNotBlank(dto.getKeyword())) {
+            query.addCriteria(new Criteria().orOperator(
+                    Criteria.where("description").regex(dto.getKeyword(), "i"),
+                    Criteria.where("uri").regex(dto.getKeyword(), "i")
+            ));
+        }
+        if (dto.getStartTime() != null && dto.getEndTime() != null) {
+            query.addCriteria(Criteria.where("createdAt")
+                    .gte(dto.getStartTime())
+                    .lte(dto.getEndTime()));
+        }
+
+        // 2. 排序与限制 (防止导出数据量过大导致 OOM，限制 5000 条)
+        query.with(Sort.by(Sort.Direction.DESC, "createdAt"));
+        query.limit(5000);
+
+        // 3. 查询数据
+        List<ApiLogDoc> logs = mongoTemplate.find(query, ApiLogDoc.class);
+
+        // 4. 转换为 Map 列表 (保证 Excel 列顺序)
+        List<Map<String, Object>> rows = logs.stream().map(log -> {
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("时间", log.getCreatedAt().toString());
+            row.put("操作人ID", log.getUserId());
+            row.put("角色", log.getRole());
+            row.put("模块", log.getModule());
+            row.put("操作内容", log.getDescription());
+            row.put("业务ID", log.getBizId()); // 关键业务对象ID
+            row.put("请求路径", log.getUri());
+            row.put("请求方法", log.getMethod());
+            row.put("IP地址", log.getIp());
+            row.put("耗时(ms)", log.getTimeCost());
+            row.put("状态", log.getStatus() == 200 ? "成功" : "失败");
+            row.put("错误信息", log.getErrorMsg());
+            return row;
+        }).collect(Collectors.toList());
+
+        // 5. 使用 Hutool 写入响应流
+        try (ExcelWriter writer = ExcelUtil.getWriter(true)) {
+            // 设置列宽自适应
+            writer.autoSizeColumnAll();
+            // 写入数据
+            writer.write(rows, true);
+
+            // 设置响应头
+            response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=utf-8");
+            String fileName = URLEncoder.encode("操作日志_" + System.currentTimeMillis() + ".xlsx", "UTF-8");
+            response.setHeader("Content-Disposition", "attachment;filename=" + fileName);
+
+            //由于是在 Controller 中直接响应流，这里需要 flush 到底层
+            writer.flush(response.getOutputStream(), true);
+        } catch (IOException e) {
+            log.error("导出 Excel 失败", e);
+            throw new AppException(ResultCode.SYSTEM_ERROR, "导出文件失败");
+        }
+    }
 }
