@@ -411,7 +411,8 @@ public class PostServiceImpl implements PostService {
         // 使用 LinkedHashSet 保证插入顺序：先插的在前面
         Set<String> suggestions = new LinkedHashSet<>();
 
-        suggestions.add("<em>" + keyword + "/<em>");
+        // 修复之前的笔误
+        suggestions.add("<em>" + keyword + "</em>");
 
         for (org.springframework.data.elasticsearch.core.SearchHit<PostEsDoc> hit : searchHits.getSearchHits()) {
             // A. 尝试获取标题高亮
