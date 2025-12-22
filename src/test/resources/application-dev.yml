@@ -1,0 +1,74 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/platform_db?currentSchema=public
+    username: postgres
+    password: ${DB_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
+  data:
+    mongodb:
+      uri: mongodb://localhost:27017/rednote
+    redis:
+      host: localhost
+      port: 6379
+      database: 0
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: admin
+    password: admin
+  mail:
+    host: localhost
+    username: mock
+    password: mock
+    protocol: smtp
+    properties:
+      mail:
+        smtp:
+          auth: false
+          starttls:
+            enable: false
+
+aliyun:
+  oss:
+    enable: false
+    endpoint: oss-cn-mock.aliyuncs.com
+    access-key-id: mock
+    access-key-secret: mock
+    bucket-name: mock
+
+wechat:
+  appid: mock_appid
+  secret: mock_secret
+
+file:
+  upload:
+    path: ./target/test-uploads/
+    base-url: http://localhost:8080/uploads/
+
+ai:
+  deepseek:
+    url: http://localhost:8080/mock/ai
+    key: mock_key
+    model: mock_model
+  dashscope:
+    api-key: mock_key
+    model: mock_model
+  bot:
+    user-id: 0
+    user-nickname: AI_Bot
+
+mybatis-plus:
+  mapper-locations: classpath:/mapper/*.xml
+  type-aliases-package: com.szu.afternoon3.platform.entity
+  configuration:
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+    map-underscore-to-camel-case: true
+  global-config:
+    db-config:
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+
+logging:
+  level:
+    root: INFO
+    com.szu.afternoon3.platform: INFO
