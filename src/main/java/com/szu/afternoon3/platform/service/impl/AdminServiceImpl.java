@@ -427,25 +427,6 @@ public class AdminServiceImpl implements AdminService {
         return result;
     }
 
-    private AdminPostVO convertToAdminPostVO(PostDoc doc) {
-        AdminPostVO vo = new AdminPostVO();
-        BeanUtils.copyProperties(doc, vo);
-
-        // 补全用户信息 (PostDoc里有)
-        vo.setUserNickname(doc.getUserNickname());
-        vo.setUserAvatar(doc.getUserAvatar());
-
-        // 补全邮箱 (PostDoc里没有) - 需要查 User 表
-        // 优化：如果有缓存最好。这里逐个查可能慢。
-        // 但考虑到后台管理并发低，先这样。
-        User user = userMapper.selectById(doc.getUserId());
-        if (user != null) {
-            vo.setUserEmail(user.getEmail());
-        }
-
-        return vo;
-    }
-
     @Override
     public PostVO getPostDetail(String postId) {
         PostDoc doc = mongoTemplate.findById(postId, PostDoc.class);
@@ -683,26 +664,41 @@ public class AdminServiceImpl implements AdminService {
 
     @Override
     public Map<String, Object> getAdminLogs(LogSearchDTO dto) {
-        return queryLogs("ADMIN_OPER", dto);
+        // 定义关键操作的描述白名单 (必须与 Controller 中 @OperationLog 的 description 完全一致)
+        List<String> criticalActions = Arrays.asList(
+                "审核帖子",           // 对应 auditPost
+                "ai审核帖子",
+                "管理员强制删除帖子",  // 对应 deletePost
+                "删除用户"            // 对应 deleteUser (涵盖封禁逻辑)
+        );
+        // 调用通用查询，传入白名单
+        return queryLogs("ADMIN_OPER", dto, criticalActions);
     }
 
     @Override
     public Map<String, Object> getUserLogs(LogSearchDTO dto) {
-        return queryLogs("USER_OPER", dto);
+        // 用户日志不需要过滤，传 null
+        return queryLogs("USER_OPER", dto, null);
     }
 
     /**
      * 通用日志查询私有方法
      * @param logType 日志类型 (ADMIN_OPER / USER_OPER)
      * @param dto 查询条件
+     * @param allowedDescriptions 允许的操作描述列表 (白名单)。如果为 null 或空，则查询所有。
      */
-    private Map<String, Object> queryLogs(String logType, LogSearchDTO dto) {
+    private Map<String, Object> queryLogs(String logType, LogSearchDTO dto, List<String> allowedDescriptions) {
         Query query = new Query();
 
         // 1. 强制固定日志类型 (Admin/User)
         query.addCriteria(Criteria.where("logType").is(logType));
 
-        // 2. 精确匹配条件
+        // 2. 【核心修改】如果有白名单，只查询在白名单内的操作
+        if (allowedDescriptions != null && !allowedDescriptions.isEmpty()) {
+            query.addCriteria(Criteria.where("description").in(allowedDescriptions));
+        }
+
+        // 3. 精确匹配条件
         if (dto.getUserId() != null) {
             query.addCriteria(Criteria.where("userId").is(dto.getUserId()));
         }
@@ -713,12 +709,12 @@ public class AdminServiceImpl implements AdminService {
             query.addCriteria(Criteria.where("bizId").is(dto.getBizId()));
         }
 
-        // 【新增】操作类型(模块)精确筛选
+        // 操作类型(模块)精确筛选
         if (StrUtil.isNotBlank(dto.getModule())) {
             query.addCriteria(Criteria.where("module").is(dto.getModule()));
         }
 
-        // 3. 模糊查询条件 (使用 orOperator 组合)
+        // 4. 模糊查询条件 (使用 orOperator 组合)
         List<Criteria> orCriteria = new ArrayList<>();
 
         // 关键词搜 描述 或 路径
@@ -727,7 +723,7 @@ public class AdminServiceImpl implements AdminService {
             orCriteria.add(Criteria.where("uri").regex(dto.getKeyword(), "i"));
         }
 
-        // 【新增】操作人昵称模糊搜
+        // 操作人昵称模糊搜
         if (StrUtil.isNotBlank(dto.getUsername())) {
             orCriteria.add(Criteria.where("username").regex(dto.getUsername(), "i"));
         }
@@ -744,18 +740,18 @@ public class AdminServiceImpl implements AdminService {
                     .lte(dto.getEndTime()));
         }
 
-        // 3. 计算总数 (用于分页)
+        // 5. 计算总数 (用于分页)
         long total = mongoTemplate.count(query, ApiLogDoc.class);
 
-        // 4. 构建分页与排序 (按创建时间倒序)
+        // 6. 构建分页与排序 (按创建时间倒序)
         int page = dto.getPage() > 0 ? dto.getPage() - 1 : 0;
         Pageable pageable = PageRequest.of(page, dto.getSize(), Sort.by(Sort.Direction.DESC, "createdAt"));
         query.with(pageable);
 
-        // 5. 执行查询
+        // 7. 执行查询
         List<ApiLogDoc> list = mongoTemplate.find(query, ApiLogDoc.class);
 
-        // 6. 组装结果
+        // 8. 组装结果
         Map<String, Object> result = new HashMap<>();
         result.put("total", total);
         result.put("records", list);
@@ -960,38 +956,35 @@ public class AdminServiceImpl implements AdminService {
 
     @Override
     public void exportLogs(LogSearchDTO dto, HttpServletResponse response) {
-        // 1. 构建查询条件 (逻辑复用 queryLogs，但这里为了独立性重写一遍，且不分页)
-        Query query = new Query();
+        // 1. 准备导出参数
+        // 导出通常不需要翻页，而是“获取前 N 条”
+        // 我们复用分页逻辑，强制查第 1 页，每页 5000 条 (防止 OOM 的硬限制)
+        dto.setPage(1);
+        dto.setSize(5000);
 
-        // 强制只导出管理员日志 (通常需求如此，也可根据 dto 动态定)
-        query.addCriteria(Criteria.where("logType").is("ADMIN_OPER"));
+        // 2. 定义关键操作白名单 (与 getAdminLogs 保持一致)
+        List<String> criticalActions = Arrays.asList(
+                "审核帖子",
+                "ai审核帖子",
+                "管理员强制删除帖子",
+                "删除用户"
+        );
 
-        if (dto.getUserId() != null) {
-            query.addCriteria(Criteria.where("userId").is(dto.getUserId()));
+        // 3. 【核心】复用查询逻辑
+        // 这样导出时也会自动应用：logType过滤、关键词搜索、时间范围、以及最重要的【白名单过滤】
+        Map<String, Object> queryResult = queryLogs("ADMIN_OPER", dto, criticalActions);
+
+        // 4. 提取数据列表
+        // queryLogs 返回的是 Map，我们需要取出里面的 records
+        @SuppressWarnings("unchecked")
+        List<ApiLogDoc> logs = (List<ApiLogDoc>) queryResult.get("records");
+
+        // 如果没有数据，给一个空列表防止报错
+        if (logs == null) {
+            logs = new ArrayList<>();
         }
-        if (dto.getStatus() != null) {
-            query.addCriteria(Criteria.where("status").is(dto.getStatus()));
-        }
-        if (StrUtil.isNotBlank(dto.getKeyword())) {
-            query.addCriteria(new Criteria().orOperator(
-                    Criteria.where("description").regex(dto.getKeyword(), "i"),
-                    Criteria.where("uri").regex(dto.getKeyword(), "i")
-            ));
-        }
-        if (dto.getStartTime() != null && dto.getEndTime() != null) {
-            query.addCriteria(Criteria.where("createdAt")
-                    .gte(dto.getStartTime())
-                    .lte(dto.getEndTime()));
-        }
 
-        // 2. 排序与限制 (防止导出数据量过大导致 OOM，限制 5000 条)
-        query.with(Sort.by(Sort.Direction.DESC, "createdAt"));
-        query.limit(5000);
-
-        // 3. 查询数据
-        List<ApiLogDoc> logs = mongoTemplate.find(query, ApiLogDoc.class);
-
-        // 4. 转换为 Map 列表 (保证 Excel 列顺序)
+        // 5. 转换为 Map 列表 (保持原有的 Excel 生成逻辑)
         List<Map<String, Object>> rows = logs.stream().map(log -> {
             Map<String, Object> row = new LinkedHashMap<>();
             row.put("时间", log.getCreatedAt().toString());
@@ -999,7 +992,7 @@ public class AdminServiceImpl implements AdminService {
             row.put("角色", log.getRole());
             row.put("模块", log.getModule());
             row.put("操作内容", log.getDescription());
-            row.put("业务ID", log.getBizId()); // 关键业务对象ID
+            row.put("业务ID", log.getBizId());
             row.put("请求路径", log.getUri());
             row.put("请求方法", log.getMethod());
             row.put("IP地址", log.getIp());
@@ -1009,19 +1002,15 @@ public class AdminServiceImpl implements AdminService {
             return row;
         }).collect(Collectors.toList());
 
-        // 5. 使用 Hutool 写入响应流
+        // 6. 使用 Hutool 写入响应流 (保持不变)
         try (ExcelWriter writer = ExcelUtil.getWriter(true)) {
-            // 设置列宽自适应
             writer.autoSizeColumnAll();
-            // 写入数据
             writer.write(rows, true);
 
-            // 设置响应头
             response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=utf-8");
-            String fileName = URLEncoder.encode("操作日志_" + System.currentTimeMillis() + ".xlsx", "UTF-8");
+            String fileName = URLEncoder.encode("管理员操作日志_" + System.currentTimeMillis() + ".xlsx", "UTF-8");
             response.setHeader("Content-Disposition", "attachment;filename=" + fileName);
 
-            //由于是在 Controller 中直接响应流，这里需要 flush 到底层
             writer.flush(response.getOutputStream(), true);
         } catch (IOException e) {
             log.error("导出 Excel 失败", e);

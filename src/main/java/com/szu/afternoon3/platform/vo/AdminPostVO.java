@@ -26,4 +26,11 @@ public class AdminPostVO {
     private Integer coverWidth;
 
     private Integer coverHeight;
+
+    // 统计数据
+    private Integer viewCount = 0;
+    private Integer likeCount = 0;
+    private Integer collectCount = 0;
+    private Integer commentCount = 0;
+
 }

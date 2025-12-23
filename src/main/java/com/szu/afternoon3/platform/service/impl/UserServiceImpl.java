@@ -19,6 +19,7 @@ import com.szu.afternoon3.platform.service.UserService;
 import com.szu.afternoon3.platform.vo.*;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.aggregation.Aggregation;
@@ -420,6 +421,68 @@ public class UserServiceImpl implements UserService {
         return user;
     }
 
+    @Override
+    public PublicUserProfileVO getPublicUserProfile(Long targetUserId) {
+        // 1. 查询目标用户是否存在
+        User targetUser = userMapper.selectById(targetUserId);
+        if (targetUser == null) {
+            throw new AppException(ResultCode.USER_NOT_FOUND);
+        }
+
+        // 2. 组装基本信息
+        PublicUserProfileVO vo = new PublicUserProfileVO();
+        BeanUtils.copyProperties(targetUser, vo);
+        vo.setUserId(targetUser.getId().toString()); // Long -> String
+
+        // 3. 【逻辑复用】填充统计数据 (关注数、粉丝数、获赞数)
+
+        // 查询关注数 (我关注了谁 -> userId = 我)
+        long followCount = mongoTemplate.count(
+                Query.query(Criteria.where("userId").is(targetUserId)),
+                UserFollowDoc.class
+        );
+        vo.setFollowCount(followCount);
+
+        // 查询粉丝数 (谁关注了我 -> targetUserId = 我)
+        long fanCount = mongoTemplate.count(
+                Query.query(Criteria.where("targetUserId").is(targetUserId)),
+                UserFollowDoc.class
+        );
+        vo.setFanCount(fanCount);
+
+        // 查询获赞总数 (聚合查询)
+        // 逻辑：找出该用户所有未删除的帖子，累加它们的 likeCount
+        Aggregation agg = Aggregation.newAggregation(
+                // 筛选：我的帖子 && 未删除
+                Aggregation.match(Criteria.where("userId").is(targetUserId).and("isDeleted").is(0)),
+                // 分组：求和
+                Aggregation.group().sum("likeCount").as("totalLikes")
+        );
+
+        AggregationResults<Map> results = mongoTemplate.aggregate(agg, PostDoc.class, Map.class);
+        Map<String, Object> result = results.getUniqueMappedResult();
+
+        if (result != null && result.get("totalLikes") != null) {
+            // Mongo 聚合返回的数值类型可能不固定，转 Number 再取 longValue 比较稳妥
+            vo.setReceivedLikeCount(((Number) result.get("totalLikes")).longValue());
+        } else {
+            vo.setReceivedLikeCount(0L);
+        }
+
+        // 4. 【核心差异】判断当前用户是否关注了目标用户
+        Long currentUserId = UserContext.getUserId();
+        if (currentUserId != null) {
+            // 如果没登录，默认 false；登录了则查库
+            // 这里的逻辑取决于你关注表的设计，假设是 MongoDB 或 SQL
+            boolean isFollowed = userFollowRepository.existsByUserIdAndTargetUserId(currentUserId, targetUserId);
+            vo.setIsFollowed(isFollowed);
+        } else {
+            vo.setIsFollowed(false);
+        }
+
+        return vo;
+    }
+
     private UserProfileVO buildProfileVO(User user) {
         UserProfileVO vo = new UserProfileVO();
 
@@ -476,6 +539,8 @@ public class UserServiceImpl implements UserService {
 
         return vo;
     }
+
+
     // 实现了邮箱验证码的逻辑
     private void verifyCode(String target, String code) {
         // 修改了api接口，只能进行绑定邮箱

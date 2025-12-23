@@ -6,6 +6,7 @@ import com.szu.afternoon3.platform.common.Result;
 import com.szu.afternoon3.platform.dto.*;
 import com.szu.afternoon3.platform.enums.ResultCode;
 import com.szu.afternoon3.platform.service.UserService;
+import com.szu.afternoon3.platform.vo.PublicUserProfileVO;
 import com.szu.afternoon3.platform.vo.UserInfo;
 import com.szu.afternoon3.platform.vo.UserProfileVO;
 import com.szu.afternoon3.platform.vo.UserSearchVO;
@@ -35,6 +36,16 @@ public class UserController {
     public Result<UserProfileVO> getProfile() {
         UserProfileVO vo = userService.getUserProfile();
         return Result.success(vo);
+    }
+
+    /**
+     * 获取他人公开主页信息
+     * @param userId 目标用户ID
+     */
+    @GetMapping("/{userId}/profile")
+    @OperationLog(module = "用户模块", description = "获取他人主页信息")
+    public Result<PublicUserProfileVO> getOtherUserProfile(@PathVariable Long userId) {
+        return Result.success(userService.getPublicUserProfile(userId));
     }
 
     /**

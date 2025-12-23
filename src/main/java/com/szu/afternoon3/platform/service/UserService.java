@@ -1,6 +1,7 @@
 package com.szu.afternoon3.platform.service;
 
 import com.szu.afternoon3.platform.dto.*;
+import com.szu.afternoon3.platform.vo.PublicUserProfileVO;
 import com.szu.afternoon3.platform.vo.UserInfo;
 import com.szu.afternoon3.platform.vo.UserProfileVO;
 import com.szu.afternoon3.platform.vo.UserSearchVO;
@@ -78,4 +79,6 @@ public interface UserService {
 
     // 【新增】获取我的评论列表
     Map<String, Object> getMyCommentList(Integer page, Integer size);
+
+    PublicUserProfileVO getPublicUserProfile(Long targetUserId);
 }

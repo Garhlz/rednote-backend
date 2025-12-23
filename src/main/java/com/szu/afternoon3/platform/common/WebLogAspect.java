@@ -53,7 +53,10 @@ public class WebLogAspect {
         long startTime = System.currentTimeMillis();
 
         ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
-        HttpServletRequest request = attributes.getRequest();
+        HttpServletRequest request = null;
+        if (attributes != null) {
+            request = attributes.getRequest();
+        }
 
         Object result = null;
         String errorMsg = null;
@@ -194,20 +197,20 @@ public class WebLogAspect {
         // 1. 优先取 X-Forwarded-For (这是标准，Nginx 会把真实 IP 追加在后面)
         String ip = request.getHeader("x-forwarded-for");
 
-        if (ip == null || ip.length() == 0 || "unknown".equalsIgnoreCase(ip)) {
+        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
             // 2. 其次取 Proxy-Client-IP (Apache 等)
             ip = request.getHeader("Proxy-Client-IP");
         }
-        if (ip == null || ip.length() == 0 || "unknown".equalsIgnoreCase(ip)) {
+        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
             // 3. 再次取 WL-Proxy-Client-IP (WebLogic 等)
             ip = request.getHeader("WL-Proxy-Client-IP");
         }
-        if (ip == null || ip.length() == 0 || "unknown".equalsIgnoreCase(ip)) {
+        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
             // 4. 最后取 X-Real-IP (我们在 Nginx 里专门设的)
             ip = request.getHeader("X-Real-IP");
         }
 
-        if (ip == null || ip.length() == 0 || "unknown".equalsIgnoreCase(ip)) {
+        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
             // 5. 实在没有，才取 getRemoteAddr (在 Docker 里这通常是 172.x.x.x)
             ip = request.getRemoteAddr();
         }
