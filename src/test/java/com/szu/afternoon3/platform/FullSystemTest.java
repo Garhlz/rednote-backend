@@ -348,7 +348,7 @@ public class FullSystemTest {
         printSubStep("【黑盒测试】 2.7 评论帖子接口调用");
         JSONObject commentPayload = new JSONObject();
         commentPayload.put("postId", postId);
-        commentPayload.put("content", "写得真好！");
+        commentPayload.put("content", "这是一条测试信息！");
 
         HttpResponse commentResp = HttpRequest.post(BASE_URL + "/api/comment")
                 .header("Authorization", "Bearer " + userToken)
