@@ -3,6 +3,8 @@ package com.szu.afternoon3.platform;
 import com.szu.afternoon3.platform.entity.es.PostEsDoc;
 import com.szu.afternoon3.platform.repository.es.PostEsRepository;
 import com.szu.afternoon3.platform.service.PostService;
+import com.szu.afternoon3.platform.vo.PageResult;
+import com.szu.afternoon3.platform.vo.PostVO;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -96,21 +98,21 @@ public class SearchModuleTest {
         String keyword = "深圳"; // 我们的测试数据都包含这个意图
 
         // A. 测试按最新排序 (new)
-        Map<String, Object> newResult = postService.searchPosts(keyword,null, 1, 10, "new");
-        List<Map<String, Object>> newRecords = (List<Map<String, Object>>) newResult.get("records");
+        PageResult<PostVO> newResult = postService.searchPosts(keyword,null, 1, 10, "new");
+        List<PostVO> newRecords = newResult.getRecords();
         
-        log.info("按最新排序第一条: {}", newRecords.get(0).get("title"));
+        log.info("按最新排序第一条: {}", newRecords.get(0).getTitle());
         // 预期: test-szu-2 (今天发的) 排在 test-szu-1 (昨天发的) 前面
-        assertEquals("test-szu-2", newRecords.get(0).get("id"));
+        assertEquals("test-szu-2", newRecords.get(0).getId());
 
 
         // B. 测试按点赞/热度排序 (likes 或 hot)
-        Map<String, Object> hotResult = postService.searchPosts(keyword, null,1, 10, "likes");
-        List<Map<String, Object>> hotRecords = (List<Map<String, Object>>) hotResult.get("records");
+        PageResult<PostVO> hotResult = postService.searchPosts(keyword, null,1, 10, "likes");
+        List<PostVO> hotRecords = hotResult.getRecords();
         
-        log.info("按点赞排序第一条: {}", hotRecords.get(0).get("title"));
+        log.info("按点赞排序第一条: {}", hotRecords.get(0).getTitle());
         // 预期: test-szu-1 (100赞) 排在 test-szu-2 (5赞) 前面
-        assertEquals("test-szu-1", hotRecords.get(0).get("id"));
+        assertEquals("test-szu-1", hotRecords.get(0).getId());
     }
 
     /**
@@ -119,11 +121,11 @@ public class SearchModuleTest {
      */
     @Test
     public void testSearchContentFilter() {
-        Map<String, Object> result = postService.searchPosts("美食",null, 1, 10, "new");
-        List<Map<String, Object>> records = (List<Map<String, Object>>) result.get("records");
+        PageResult<PostVO> result = postService.searchPosts("美食",null, 1, 10, "new");
+        List<PostVO> records = result.getRecords();
 
         if (records.size() > 0) {
-            String content = (String) records.get(0).get("content");
+            String content = (String) records.get(0).getContent();
             log.info("搜索结果中的 content 字段: '{}'", content);
             assertEquals("", content, "搜索结果中 content 字段应该被清空");
         }

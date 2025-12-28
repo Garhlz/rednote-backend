@@ -1,6 +1,7 @@
 package com.szu.afternoon3.platform.service;
 
 import com.szu.afternoon3.platform.dto.PostUpdateDTO;
+import com.szu.afternoon3.platform.vo.PageResult;
 import com.szu.afternoon3.platform.vo.PostVO;
 import com.szu.afternoon3.platform.dto.PostCreateDTO;
 
@@ -16,9 +17,17 @@ public interface PostService {
      * @param tag 标签筛选
      * @return 包含分页信息的 Map
      */
-    Map<String, Object> getPostList(Integer page, Integer size, String tab, String tag, String sort);
+    PageResult<PostVO> getPostList(Integer page, Integer size, String tab, String tag, String sort);
 
-    Map<String, Object> searchPosts(String keyword, String tag, Integer page, Integer size, String sort);
+    PageResult<PostVO> searchPosts(String keyword, String tag, Integer page, Integer size, String sort);
+
+    /**
+     * 获取用户的帖子列表
+     * @param userId 用户ID
+     * @param page 页码
+     * @param size 每页数量
+     */
+    PageResult<PostVO> getUserPostList(String userId, Integer page, Integer size);
 
     // 获取帖子详情
     PostVO getPostDetail(String postId);
@@ -36,14 +45,6 @@ public interface PostService {
      * @return 标签列表
      */
     List<String> getHotTags(int limit);
-
-    /**
-     * 获取用户的帖子列表
-     * @param userId 用户ID
-     * @param page 页码
-     * @param size 每页数量
-     */
-    Map<String, Object> getUserPostList(String userId, Integer page, Integer size);
 
     /**
      * 发布帖子

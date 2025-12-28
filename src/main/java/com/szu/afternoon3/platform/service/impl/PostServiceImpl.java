@@ -66,6 +66,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+import com.szu.afternoon3.platform.vo.PageResult;
 
 @Slf4j
 @Service
@@ -110,7 +111,7 @@ public class PostServiceImpl implements PostService {
      * 获取帖子列表 (入口路由)
      */
     @Override
-    public Map<String, Object> getPostList(Integer page, Integer size, String tab, String tag, String sort) {
+    public PageResult<PostVO> getPostList(Integer page, Integer size, String tab, String tag, String sort) {
         // 1. 场景 A: 关注流 (Follow)
         // 必须走 MongoDB，因为涉及复杂的关系链查询 (User -> Follow -> Post)
         // 且关注流通常要求强一致性，不需要复杂的 ES 算分
@@ -129,7 +130,7 @@ public class PostServiceImpl implements PostService {
      * 支持：关键词搜索、标签精确过滤、多种排序策略
      */
     @Override
-    public Map<String, Object> searchPosts(String keyword, String tag, Integer page, Integer size, String sort) {
+    public PageResult<PostVO>  searchPosts(String keyword, String tag, Integer page, Integer size, String sort) {
         Long currentUserId = UserContext.getUserId();
 
         // 1. 记录搜索历史 (仅当是显式的关键词搜索时)
@@ -257,57 +258,53 @@ public class PostServiceImpl implements PostService {
             likedPostIds = likes.stream().map(PostLikeDoc::getPostId).collect(Collectors.toSet());
         }
 
-        // 7. 组装结果
+        // 7. [重构] 组装结果为 PostVO
         Set<String> finalLikedPostIds = likedPostIds;
-        List<Map<String, Object>> resultList = searchHits.getSearchHits().stream().map(hit -> {
+        List<PostVO> resultList = searchHits.getSearchHits().stream().map(hit -> {
             PostEsDoc doc = hit.getContent();
-            Map<String, Object> map = new HashMap<>();
+            PostVO vo = new PostVO(); // 使用 VO
 
-            map.put("id", doc.getId());
-            map.put("title", doc.getTitle());
-            map.put("content", StrUtil.subPre(doc.getContent(), 50)); // 摘要
-            map.put("cover", doc.getCover());
-            map.put("coverWidth", doc.getCoverWidth());
-            map.put("coverHeight", doc.getCoverHeight());
-            map.put("type", doc.getType());
-            map.put("tags", doc.getTags());
-            map.put("likeCount", doc.getLikeCount());
+            vo.setId(doc.getId());
+            vo.setTitle(doc.getTitle());
+            vo.setContent(StrUtil.subPre(doc.getContent(), 50)); // 摘要
+            vo.setCover(doc.getCover());
+            vo.setCoverWidth(doc.getCoverWidth());
+            vo.setCoverHeight(doc.getCoverHeight());
+            vo.setType(doc.getType());
+            vo.setTags(doc.getTags());
+            vo.setLikeCount(doc.getLikeCount());
 
-            // ES 里的 createdAt 是字符串，或者 LocalDateTime，这里统一转一下格式
-            // 如果 ES 存的是 String (yyyy-MM-ddTHH:mm:ss.SSS)，这里需要解析或者直接截取
-            // 建议：如果 PostEsDoc 里 createdAt 是 LocalDateTime，直接 format
+            // 格式化时间
             if (doc.getCreatedAt() != null) {
-                map.put("createdAt", DATE_FORMATTER.format(doc.getCreatedAt()));
+                vo.setCreatedAt(DATE_FORMATTER.format(doc.getCreatedAt()));
             }
 
-            // 作者信息
-            Map<String, Object> author = new HashMap<>();
-            author.put("userId", doc.getUserId() != null ? doc.getUserId().toString() : "");
-            author.put("nickname", doc.getUserNickname());
-            author.put("avatar", doc.getUserAvatar());
-            map.put("author", author);
+            // 组装作者信息
+            UserInfo author = new UserInfo();
+            author.setUserId(doc.getUserId() != null ? doc.getUserId().toString() : "");
+            author.setNickname(doc.getUserNickname());
+            author.setAvatar(doc.getUserAvatar());
+            vo.setAuthor(author);
 
             // 状态
-            map.put("isLiked", finalLikedPostIds.contains(doc.getId()));
+            vo.setIsLiked(finalLikedPostIds.contains(doc.getId()));
 
-            return map;
+            // 注意：ES 数据通常不包含 isCollected / isFollowed，如需支持需额外回查
+            // vo.setIsCollected(false);
+            // vo.setIsFollowed(false);
+
+            return vo;
         }).collect(Collectors.toList());
 
-        // 8. 返回
-        Map<String, Object> response = new HashMap<>();
-        response.put("records", resultList);
-        response.put("total", searchHits.getTotalHits());
-        response.put("current", pageNum + 1);
-        response.put("size", pageSize);
-
-        return response;
+        // 8. 返回 PageResult
+        return PageResult.of(resultList, searchHits.getTotalHits(), pageNum + 1, pageSize);
     }
 
     /**
      * 辅助方法：从 MongoDB 查询关注流
      * (保留原有逻辑，抽取为独立方法)
      */
-    private Map<String, Object> queryFollowStreamFromMongo(Integer page, Integer size) {
+    private PageResult<PostVO> queryFollowStreamFromMongo(Integer page, Integer size) {
         Long currentUserId = UserContext.getUserId();
         if (currentUserId == null) throw new AppException(ResultCode.UNAUTHORIZED);
 
@@ -325,7 +322,7 @@ public class PostServiceImpl implements PostService {
             postDocPage = postRepository.findByUserIdInAndStatusAndIsDeleted(targetIds, 1, 0, pageable);
         }
 
-        return buildResultMap(postDocPage); // 假设你有一个通用的 Mongo Page 转 Map 的方法
+        return buildResultMap(postDocPage);
     }
 
 
@@ -599,7 +596,7 @@ public class PostServiceImpl implements PostService {
      * 获取用户的帖子列表
      */
     @Override
-    public Map<String, Object> getUserPostList(String userIdStr, Integer page, Integer size) {
+    public PageResult<PostVO> getUserPostList(String userIdStr, Integer page, Integer size) {
         // 1. 参数校验
         long targetUserId;
         try {
@@ -918,44 +915,38 @@ public class PostServiceImpl implements PostService {
     }
     // --- Private Methods ---
 
-    // 1. 修改 buildResultMap 方法
-    private Map<String, Object> buildResultMap(Page<PostDoc> pageData) {
+    /**
+     * [重构] 通用分页构建方法：将 Mongo Page 对象转为标准 PageResult<PostVO>
+     */
+    private PageResult<PostVO> buildResultMap(Page<PostDoc> pageData) {
         List<PostDoc> postDocs = pageData.getContent();
 
-        // --- 批量查询优化开始 ---
+        // 1. 快速返回空
+        if (CollUtil.isEmpty(postDocs)) {
+            return PageResult.empty(pageData.getNumber() + 1, pageData.getSize());
+        }
 
-        // 准备三个 Set 用于 O(1) 快速查找
+        // 2. 批量查询交互状态 (保持原有的高性能逻辑)
         Set<String> likedPostIds = new HashSet<>();
         Set<String> collectedPostIds = new HashSet<>();
         Set<Long> followedUserIds = new HashSet<>();
-
         Long currentUserId = UserContext.getUserId();
 
-        // 只有登录用户才需要查这些状态
-        if (currentUserId != null && CollUtil.isNotEmpty(postDocs)) {
-            // A. 收集本页所有的 postId
+        if (currentUserId != null) {
             List<String> postIds = postDocs.stream().map(PostDoc::getId).collect(Collectors.toList());
-            // B. 收集本页所有的 authorId (去重)
             List<Long> authorIds = postDocs.stream().map(PostDoc::getUserId).distinct().collect(Collectors.toList());
 
-            // C. 批量查询点赞状态
-            // 查出这批帖子中，我点赞过哪些
             List<PostLikeDoc> likes = postLikeRepository.findByUserIdAndPostIdIn(currentUserId, postIds);
             likedPostIds = likes.stream().map(PostLikeDoc::getPostId).collect(Collectors.toSet());
 
-            // D. 批量查询收藏状态
             List<PostCollectDoc> collects = postCollectRepository.findByUserIdAndPostIdIn(currentUserId, postIds);
             collectedPostIds = collects.stream().map(PostCollectDoc::getPostId).collect(Collectors.toSet());
 
-            // E. 批量查询关注状态
             List<UserFollowDoc> follows = userFollowRepository.findByUserIdAndTargetUserIdIn(currentUserId, authorIds);
             followedUserIds = follows.stream().map(UserFollowDoc::getTargetUserId).collect(Collectors.toSet());
         }
 
-        // --- 批量查询优化结束 ---
-
-        // 2. 转换 VO，传入刚才查好的 Set
-        // 注意：这里需要配合修改下面的 convertToVO 方法，让它支持传入状态
+        // 3. 转换为 PostVO List
         Set<String> finalLiked = likedPostIds;
         Set<String> finalCollected = collectedPostIds;
         Set<Long> finalFollowed = followedUserIds;
@@ -964,13 +955,10 @@ public class PostServiceImpl implements PostService {
                 .map(doc -> convertToVO(doc, false, finalLiked, finalCollected, finalFollowed))
                 .collect(Collectors.toList());
 
-        Map<String, Object> result = new HashMap<>();
-        result.put("records", records);
-        result.put("total", pageData.getTotalElements());
-        result.put("current", pageData.getNumber() + 1);
-        result.put("size", pageData.getSize());
-        return result;
+        // 4. 返回标准 PageResult (注意: Spring Data Page 页码是从 0 开始，VO 通常习惯从 1 开始)
+        return PageResult.of(records, pageData.getTotalElements(), pageData.getNumber() + 1, pageData.getSize());
     }
+
     // 3. 重载 convertToVO 方法 (用于列表页，接受批量查询的结果)
     private PostVO convertToVO(PostDoc doc, boolean isDetail,
                                Set<String> likedSet,

@@ -1,5 +1,6 @@
 package com.szu.afternoon3.platform.vo;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.Data;
 import java.util.List;
 
@@ -7,10 +8,12 @@ import java.util.List;
 public class CommentVO {
     private String id;
     private String content;
+
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "GMT+8")
     private String createdAt;
     
     // 评论者信息
-    private UserInfo author; // {userId, nickname, avatar}
+    private SimpleUserVO author; // {userId, nickname, avatar}
 
     // 交互数据
     private Integer likeCount;

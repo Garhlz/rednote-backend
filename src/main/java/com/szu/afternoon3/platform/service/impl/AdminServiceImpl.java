@@ -146,11 +146,13 @@ public class AdminServiceImpl implements AdminService {
     }
 
     @Override
-    public Map<String, Object> getUserList(AdminUserSearchDTO dto) {
+    public PageResult<AdminUserVO> getUserList(AdminUserSearchDTO dto) {
         // 1. [PostgreSQL] 查询用户基础分页数据
         Page<User> page = new Page<>(dto.getPage(), dto.getSize());
         LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<>();
 
+        // 限制身份
+        wrapper.eq(User::getRole, "USER");
         if (StrUtil.isNotBlank(dto.getNickname())) {
             wrapper.like(User::getNickname, dto.getNickname());
         }
@@ -167,12 +169,9 @@ public class AdminServiceImpl implements AdminService {
         IPage<User> userPage = userMapper.selectPage(page, wrapper);
         List<User> userList = userPage.getRecords();
 
-        // 快速返回：如果没有用户，直接返回空，避免后续 Mongo 报错
+        // 快速返回空页 (使用 PageResult)
         if (userList.isEmpty()) {
-            Map<String, Object> emptyResult = new HashMap<>();
-            emptyResult.put("records", new ArrayList<>());
-            emptyResult.put("total", 0L);
-            return emptyResult;
+            return PageResult.empty(dto.getPage(), dto.getSize());
         }
 
         // 2. 提取本页所有用户的 ID 列表
@@ -264,35 +263,58 @@ public class AdminServiceImpl implements AdminService {
             records.add(vo);
         }
 
-        Map<String, Object> result = new HashMap<>();
-        result.put("records", records);
-        result.put("total", userPage.getTotal());
-        return result;
+        // 使用 PageResult 包装返回
+        return PageResult.of(records, userPage.getTotal(), dto.getPage(), dto.getSize());
     }
 
+    // 数据脱敏
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void deleteUser(Long userId, String reason) {
-        // 1. 检查用户是否存在
+        // 1. 检查用户
         User user = userMapper.selectById(userId);
         if (user == null) {
-            return;
+            return; // 或者抛异常
         }
 
-        // 2. [PostgreSQL] 物理删除用户 (或逻辑删除，取决于你的 global-config)
-        // MyBatis-Plus 会根据你的配置自动处理逻辑删除
+        // 2. 【核心步骤】修改唯一性字段 (脱敏/释放占用)
+        // 使用时间戳作为后缀，确保唯一且留痕
+        String delSuffix = "_del_" + System.currentTimeMillis();
+
+        // 释放 Email
+        if (StrUtil.isNotBlank(user.getEmail())) {
+            String newEmail = user.getEmail() + delSuffix;
+            // 防止超长 (假设数据库字段是 varchar(128))
+            if (newEmail.length() > 120) {
+                newEmail = newEmail.substring(0, 100) + delSuffix;
+            }
+            user.setEmail(newEmail);
+        }
+
+        // 释放 OpenID (微信登录关键)
+        if (StrUtil.isNotBlank(user.getOpenid())) {
+            user.setOpenid(user.getOpenid() + delSuffix);
+        }
+
+        // 修改昵称 (Postgres侧也可以改一下，保持一致)
+        user.setNickname("用户已注销");
+        user.setAvatar("https://afternoon3-rednote.oss-cn-shenzhen.aliyuncs.com/deleted_user.png");
+
+        // 3. 执行更新 (这一步释放了 PostgreSQL 的唯一索引)
+        userMapper.updateById(user);
+
+        // 4. 执行逻辑删除 (MyBatis-Plus 会将 is_deleted 置为 1)
         userMapper.deleteById(userId);
 
-        // 3. 【RabbitMQ】发送用户删除事件
-        // 路由键: user.delete (与 UserServiceImpl 中的更新事件区分开)
+        // 5. 【RabbitMQ】发送事件给 Go Sidecar
         rabbitTemplate.convertAndSend(RabbitConfig.PLATFORM_EXCHANGE, "user.delete",
                 new UserDeleteEvent(userId));
 
-        log.info("管理员删除用户成功: userId={}, reason={}", userId, reason);
+        log.info("用户注销/删除成功: userId={}, reason={}", userId, reason);
     }
 
     @Override
-    public Map<String, Object> getPostList(AdminPostSearchDTO dto) {
+    public PageResult<AdminPostVO> getPostList(AdminPostSearchDTO dto) {
         // 1. 构建基础过滤条件 (Match)
         Criteria criteria = new Criteria();
         List<Criteria> andCriteria = new ArrayList<>();
@@ -343,7 +365,7 @@ public class AdminServiceImpl implements AdminService {
             if (user != null) {
                 andCriteria.add(Criteria.where("userId").is(user.getId()));
             } else {
-                return Map.of("records", new ArrayList<>(), "total", 0L);
+                return PageResult.empty(dto.getPage(), dto.getSize());
             }
         } else if (StrUtil.isNotBlank(dto.getNickname())) {
             andCriteria.add(Criteria.where("userNickname").regex(dto.getNickname(), "i"));
@@ -357,7 +379,8 @@ public class AdminServiceImpl implements AdminService {
         // 聚合分页前必须先查总数，这里直接用 Query 查 count 比较简单
         long total = mongoTemplate.count(Query.query(criteria), PostDoc.class);
         if (total == 0) {
-            return Map.of("records", new ArrayList<>(), "total", 0L);
+//            return Map.of("records", new ArrayList<>(), "total", 0L);
+            return PageResult.empty(dto.getPage(), dto.getSize());
         }
 
         // 3. 构建聚合管道 (Aggregation Pipeline)
@@ -421,10 +444,8 @@ public class AdminServiceImpl implements AdminService {
             }).collect(Collectors.toList());
         }
 
-        Map<String, Object> result = new HashMap<>();
-        result.put("records", records);
-        result.put("total", total);
-        return result;
+        // [重构] 使用 PageResult
+        return PageResult.of(records, total, dto.getPage(), dto.getSize());
     }
 
     @Override
@@ -663,7 +684,7 @@ public class AdminServiceImpl implements AdminService {
     }
 
     @Override
-    public Map<String, Object> getAdminLogs(LogSearchDTO dto) {
+    public PageResult<ApiLogVO> getAdminLogs(LogSearchDTO dto) {
         // 定义关键操作的描述白名单 (必须与 Controller 中 @OperationLog 的 description 完全一致)
         List<String> criticalActions = Arrays.asList(
                 "审核帖子",           // 对应 auditPost
@@ -676,7 +697,7 @@ public class AdminServiceImpl implements AdminService {
     }
 
     @Override
-    public Map<String, Object> getUserLogs(LogSearchDTO dto) {
+    public PageResult<ApiLogVO> getUserLogs(LogSearchDTO dto) {
         // 用户日志不需要过滤，传 null
         return queryLogs("USER_OPER", dto, null);
     }
@@ -687,7 +708,7 @@ public class AdminServiceImpl implements AdminService {
      * @param dto 查询条件
      * @param allowedDescriptions 允许的操作描述列表 (白名单)。如果为 null 或空，则查询所有。
      */
-    private Map<String, Object> queryLogs(String logType, LogSearchDTO dto, List<String> allowedDescriptions) {
+    private PageResult<ApiLogVO> queryLogs(String logType, LogSearchDTO dto, List<String> allowedDescriptions) {
         Query query = new Query();
 
         // 1. 强制固定日志类型 (Admin/User)
@@ -748,17 +769,18 @@ public class AdminServiceImpl implements AdminService {
         Pageable pageable = PageRequest.of(page, dto.getSize(), Sort.by(Sort.Direction.DESC, "createdAt"));
         query.with(pageable);
 
-        // 7. 执行查询
-        List<ApiLogDoc> list = mongoTemplate.find(query, ApiLogDoc.class);
+        // 7. 查询
+        List<ApiLogDoc> docs = mongoTemplate.find(query, ApiLogDoc.class);
 
-        // 8. 组装结果
-        Map<String, Object> result = new HashMap<>();
-        result.put("total", total);
-        result.put("records", list);
-        result.put("current", dto.getPage());
-        result.put("size", dto.getSize());
+        // 8. [新增] Doc 转 VO
+        List<ApiLogVO> records = docs.stream().map(doc -> {
+            ApiLogVO vo = new ApiLogVO();
+            BeanUtils.copyProperties(doc, vo);
+            return vo;
+        }).collect(Collectors.toList());
 
-        return result;
+        // 9. 返回 PageResult
+        return PageResult.of(records, total, dto.getPage(), dto.getSize());
     }
 
     /**
@@ -972,12 +994,12 @@ public class AdminServiceImpl implements AdminService {
 
         // 3. 【核心】复用查询逻辑
         // 这样导出时也会自动应用：logType过滤、关键词搜索、时间范围、以及最重要的【白名单过滤】
-        Map<String, Object> queryResult = queryLogs("ADMIN_OPER", dto, criticalActions);
+        PageResult<ApiLogVO> queryResult = queryLogs("ADMIN_OPER", dto, criticalActions);
 
         // 4. 提取数据列表
         // queryLogs 返回的是 Map，我们需要取出里面的 records
         @SuppressWarnings("unchecked")
-        List<ApiLogDoc> logs = (List<ApiLogDoc>) queryResult.get("records");
+        List<ApiLogVO> logs = queryResult.getRecords();
 
         // 如果没有数据，给一个空列表防止报错
         if (logs == null) {

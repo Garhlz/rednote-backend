@@ -70,6 +70,10 @@ spring:
         # 设为 false 表示"拒绝(Reject)"。
         # 配合我们在 Java 代码里配置的 DLX，Reject 的消息会被自动发送到死信队列。
         default-requeue-rejected: false
+  output:
+    ansi:
+      enabled: ALWAYS  # 强制让后端输出带颜色的日志
+
 # --- MyBatis-Plus 全局配置 ---
 mybatis-plus:
   configuration:

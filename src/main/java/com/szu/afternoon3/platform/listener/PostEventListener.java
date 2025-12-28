@@ -105,7 +105,7 @@ public class PostEventListener {
     // --- Private Methods ---
 
     private void handleAutoComment(PostCreateEvent event) {
-        String summary = aiService.generatePostSummary(event.getTitle(), event.getContent(), event.getImages(), event.getVideo());
+        String summary = aiService.generatePostSummary(event.getUserId(), event.getTitle(), event.getContent(), event.getImages(), event.getVideo());
         if (StrUtil.isBlank(summary)) return;
 
         User botUser = userMapper.selectById(botUserId);

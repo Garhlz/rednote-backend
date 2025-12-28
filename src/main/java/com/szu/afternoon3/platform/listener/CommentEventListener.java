@@ -110,6 +110,7 @@ public class CommentEventListener {
             log.error("AI 交互回复处理失败", e);
         }
     }
+
     /**
      * 检测并触发 AI 回复逻辑
      */
@@ -149,6 +150,7 @@ public class CommentEventListener {
         String aiReplyContent;
         if(post.getType() != 1){
             aiReplyContent = aiService.generateInteractiveReply(
+                    post.getUserId(),
                     post.getTitle(),
                     post.getContent(),
                     post.getResources(),
@@ -158,6 +160,7 @@ public class CommentEventListener {
             );
         }else {
             aiReplyContent = aiService.generateInteractiveReply(
+                    post.getUserId(),
                     post.getTitle(),
                     post.getContent(),
                     null,
@@ -256,6 +259,7 @@ public class CommentEventListener {
             );
         }
     }
+
     // --- 辅助方法：生成通知 ---
     private void sendCommentNotification(CommentEvent event) {
         Long senderId = event.getUserId(); // 评论者

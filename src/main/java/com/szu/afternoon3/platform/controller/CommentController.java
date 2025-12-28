@@ -4,6 +4,8 @@ import com.szu.afternoon3.platform.annotation.OperationLog;
 import com.szu.afternoon3.platform.common.Result;
 import com.szu.afternoon3.platform.dto.CommentCreateDTO;
 import com.szu.afternoon3.platform.service.CommentService;
+import com.szu.afternoon3.platform.vo.CommentVO;
+import com.szu.afternoon3.platform.vo.PageResult;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -49,7 +51,7 @@ public class CommentController {
      */
     @GetMapping("/list")
     @OperationLog(module = "评论模块", description = "获取一级评论", bizId = "#postId")
-    public Result<Map<String, Object>> getRootComments(
+    public Result<PageResult<CommentVO>>getRootComments(
             @RequestParam String postId,
             @RequestParam(required = false, defaultValue = "1") Integer page,
             @RequestParam(required = false, defaultValue = "20") Integer size) {
@@ -63,7 +65,7 @@ public class CommentController {
      */
     @GetMapping("/sub-list")
     @OperationLog(module = "评论模块", description = "获取子评论", bizId = "#rootId")
-    public Result<Map<String, Object>> getSubComments(
+    public Result<PageResult<CommentVO>> getSubComments(
             @RequestParam String rootId,
             @RequestParam(required = false, defaultValue = "1") Integer page,
             @RequestParam(required = false, defaultValue = "20") Integer size) {

@@ -138,7 +138,7 @@ public class UserServiceImpl implements UserService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public Map<String, String> bindEmail(UserBindEmailDTO dto) {
+    public UserEmailVO bindEmail(UserBindEmailDTO dto) {
         // 1. 校验验证码 (Mock)
         verifyCode(dto.getEmail(), dto.getCode());
 
@@ -154,9 +154,7 @@ public class UserServiceImpl implements UserService {
         user.setEmail(dto.getEmail());
         userMapper.updateById(user);
 
-        Map<String, String> result = new HashMap<>();
-        result.put("email", user.getEmail());
-        return result;
+        return new UserEmailVO(user.getEmail());
     }
 
     @Override
@@ -216,7 +214,7 @@ public class UserServiceImpl implements UserService {
      * 获取关注列表
      */
     @Override
-    public Map<String, Object> getFollowList(String userIdStr, Integer page, Integer size) {
+    public PageResult<SimpleUserVO> getFollowList(String userIdStr, Integer page, Integer size) {
         // 1. 参数处理
         long userId;
         try {
@@ -234,34 +232,24 @@ public class UserServiceImpl implements UserService {
         // 3. 查询 MongoDB
         Page<UserFollowDoc> docPage = userFollowRepository.findByUserId(userId, pageable);
 
-        // 4. 转换数据格式
-        // UserFollowDoc 中：userId 是"我"，targetUserId 是"我关注的人"
-        // 我们需要返回 targetUser 的信息
-        List<Map<String, String>> records = docPage.getContent().stream().map(doc -> {
-            Map<String, String> item = new HashMap<>();
-            // 转 String 防止前端精度丢失
-            item.put("userId", String.valueOf(doc.getTargetUserId()));
-            // 使用 Mongo 中的冗余字段，避免回查 Postgres，提高性能
-            item.put("nickname", doc.getTargetUserNickname());
-            item.put("avatar", doc.getTargetUserAvatar());
-            return item;
+        // 4. 转换数据格式，映射为 SimpleUserVO
+        List<SimpleUserVO> records = docPage.getContent().stream().map(doc -> {
+            SimpleUserVO vo = new SimpleUserVO();
+            vo.setUserId(String.valueOf(doc.getTargetUserId()));
+            vo.setNickname(doc.getTargetUserNickname());
+            vo.setAvatar(doc.getTargetUserAvatar());
+            return vo;
         }).collect(Collectors.toList());
 
-        // 5. 构建返回体
-        Map<String, Object> result = new HashMap<>();
-        result.put("records", records);
-        result.put("total", docPage.getTotalElements());
-        // result.put("current", docPage.getNumber() + 1); // 可选
-        // result.put("size", docPage.getSize()); // 可选
-
-        return result;
+        // 使用 PageResult
+        return PageResult.of(records, docPage.getTotalElements(), pageNum + 1, pageSize);
     }
 
     /**
      * 获取粉丝列表实现
      */
     @Override
-    public Map<String, Object> getFanList(String userIdStr, Integer page, Integer size) {
+    public PageResult<SimpleUserVO> getFanList(String userIdStr, Integer page, Integer size) {
         // 1. 参数处理
         long userId;
         try {
@@ -279,25 +267,17 @@ public class UserServiceImpl implements UserService {
         // 3. 查询 MongoDB (查找 targetUserId 为当前用户ID 的记录)
         Page<UserFollowDoc> docPage = userFollowRepository.findByTargetUserId(userId, pageable);
 
-        // 4. 转换数据格式
-        // UserFollowDoc 中：targetUserId 是"我"，userId 是"关注我的人(粉丝)"
-        // 所以这里我们需要返回 userId, userNickname, userAvatar
-        List<Map<String, String>> records = docPage.getContent().stream().map(doc -> {
-            Map<String, String> item = new HashMap<>();
-            // 转 String 防止前端精度丢失
-            item.put("userId", String.valueOf(doc.getUserId()));
-            // 粉丝的信息存储在 user系列字段中 (因为是他发起的关注)
-            item.put("nickname", doc.getUserNickname());
-            item.put("avatar", doc.getUserAvatar());
-            return item;
+        // 4. 转换数据格式，映射为 SimpleUserVO
+        List<SimpleUserVO> records = docPage.getContent().stream().map(doc -> {
+            SimpleUserVO vo = new SimpleUserVO();
+            vo.setUserId(String.valueOf(doc.getTargetUserId()));
+            vo.setNickname(doc.getTargetUserNickname());
+            vo.setAvatar(doc.getTargetUserAvatar());
+            return vo;
         }).collect(Collectors.toList());
 
-        // 5. 构建返回体
-        Map<String, Object> result = new HashMap<>();
-        result.put("records", records);
-        result.put("total", docPage.getTotalElements());
-
-        return result;
+        // 使用 PageResult
+        return PageResult.of(records, docPage.getTotalElements(), pageNum + 1, pageSize);
     }
 
     @Override
@@ -373,39 +353,65 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public List<UserInfo> getFriendList() {
+    public PageResult<SimpleUserVO> getFriendList(FriendSearchDTO dto) {
         Long currentUserId = UserContext.getUserId();
 
-        // 逻辑：好友 = (我关注的人) ∩ (关注我的人)
+        // 1. 查 "我关注了谁"
+        Query followingQuery = Query.query(Criteria.where("userId").is(currentUserId));
+        followingQuery.fields().include("targetUserId");
 
-        // 1. 先查出 "我关注了谁" (只查 ID 即可，省流量)
-        List<UserFollowDoc> myFollowings = userFollowRepository.findFollowingIds(currentUserId);
+        List<UserFollowDoc> myFollowings = mongoTemplate.find(followingQuery, UserFollowDoc.class);
+
         if (CollUtil.isEmpty(myFollowings)) {
-            return new ArrayList<>();
+            // 使用通用 VO 的静态方法快速返回空
+            return PageResult.empty(dto.getPage(), dto.getSize());
         }
 
-        // 提取出我关注的人的 ID 列表
         List<Long> followingIds = myFollowings.stream()
                 .map(UserFollowDoc::getTargetUserId)
                 .collect(Collectors.toList());
 
-        // 2. 查 "这些 ID 里，谁关注了我"
-        // 这里的 userIdIn 是潜在的好友(我关注的人)，targetUserId 是我
-        List<UserFollowDoc> mutualFollows = userFollowRepository.findByUserIdInAndTargetUserId(followingIds, currentUserId);
+        // 2. 查 "互相关注" + "昵称搜索"
+        Query friendQuery = new Query();
 
-        // 3. 转换结果
-        // mutualFollows 里的每一条记录：
-        // userId = 好友ID (因为是他关注了我)
-        // userNickname = 好友昵称
-        // targetUserId = 我
-        return mutualFollows.stream().map(doc -> {
-            UserInfo info = new UserInfo();
-            info.setUserId(String.valueOf(doc.getUserId()));
-            info.setNickname(doc.getUserNickname());
-            info.setAvatar(doc.getUserAvatar());
-            // info.setEmail(...) // 好友列表通常不需要展示邮箱
-            return info;
+        Criteria criteria = Criteria.where("targetUserId").is(currentUserId)
+                .and("userId").in(followingIds);
+
+        // 动态条件：昵称搜索
+        if (StrUtil.isNotBlank(dto.getNickname())) {
+            criteria.and("userNickname").regex(dto.getNickname(), "i");
+        }
+
+        friendQuery.addCriteria(criteria);
+
+        // 3. 查总数 (用于分页)
+        long total = mongoTemplate.count(friendQuery, UserFollowDoc.class);
+
+        if (total == 0) {
+            return PageResult.empty(dto.getPage(), dto.getSize());
+        }
+
+        // 4. 构建分页
+        // 注意：MongoDB 的 skip 是基于 0 开始的，但你的 DTO 默认是 1
+        int pageNum = Math.max(0, dto.getPage() - 1);
+        Pageable pageable = PageRequest.of(pageNum, dto.getSize());
+        friendQuery.with(pageable);
+
+        // 5. 查数据
+        List<UserFollowDoc> docs = mongoTemplate.find(friendQuery, UserFollowDoc.class);
+
+        // 6. 转换 List<UserInfo>
+        List<SimpleUserVO> records = docs.stream().map(doc -> {
+            SimpleUserVO simpleUserVO = new SimpleUserVO();
+            simpleUserVO.setUserId(String.valueOf(doc.getUserId()));
+            simpleUserVO.setNickname(doc.getUserNickname());
+            simpleUserVO.setAvatar(doc.getUserAvatar());
+            // 不返回邮箱
+            return simpleUserVO;
         }).collect(Collectors.toList());
+
+        // 7. 返回标准 VO
+        return PageResult.of(records, total, dto.getPage(), dto.getSize());
     }
     // Private Helpers
 
@@ -614,7 +620,7 @@ public class UserServiceImpl implements UserService {
             return vo;
         }).collect(Collectors.toList());
 
-        // 5. 【核心修改】内存排序
+        // 5. 内存排序
         // 只有登录了才需要排，没登录大家都是路人
         if (currentUserId != null) {
             resultList.sort((o1, o2) -> {
@@ -653,7 +659,7 @@ public class UserServiceImpl implements UserService {
 
     // ================== 1. 获取我的点赞列表 ==================
     @Override
-    public Map<String, Object> getMyLikeList(Integer page, Integer size) {
+    public PageResult<PostVO> getMyLikeList(Integer page, Integer size) {
         Long userId = UserContext.getUserId();
         // 按时间倒序
         Pageable pageable = PageRequest.of(page - 1, size, Sort.by(Sort.Direction.DESC, "createdAt"));
@@ -667,12 +673,12 @@ public class UserServiceImpl implements UserService {
                 .collect(Collectors.toList());
 
         // 转换并返回
-        return buildPostListResult(postIds, docPage.getTotalElements(), null);
+        return buildPostListResult(postIds, docPage.getTotalElements(), null, page, size);
     }
 
     // ================== 2. 获取我的收藏列表 ==================
     @Override
-    public Map<String, Object> getMyCollectList(Integer page, Integer size) {
+    public PageResult<PostVO> getMyCollectList(Integer page, Integer size) {
         Long userId = UserContext.getUserId();
         Pageable pageable = PageRequest.of(page - 1, size, Sort.by(Sort.Direction.DESC, "createdAt"));
 
@@ -682,12 +688,12 @@ public class UserServiceImpl implements UserService {
                 .map(PostCollectDoc::getPostId)
                 .collect(Collectors.toList());
 
-        return buildPostListResult(postIds, docPage.getTotalElements(), null);
+        return buildPostListResult(postIds, docPage.getTotalElements(), null, page, size);
     }
 
     // ================== 3. 获取我的评分列表 ==================
     @Override
-    public Map<String, Object> getMyRateList(Integer page, Integer size) {
+    public PageResult<PostVO> getMyRateList(Integer page, Integer size) {
         Long userId = UserContext.getUserId();
         Pageable pageable = PageRequest.of(page - 1, size, Sort.by(Sort.Direction.DESC, "createdAt"));
 
@@ -702,56 +708,32 @@ public class UserServiceImpl implements UserService {
             scoreMap.put(doc.getPostId(), doc.getScore());
         }
 
-        return buildPostListResult(postIds, docPage.getTotalElements(), scoreMap);
+        return buildPostListResult(postIds, docPage.getTotalElements(), scoreMap, page, size);
     }
 
     // ================== 4. 获取我的帖子列表 ==================
     @Override
-    public Map<String, Object> getMyPostList(Integer type, Integer page, Integer size) {
+    public PageResult<PostVO> getMyPostList(Integer type, Integer page, Integer size) {
         Long userId = UserContext.getUserId();
         Pageable pageable = PageRequest.of(page - 1, size, Sort.by(Sort.Direction.DESC, "createdAt"));
 
         Page<PostDoc> docPage;
-        // 如果前端传了 type (0或1)，则按类型查；否则查全部
         if (type != null) {
             docPage = postRepository.findByUserIdAndTypeAndIsDeleted(userId, type, 0, pageable);
         } else {
             docPage = postRepository.findByUserIdAndIsDeleted(userId, 0, pageable);
         }
 
-        // 这里不需要 buildPostListResult 的“查库”逻辑，因为我们已经拿到了 PostDoc
-        // 直接复用 PostServiceImpl 里的 convertToVO 逻辑有点麻烦，
-        // 我们直接在这里手动转一下简化版 VO (复用 buildPostListResult 内部的转换逻辑)
+        // 【核心修改】直接调用抽取出来的通用转换方法
+        // 这里的 docPage.getContent() 就是 List<PostDoc>
+        List<PostVO> voList = convertDocsToVOs(docPage.getContent(), null);
 
-        List<PostVO> records = docPage.getContent().stream().map(doc -> {
-            // 简单组装 VO
-            PostVO vo = new PostVO();
-            vo.setId(doc.getId());
-            vo.setTitle(doc.getTitle());
-            vo.setType(doc.getType());
-            vo.setCover(doc.getCover());
-            vo.setLikeCount(doc.getLikeCount());
-            vo.setTags(doc.getTags());
-            vo.setCoverHeight(doc.getCoverHeight());
-            vo.setCoverWidth(doc.getCoverWidth());
-            UserInfo author = new UserInfo();
-            author.setUserId(String.valueOf(doc.getUserId()));
-            author.setNickname(doc.getUserNickname());
-            author.setAvatar(doc.getUserAvatar());
-            vo.setAuthor(author);
-
-            return vo;
-        }).collect(Collectors.toList());
-
-        Map<String, Object> result = new HashMap<>();
-        result.put("records", records);
-        result.put("total", docPage.getTotalElements());
-        return result;
+        return PageResult.of(voList, docPage.getTotalElements(), page, size);
     }
 
     // ================== 5. 获取我的浏览历史 ==================
     @Override
-    public Map<String, Object> getBrowsingHistory(Integer page, Integer size) {
+    public PageResult<PostVO> getBrowsingHistory(Integer page, Integer size) {
         Long userId = UserContext.getUserId();
         // 按浏览时间倒序
         Pageable pageable = PageRequest.of(page - 1, size, Sort.by(Sort.Direction.DESC, "viewTime"));
@@ -765,7 +747,7 @@ public class UserServiceImpl implements UserService {
         // 使用之前的通用方法查详情
         // 注意：通用方法查出来的列表顺序可能跟 postIds 不一致，这里为了严谨，最好在内存重排一下
         // 但为了代码简单，暂时直接返回
-        return buildPostListResult(postIds, historyPage.getTotalElements(), null);
+        return buildPostListResult(postIds, historyPage.getTotalElements(), null, page, size);
     }
 
     // 记录用户浏览记录
@@ -790,98 +772,8 @@ public class UserServiceImpl implements UserService {
         redisTemplate.opsForHash().increment(CACHE_POST_VIEWS, postId, 1);
     }
 
-    // ================== 私有通用方法：批量查帖子并转 VO ==================
-    private Map<String, Object> buildPostListResult(List<String> postIds, long total, Map<String, Double> scoreMap) {
-        // 1. 判空快速返回
-        if (CollUtil.isEmpty(postIds)) {
-            Map<String, Object> res = new HashMap<>();
-            res.put("records", Collections.emptyList());
-            res.put("total", 0);
-            return res;
-        }
-
-        // 2. 批量查帖子详情
-        List<PostDoc> posts = postRepository.findAllById(postIds);
-
-        // 3. 将 List 转为 Map，解决 Mongo 返回乱序问题
-        Map<String, PostDoc> postMap = posts.stream()
-                .collect(Collectors.toMap(PostDoc::getId, p -> p));
-
-        // 4. 批量查询交互状态 (点赞/收藏)
-        // 避免在循环中查库 (N+1问题)，一次性查出这批帖子中我点赞/收藏了哪些
-        Set<String> likedPostIds = new HashSet<>();
-        Set<String> collectedPostIds = new HashSet<>();
-        Long currentUserId = UserContext.getUserId();
-
-        if (currentUserId != null) {
-            // 查点赞
-            List<PostLikeDoc> likes = postLikeRepository.findByUserIdAndPostIdIn(currentUserId, postIds);
-            likedPostIds = likes.stream().map(PostLikeDoc::getPostId).collect(Collectors.toSet());
-
-            // 查收藏
-            List<PostCollectDoc> collects = postCollectRepository.findByUserIdAndPostIdIn(currentUserId, postIds);
-            collectedPostIds = collects.stream().map(PostCollectDoc::getPostId).collect(Collectors.toSet());
-        }
-
-        // 5. 组装 VO 列表 (保持 postIds 的原始时间顺序)
-        // 为了 Lambda 表达式能访问非 final 变量，这里使用临时变量
-        Set<String> finalLikedIds = likedPostIds;
-        Set<String> finalCollectedIds = collectedPostIds;
-
-        List<PostVO> voList = postIds.stream()
-                .map(postMap::get) // 从 Map 取值
-                .filter(Objects::nonNull) // 过滤物理删除
-                .filter(doc -> {
-                    // 过滤逻辑删除
-                    return doc.getIsDeleted() == null || doc.getIsDeleted() == 0;
-                })
-                .map(doc -> {
-                    PostVO vo = new PostVO();
-                    vo.setId(doc.getId());
-                    vo.setTitle(doc.getTitle());
-                    vo.setType(doc.getType());
-                    vo.setCover(doc.getCover()); // 使用封面
-
-                    // 填充计数
-                    vo.setLikeCount(doc.getLikeCount());
-                    vo.setCollectCount(doc.getCollectCount());
-                    // 如果需要 commentCount 也在这里设置
-
-                    // 【新增修复】填充交互状态
-                    vo.setIsLiked(finalLikedIds.contains(doc.getId()));
-                    vo.setIsCollected(finalCollectedIds.contains(doc.getId()));
-                    // 关注状态(isFollowed) 如果需要也可以在这里批量查，方法同上
-
-                    // 填充作者
-                    UserInfo author = new UserInfo();
-                    author.setUserId(String.valueOf(doc.getUserId()));
-                    author.setNickname(doc.getUserNickname());
-                    author.setAvatar(doc.getUserAvatar());
-                    vo.setAuthor(author);
-
-                    // 填充我的评分
-                    if (scoreMap != null && scoreMap.containsKey(doc.getId())) {
-                        vo.setMyScore(scoreMap.get(doc.getId()));
-                    }
-
-                    // 填充时间
-                    if (doc.getCreatedAt() != null) {
-                        vo.setCreatedAt(doc.getCreatedAt().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
-                    }
-
-                    return vo;
-                })
-                .collect(Collectors.toList());
-
-        // 6. 组装返回
-        Map<String, Object> result = new HashMap<>();
-        result.put("records", voList);
-        result.put("total", total);
-        return result;
-    }
-
     @Override
-    public Map<String, Object> getMyCommentList(Integer page, Integer size) {
+    public PageResult<MyCommentVO> getMyCommentList(Integer page, Integer size) {
         Long userId = UserContext.getUserId();
         if (userId == null) {
             throw new AppException(ResultCode.UNAUTHORIZED);
@@ -893,10 +785,7 @@ public class UserServiceImpl implements UserService {
         List<CommentDoc> comments = commentPage.getContent();
 
         if (CollUtil.isEmpty(comments)) {
-            Map<String, Object> result = new HashMap<>();
-            result.put("records", Collections.emptyList());
-            result.put("total", 0);
-            return result;
+            return PageResult.empty(page, size);
         }
 
         // 2. 批量查询关联的帖子 (为了拿封面)
@@ -937,9 +826,106 @@ public class UserServiceImpl implements UserService {
             return vo;
         }).collect(Collectors.toList());
 
-        Map<String, Object> result = new HashMap<>();
-        result.put("records", records);
-        result.put("total", commentPage.getTotalElements());
-        return result;
+        // 4. 返回标准分页结果
+        return PageResult.of(records, commentPage.getTotalElements(), page, size);
+    }
+
+    // ================== 私有通用方法：批量查帖子并转 VO ==================
+
+    /**
+     * 场景 A: 只有 ID 列表 (点赞/收藏/历史) -> 先查帖子，再转 VO
+     */
+    private PageResult<PostVO> buildPostListResult(List<String> postIds, long total, Map<String, Double> scoreMap, Integer page, Integer size) {
+        if (CollUtil.isEmpty(postIds)) {
+            return PageResult.empty(page, size);
+        }
+
+        // 1. 批量查帖子详情
+        List<PostDoc> posts = postRepository.findAllById(postIds);
+
+        // 2. 为了保证顺序 (MongoDB findAllById 不保证顺序)，我们需要按 postIds 的顺序重排 posts
+        Map<String, PostDoc> map = posts.stream().collect(Collectors.toMap(PostDoc::getId, p -> p));
+        List<PostDoc> sortedPosts = new ArrayList<>();
+        for (String id : postIds) {
+            if (map.containsKey(id)) {
+                sortedPosts.add(map.get(id));
+            }
+        }
+
+        // 3. 转 VO
+        List<PostVO> voList = convertDocsToVOs(sortedPosts, scoreMap);
+
+        return PageResult.of(voList, total, page, size);
+    }
+
+    /**
+     * 场景 B: 核心通用转换逻辑 (List<PostDoc> -> List<PostVO>)
+     * 包含批量查询交互状态 (IsLiked, IsCollected)
+     */
+    private List<PostVO> convertDocsToVOs(List<PostDoc> posts, Map<String, Double> scoreMap) {
+        if (CollUtil.isEmpty(posts)) {
+            return Collections.emptyList();
+        }
+
+        // 1. 提取 ID 用于批量查状态
+        List<String> postIds = posts.stream().map(PostDoc::getId).collect(Collectors.toList());
+        Long currentUserId = UserContext.getUserId();
+
+        // 2. 批量查交互状态 (优化 N+1)
+        Set<String> likedPostIds = new HashSet<>();
+        Set<String> collectedPostIds = new HashSet<>();
+
+        if (currentUserId != null) {
+            List<PostLikeDoc> likes = postLikeRepository.findByUserIdAndPostIdIn(currentUserId, postIds);
+            likedPostIds = likes.stream().map(PostLikeDoc::getPostId).collect(Collectors.toSet());
+
+            List<PostCollectDoc> collects = postCollectRepository.findByUserIdAndPostIdIn(currentUserId, postIds);
+            collectedPostIds = collects.stream().map(PostCollectDoc::getPostId).collect(Collectors.toSet());
+        }
+
+        // 3. 转换
+        Set<String> finalLikedIds = likedPostIds;
+        Set<String> finalCollectedIds = collectedPostIds;
+
+        return posts.stream()
+                .filter(Objects::nonNull)
+                .filter(doc -> doc.getIsDeleted() == null || doc.getIsDeleted() == 0) // 双重保障过滤
+                .map(doc -> {
+                    PostVO vo = new PostVO();
+                    // --- 基础字段 ---
+                    vo.setId(doc.getId());
+                    vo.setTitle(doc.getTitle());
+                    vo.setType(doc.getType());
+                    vo.setCover(doc.getCover());
+                    vo.setCoverWidth(doc.getCoverWidth());
+                    vo.setCoverHeight(doc.getCoverHeight());
+                    if (doc.getCreatedAt() != null) {
+                        vo.setCreatedAt(doc.getCreatedAt().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
+                    }
+
+                    // --- 统计数据 ---
+                    vo.setLikeCount(doc.getLikeCount());
+                    vo.setCollectCount(doc.getCollectCount());
+                    // 如果 AdminPostVO 有 viewCount/commentCount，这里也可以设
+
+                    // --- 交互状态 ---
+                    vo.setIsLiked(finalLikedIds.contains(doc.getId()));
+                    vo.setIsCollected(finalCollectedIds.contains(doc.getId()));
+
+                    // --- 评分 (仅评分列表需要) ---
+                    if (scoreMap != null && scoreMap.containsKey(doc.getId())) {
+                        vo.setMyScore(scoreMap.get(doc.getId()));
+                    }
+
+                    // --- 作者信息 ---
+                    UserInfo author = new UserInfo();
+                    author.setUserId(String.valueOf(doc.getUserId()));
+                    author.setNickname(doc.getUserNickname());
+                    author.setAvatar(doc.getUserAvatar());
+                    vo.setAuthor(author);
+
+                    return vo;
+                })
+                .collect(Collectors.toList());
     }
 }

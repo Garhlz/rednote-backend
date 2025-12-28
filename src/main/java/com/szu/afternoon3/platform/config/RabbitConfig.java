@@ -199,11 +199,14 @@ public class RabbitConfig {
         SimpleRabbitListenerContainerFactory factory = new SimpleRabbitListenerContainerFactory();
         factory.setConnectionFactory(connectionFactory);
 
-        // 【关键】强制使用我们配置好的 JSON 转换器
+        // 使用配置好的 JSON 转换器
         factory.setMessageConverter(jsonMessageConverter());
 
-        // 可选：设置手动 ACK (如果你代码里写了 channel.basicAck)
-        factory.setAcknowledgeMode(AcknowledgeMode.MANUAL);
+        // 设置手动 ACK
+//        factory.setAcknowledgeMode(AcknowledgeMode.MANUAL);
+        // 这里出现了一个巨大的漏洞，因为消费者没有手动ack，会不断地重发
+        // 【修改】改为 AUTO
+        factory.setAcknowledgeMode(AcknowledgeMode.AUTO);
 
         return factory;
     }

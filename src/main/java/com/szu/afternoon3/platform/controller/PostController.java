@@ -8,6 +8,8 @@ import com.szu.afternoon3.platform.dto.PostUpdateDTO;
 import com.szu.afternoon3.platform.enums.ResultCode;
 import com.szu.afternoon3.platform.service.PostService;
 import com.szu.afternoon3.platform.service.impl.AiServiceImpl;
+import com.szu.afternoon3.platform.vo.IdVO;
+import com.szu.afternoon3.platform.vo.PageResult;
 import com.szu.afternoon3.platform.vo.PostVO;
 import com.szu.afternoon3.platform.dto.PostCreateDTO;
 import jakarta.validation.Valid;
@@ -38,14 +40,14 @@ public class PostController {
      */
     @GetMapping("/list")
     @OperationLog(module = "帖子模块", description = "浏览帖子流")
-    public Result<Map<String, Object>> getPostList(
+    public Result<PageResult<PostVO>> getPostList(
             @RequestParam(required = false, defaultValue = "1") Integer page,
             @RequestParam(required = false, defaultValue = "20") Integer size,
             @RequestParam(required = false, defaultValue = "recommend") String tab,
             @RequestParam(required = false) String tag,
             @RequestParam(required = false, defaultValue = "hot") String sort // 默认按照最新排序
     ) {
-        Map<String, Object> data = postService.getPostList(page, size, tab, tag, sort);
+        PageResult<PostVO> data = postService.getPostList(page, size, tab, tag, sort);
         return Result.success(data);
     }
 
@@ -55,14 +57,14 @@ public class PostController {
      */
     @GetMapping("/search")
     @OperationLog(module = "帖子模块", description = "搜索帖子", bizId = "#keyword")
-    public Result<Map<String, Object>> searchPosts(
+    public Result<PageResult<PostVO>> searchPosts(
             @RequestParam String keyword,
             @RequestParam(required = false, defaultValue = "1") Integer page,
             @RequestParam(required = false, defaultValue = "20") Integer size,
             @RequestParam(required = false) String tag,
             @RequestParam(required = false, defaultValue = "hot") String sort
     ) {
-        Map<String, Object> data = postService.searchPosts(keyword, tag, page, size, sort);
+        PageResult<PostVO> data = postService.searchPosts(keyword, tag, page, size, sort);
         return Result.success(data);
     }
 
@@ -72,11 +74,11 @@ public class PostController {
      */
     @GetMapping("/user/{userId:\\d+}")
     @OperationLog(module = "帖子模块", description = "查看用户帖子", bizId = "#userId")
-    public Result<Map<String, Object>> getUserPosts(
+    public Result<PageResult<PostVO>> getUserPosts(
             @PathVariable String userId,
             @RequestParam(required = false, defaultValue = "1") Integer page,
             @RequestParam(required = false, defaultValue = "20") Integer size) {
-        Map<String, Object> data = postService.getUserPostList(userId, page, size);
+        PageResult<PostVO> data = postService.getUserPostList(userId, page, size);
         return Result.success(data);
     }
 
@@ -110,11 +112,9 @@ public class PostController {
      */
     @PostMapping
     @OperationLog(module = "帖子模块", description = "发布帖子", bizId = "#dto.title")
-    public Result<Map<String, String>> createPost(@RequestBody @Valid PostCreateDTO dto) {
+    public Result<IdVO> createPost(@RequestBody @Valid PostCreateDTO dto) {
         String postId = postService.createPost(dto);
-        Map<String, String> data = new HashMap<>();
-        data.put("id", postId);
-        return Result.success(data);
+        return Result.success(new IdVO(postId));
     }
 
     /**

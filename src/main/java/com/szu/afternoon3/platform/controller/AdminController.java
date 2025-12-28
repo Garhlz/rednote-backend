@@ -153,7 +153,7 @@ public class AdminController {
      */
     @PostMapping("/user/list")
     @OperationLog(module = "后台用户管理", description = "查询用户列表")
-    public Result<Map<String, Object>> getUserList(@RequestBody AdminUserSearchDTO dto) {
+    public Result<PageResult<AdminUserVO>> getUserList(@RequestBody AdminUserSearchDTO dto) {
         return Result.success(adminService.getUserList(dto));
     }
 
@@ -187,7 +187,7 @@ public class AdminController {
      */
     @PostMapping("/post/audit-list")
     @OperationLog(module = "后台内容审核", description = "查询审核列表")
-    public Result<Map<String, Object>> getPostList(@RequestBody AdminPostSearchDTO dto) {
+    public Result<PageResult<AdminPostVO>> getPostList(@RequestBody AdminPostSearchDTO dto) {
         return Result.success(adminService.getPostList(dto));
     }
 
@@ -238,7 +238,7 @@ public class AdminController {
      */
     @PostMapping("/log/admin")
     @OperationLog(module = "后台日志审计", description = "查询管理员日志")
-    public Result<Map<String, Object>> getAdminLogs(@RequestBody LogSearchDTO dto) {
+    public Result<PageResult<ApiLogVO>> getAdminLogs(@RequestBody LogSearchDTO dto) {
         return Result.success(adminService.getAdminLogs(dto));
     }
 
@@ -249,7 +249,7 @@ public class AdminController {
      */
     @PostMapping("/log/user")
     @OperationLog(module = "后台日志审计", description = "查询用户日志")
-    public Result<Map<String, Object>> getUserLogs(@RequestBody LogSearchDTO dto) {
+    public Result<PageResult<ApiLogVO>> getUserLogs(@RequestBody LogSearchDTO dto) {
         return Result.success(adminService.getUserLogs(dto));
     }
 

@@ -1,6 +1,7 @@
 package com.szu.afternoon3.platform.service.impl;
 
 import cn.hutool.core.collection.CollUtil;
+import cn.hutool.core.date.DateUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONArray;
 import cn.hutool.json.JSONUtil;
@@ -14,10 +15,13 @@ import com.szu.afternoon3.platform.entity.mongo.PostDoc;
 import com.szu.afternoon3.platform.service.AiService;
 import com.szu.afternoon3.platform.vo.AiAuditResultVO;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 
 @Service
 @Slf4j
@@ -26,10 +30,43 @@ public class AiServiceImpl implements AiService {
     @Value("${ai.dashscope.api-key}")
     private String apiKey;
 
-    // 推荐使用 qwen-vl-max 以获得最佳的多模态理解能力
-    // 如果想要省钱/测试，可以用 qwen-vl-plus
+    // 直接使用qwen-vl-plus
     @Value("${ai.dashscope.model:qwen-vl-plus}")
     private String modelName;
+
+    @Autowired
+    private StringRedisTemplate redisTemplate;
+
+    private static final int LIMIT_SUMMARY_PER_DAY = 5; // 每天每人最多总结 5 次
+    private static final int LIMIT_REPLY_PER_DAY = 10;   // 每天每人最多对话 10 次
+
+    /**
+     * 检查是否超过限额
+     * @param type 业务类型 (summary / reply)
+     * @param maxLimit 最大次数
+     * @return true=通过, false=已超额
+     */
+    private boolean checkQuota(Long userId, String type, int maxLimit) {
+        if (userId == null) return true; // 系统触发或未登录，视情况而定，这里默认放行或直接拒接
+
+        // Key 格式: ai:quota:summary:1001:2025-12-28
+        String dateStr = DateUtil.today(); // Hutool 获取 yyyy-MM-dd
+        String key = "ai:quota:" + type + ":" + userId + ":" + dateStr;
+
+        // Redis 原子递增
+        Long count = redisTemplate.opsForValue().increment(key);
+
+        if (count != null && count == 1) {
+            // 如果是第一次访问，设置 24 小时过期 (其实设到当天23:59:59最精准，但24h够用了)
+            redisTemplate.expire(key, 24, TimeUnit.HOURS);
+        }
+
+        if (count != null && count > maxLimit) {
+            log.warn("用户 {} 的 AI {} 额度已耗尽 (今日第 {} 次)", userId, type, count);
+            return false;
+        }
+        return true;
+    }
 
     /**
      * 通用 Qwen-VL 调用方法 (支持多模态)
@@ -154,9 +191,15 @@ public class AiServiceImpl implements AiService {
      * 场景 2: 帖子智能总结
      */
     @Override
-    public String generatePostSummary(String title, String content, List<String> images, String video) {
+    public String generatePostSummary(Long userId, String title, String content, List<String> images, String video) {
         // 内容太少且没图没视频，不总结
         if (StrUtil.length(content) < 10 && CollUtil.isEmpty(images) && StrUtil.isBlank(video)) {
+            return null;
+        }
+
+        // 2. 【新增】限流检查
+        if (!checkQuota(userId, "summary", LIMIT_SUMMARY_PER_DAY)) {
+            // 超额了，直接不生成总结
             return null;
         }
 
@@ -182,8 +225,14 @@ public class AiServiceImpl implements AiService {
      * 场景 3: 评论区交互式回复
      */
     @Override
-    public String generateInteractiveReply(String postTitle, String postContent, List<String> postImages, String postVideo,
+    public String generateInteractiveReply(Long userId, String postTitle, String postContent, List<String> postImages, String postVideo,
                                            String parentContent, String userPrompt) {
+
+        // 1. 【新增】限流检查
+        if (!checkQuota(userId, "reply", LIMIT_REPLY_PER_DAY)) {
+            // 超额了，返回特定文案告诉用户
+            return "（小映累了，今日回复额度已用完，明天再来找我玩吧💤）";
+        }
 
         String systemPrompt = """
             你是一个社交平台的高情商AI助手，名字叫"小映"。
@@ -215,6 +264,7 @@ public class AiServiceImpl implements AiService {
         // 将帖子的图片/视频传给 AI
         return callQwenVL(systemPrompt, inputBuilder.toString(), images, postVideo, 1.3);
     }
+
     /**
      * 场景 4: 内容安全审核
      * 复用 callQwenVL 方法，实现统一调用

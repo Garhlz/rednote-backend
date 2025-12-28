@@ -14,14 +14,13 @@ spring:
     protocol: smtp
     properties:
       mail:
+        debug: true      # 【关键】开启调试模式，看具体交互
         smtp:
           auth: true
-          starttls:
-            enable: true
-            required: true
           ssl:
-            enable: true # 163 推荐使用 SSL (端口 465)
-          socketFactory:
+            enable: true # 强制 SSL
+            trust: "*"   # 信任所有证书（解决本地证书链问题）
+          socketFactory: # 某些旧版 JDK 或环境需要显式指定 socketFactory
             port: 465
             class: javax.net.ssl.SSLSocketFactory
   # --- NoSQL & Cache ---
@@ -104,3 +103,8 @@ ai:
   bot:
     user-id: ${CHATBOT_ID}
     user-nickname: ${CHATBOT_NICKNAME}
+
+management:
+  health:
+    mail:
+      enabled: false

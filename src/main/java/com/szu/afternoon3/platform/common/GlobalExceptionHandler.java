@@ -4,6 +4,7 @@ import com.szu.afternoon3.platform.enums.ResultCode;
 import com.szu.afternoon3.platform.exception.AppException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -56,6 +57,22 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * 处理 HTTP 请求体解析异常 (如 JSON 格式错误、类型不匹配)
+     */
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public Result<Void> handleHttpMessageNotReadableException(HttpMessageNotReadableException e) {
+        log.warn("请求体解析失败: {}", e.getMessage());
+
+        // 提取简化的错误信息，避免暴露过多的 Jackson 堆栈细节给前端
+        String message = "请求参数格式错误";
+        if (e.getMessage() != null && e.getMessage().contains("JSON parse error")) {
+            message = "JSON 格式错误，请检查语法 (如缺少逗号、引号等)";
+        }
+
+        return Result.error(ResultCode.PARAM_ERROR.getCode(), message);
+    }
+
+    /**
      * 3. 捕获系统未知异常 (Exception)
      * 兜底处理：空指针、数据库连接失败等
      */
@@ -65,6 +82,8 @@ public class GlobalExceptionHandler {
         log.error("系统未知错误", e);
         return Result.error(ResultCode.SYSTEM_ERROR);
     }
+
+
 
 
 }

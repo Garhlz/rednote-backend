@@ -105,32 +105,75 @@ func (h *UserHandler) handleUserUpdate(e event.UserUpdateEvent) error {
 	return nil
 }
 
+// 处理用户删除事件 (逻辑删除适配版)
 func (h *UserHandler) handleUserDelete(e event.UserDeleteEvent) error {
-	log.Printf("🗑️ [User-Mongo] Deleting User Data for UserId: %d", e.UserId)
+	log.Printf("🚫 [User-Mongo] Anonymizing & Cleaning User Data for UserId: %d", e.UserId)
 
 	db := h.Infra.Mongo.Database("rednote")
 	ctx := context.Background()
-	filter := bson.M{"userId": e.UserId}
 
-	// 需要清理的集合列表
-	collections := []string{
-		"posts",
-		"comments",
+	// 定义已注销用户的统一形象
+	anonymizedName := "已注销用户"
+	anonymizedAvatar := "https://afternoon3-rednote.oss-cn-shenzhen.aliyuncs.com/deleted_user.png" // 建议搞个灰色的默认头像
+
+	// ==========================================
+	// 1. 【内容脱敏】: 帖子、评论
+	//    保留文档，但把昵称头像改掉，断开与原身份的视觉联系
+	// ==========================================
+
+	// 构造更新语句：修改昵称、头像
+	// 如果你的 PostDoc/CommentDoc 有 isDeleted 字段，也可以在这里 set isDeleted = 1
+	updateAnonymize := bson.M{
+		"$set": bson.M{
+			"userNickname": anonymizedName,
+			"userAvatar":   anonymizedAvatar,
+			// "isDeleted": 1, // 可选：如果你希望前端能识别并置灰
+		},
+	}
+
+	h.updateManySafe(ctx, db.Collection("posts"), bson.M{"userId": e.UserId}, updateAnonymize)
+	h.updateManySafe(ctx, db.Collection("comments"), bson.M{"userId": e.UserId}, updateAnonymize)
+
+	// 特殊处理：更新别人评论里 "回复 @某某" 的昵称
+	h.updateManySafe(ctx, db.Collection("comments"),
+		bson.M{"replyToUserId": e.UserId},
+		bson.M{"$set": bson.M{"replyToUserNickname": anonymizedName}},
+	)
+
+	// ==========================================
+	// 2. 【关系清理】: 关注、粉丝、点赞、收藏、评分
+	//    这些数据代表"活跃状态"，人走了关系自然要断开，建议物理删除
+	// ==========================================
+
+	// 2.1 删除 关注/粉丝 关系
+	// 我关注了谁 -> 删
+	h.deleteManySafe(ctx, db.Collection("user_follows"), bson.M{"userId": e.UserId})
+	// 谁关注了我 -> 删 (这样我就从别人的粉丝列表消失了)
+	h.deleteManySafe(ctx, db.Collection("user_follows"), bson.M{"targetUserId": e.UserId})
+
+	// 2.2 删除 互动数据 (点赞、收藏等)
+	// 注意：删除这些数据后，相关帖子的 likeCount/collectCount 可能会偏高(因为没有触发减1逻辑)
+	// 如果对数字精确性要求极高，这里需要发消息去触发计数减少，或者跑定时任务修正。
+	// 但作为"注销"场景，通常可以容忍这一点点数据偏差，直接删即可。
+	interactionCollections := []string{
 		"post_likes",
-		"comment_likes",
 		"post_collects",
 		"post_ratings",
-		"search_histories",
-		"post_view_histories",
+		"comment_likes",
+		"notifications", // 通知的接收者是该用户，或者发送者是该用户，都建议清理
 	}
 
-	for _, collName := range collections {
-		h.deleteManySafe(ctx, db.Collection(collName), filter)
+	for _, collName := range interactionCollections {
+		// 删除 "我" 发起的操作
+		h.deleteManySafe(ctx, db.Collection(collName), bson.M{"userId": e.UserId})
 	}
 
-	// 特殊处理关注表
-	h.deleteManySafe(ctx, db.Collection("user_follows"), filter)                           // 我关注的
-	h.deleteManySafe(ctx, db.Collection("user_follows"), bson.M{"targetUserId": e.UserId}) // 关注我的
+	// 清理以我为接收者的通知 (也没人看了)
+	h.deleteManySafe(ctx, db.Collection("notifications"), bson.M{"receiverId": e.UserId})
+
+	// 2.3 删除 隐私历史
+	h.deleteManySafe(ctx, db.Collection("search_histories"), bson.M{"userId": e.UserId})
+	h.deleteManySafe(ctx, db.Collection("post_view_histories"), bson.M{"userId": e.UserId})
 
 	return nil
 }

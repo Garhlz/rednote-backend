@@ -15,6 +15,7 @@ import com.szu.afternoon3.platform.service.CommentService;
 import com.szu.afternoon3.platform.service.InteractionService;
 import com.szu.afternoon3.platform.service.PostService;
 import com.szu.afternoon3.platform.service.UserService;
+import com.szu.afternoon3.platform.service.impl.NotificationServiceImpl;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Profile;
@@ -225,5 +226,15 @@ public class DevDataController {
         public PostTemplate(String t, String c, int type, String i) {
             this.title = t; this.content = c; this.type = type; this.image = i;
         }
+    }
+
+    @Autowired
+    private NotificationServiceImpl notificationService;
+
+    @PostMapping("/clean-notifications")
+    @Transactional(rollbackFor = Exception.class)
+    public Result<String> cleanNotifications() {
+        long count = notificationService.cleanDuplicateNotifications();
+        return Result.success("清洗成功，删除了 " + count + " 条重复数据");
     }
 }

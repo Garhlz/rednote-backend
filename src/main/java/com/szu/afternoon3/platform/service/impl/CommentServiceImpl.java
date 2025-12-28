@@ -19,6 +19,8 @@ import com.szu.afternoon3.platform.repository.CommentRepository;
 import com.szu.afternoon3.platform.repository.PostRepository;
 import com.szu.afternoon3.platform.service.CommentService;
 import com.szu.afternoon3.platform.vo.CommentVO;
+import com.szu.afternoon3.platform.vo.PageResult;
+import com.szu.afternoon3.platform.vo.SimpleUserVO;
 import com.szu.afternoon3.platform.vo.UserInfo;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
@@ -35,6 +37,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -126,7 +129,7 @@ public class CommentServiceImpl implements CommentService {
     }
 
     @Override
-    public Map<String, Object> getRootComments(String postId, Integer page, Integer size) {
+    public PageResult<CommentVO> getRootComments(String postId, Integer page, Integer size) {
         Long currentUserId = UserContext.getUserId();
 
         // 1. 分页查询一级评论 (按热度或时间排序)
@@ -136,7 +139,8 @@ public class CommentServiceImpl implements CommentService {
         List<CommentDoc> roots = rootPage.getContent();
 
         if (CollUtil.isEmpty(roots)) {
-            return Map.of("records", List.of(), "total", 0);
+            // [重构] 使用 PageResult.empty()
+            return PageResult.empty(page, size);
         }
 
         // --- 准备阶段：收集数据以解决 N+1 问题 ---
@@ -184,11 +188,11 @@ public class CommentServiceImpl implements CommentService {
             return rootVO;
         }).collect(Collectors.toList());
 
-        return Map.of("records", voList, "total", rootPage.getTotalElements());
+        return PageResult.of(voList, rootPage.getTotalElements(), page, size);
     }
 
     @Override
-    public Map<String, Object> getSubComments(String rootCommentId, Integer page, Integer size) {
+    public PageResult<CommentVO> getSubComments(String rootCommentId, Integer page, Integer size) {
         Long currentUserId = UserContext.getUserId();
 
         // 1. 分页查询子评论
@@ -199,7 +203,7 @@ public class CommentServiceImpl implements CommentService {
         List<CommentDoc> children = childPage.getContent();
 
         if (CollUtil.isEmpty(children)) {
-            return Map.of("records", List.of(), "total", 0);
+            return PageResult.empty(page, size);
         }
 
         // 2. 批量查询点赞状态
@@ -215,7 +219,8 @@ public class CommentServiceImpl implements CommentService {
                 .map(doc -> convertToVO(doc, likedCommentIds))
                 .collect(Collectors.toList());
 
-        return Map.of("records", voList, "total", childPage.getTotalElements());
+        // [重构] 返回 PageResult
+        return PageResult.of(voList, childPage.getTotalElements(), page, size);
     }
 
     @Override
@@ -263,11 +268,15 @@ public class CommentServiceImpl implements CommentService {
         CommentVO vo = new CommentVO();
         vo.setId(doc.getId());
         vo.setContent(doc.getContent());
-        vo.setCreatedAt(doc.getCreatedAt().toString()); // 建议用 DateUtil 格式化一下
+        // 时间格式化
+        if (doc.getCreatedAt() != null) {
+            vo.setCreatedAt(doc.getCreatedAt().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
+        }
         vo.setLikeCount(doc.getLikeCount());
         vo.setReplyCount(doc.getReplyCount());
 
-        UserInfo author = new UserInfo();
+        // 这里不返回email, 使用SimpleUserVO
+        SimpleUserVO author = new SimpleUserVO();
         author.setUserId(String.valueOf(doc.getUserId()));
         author.setNickname(doc.getUserNickname());
         author.setAvatar(doc.getUserAvatar());

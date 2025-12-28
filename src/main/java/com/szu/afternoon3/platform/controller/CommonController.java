@@ -3,6 +3,7 @@ package com.szu.afternoon3.platform.controller;
 import com.szu.afternoon3.platform.annotation.OperationLog;
 import com.szu.afternoon3.platform.common.Result;
 import com.szu.afternoon3.platform.service.AliyunOssService;
+import com.szu.afternoon3.platform.vo.UrlVO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -31,12 +32,9 @@ public class CommonController {
      */
     @PostMapping("/upload")
     @OperationLog(module = "公共模块", description = "上传文件")
-    public Result<Map<String, String>> uploadFile(@RequestParam("file") MultipartFile file) {
+    public Result<UrlVO> uploadFile(@RequestParam("file") MultipartFile file) {
         String url = aliyunOssService.uploadFile(file);
 
-        Map<String, String> map = new HashMap<>();
-        map.put("url", url);
-
-        return Result.success(map);
+        return Result.success(new UrlVO(url));
     }
 }

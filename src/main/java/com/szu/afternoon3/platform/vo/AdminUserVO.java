@@ -1,5 +1,6 @@
 package com.szu.afternoon3.platform.vo;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.Data;
 import java.time.LocalDateTime;
 
@@ -8,6 +9,7 @@ public class AdminUserVO {
     private Long id;
     private String email;
     private String nickname;
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "GMT+8")
     private LocalDateTime registerTime;
     
     // 统计数据

@@ -15,7 +15,7 @@ public interface AdminService {
     UserInfo getAdminInfo();
 
     // 用户管理 - 列表查询
-    Map<String, Object> getUserList(AdminUserSearchDTO dto);
+    PageResult<AdminUserVO> getUserList(AdminUserSearchDTO dto);
 
     // 用户管理 - 删除用户
     void deleteUser(Long userId, String reason);
@@ -24,7 +24,7 @@ public interface AdminService {
     public AdminUserDetailVO getUserDetail(Long userId);
 
     // 内容审核 - 列表查询
-    Map<String, Object> getPostList(AdminPostSearchDTO dto);
+    PageResult<AdminPostVO> getPostList(AdminPostSearchDTO dto);
 
     // 内容审核 - 获取详情
     PostVO getPostDetail(String postId);
@@ -37,12 +37,12 @@ public interface AdminService {
     /**
      * 获取管理员操作日志
      */
-    Map<String, Object> getAdminLogs(LogSearchDTO dto);
+    PageResult<ApiLogVO> getAdminLogs(LogSearchDTO dto);
 
     /**
      * 获取C端用户操作日志
      */
-    Map<String, Object> getUserLogs(LogSearchDTO dto);
+    PageResult<ApiLogVO> getUserLogs(LogSearchDTO dto);
 
     List<AdminPostStatVO> getPostViewRanking(int limit);
 
