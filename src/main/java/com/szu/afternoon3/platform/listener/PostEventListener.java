@@ -9,9 +9,7 @@ import com.szu.afternoon3.platform.entity.mongo.NotificationDoc;
 import com.szu.afternoon3.platform.entity.mongo.PostAuditLogDoc;
 import com.szu.afternoon3.platform.entity.mongo.PostDoc;
 import com.szu.afternoon3.platform.enums.NotificationType;
-import com.szu.afternoon3.platform.event.PostCreateEvent;
-import com.szu.afternoon3.platform.event.PostDeleteEvent;
-import com.szu.afternoon3.platform.event.PostUpdateEvent;
+import com.szu.afternoon3.platform.event.*;
 import com.szu.afternoon3.platform.mapper.UserMapper;
 import com.szu.afternoon3.platform.repository.*;
 import com.szu.afternoon3.platform.service.NotificationService;
@@ -161,5 +159,30 @@ public class PostEventListener {
         } catch (Exception e) {
             log.error("保存管理员删帖日志失败", e);
         }
+    }
+
+    /**
+     * 【新增】处理审核操作事件
+     * 由于 PostEventListener 监听了 "post.#"，它会误收到 "post.audit" 消息。
+     * 添加此方法是为了避免抛出 "No listener method found" 异常。
+     */
+    @RabbitHandler
+    public void handlePostAudit(PostAuditEvent event) {
+        // 这里留空即可，表示“我知道收到了，但我不需要处理，请确认消费成功”
+        log.debug("PostEventListener 忽略审核操作消息: {}", event.getPostId());
+    }
+
+    /**
+     * 【新增】处理审核通过事件
+     * 同样是因为 "post.#" 路由键导致的误收。
+     */
+    @RabbitHandler
+    public void handlePostAuditPass(PostAuditPassEvent event) {
+        // 这里留空即可
+        log.debug("PostEventListener 忽略审核通过消息: {}", event.getId());
+
+        // 扩展建议：
+        // 如果未来想在审核通过后做一些业务（比如给作者加积分、触发某种奖励），
+        // 就可以写在这里，而不需要去改 AdminService。
     }
 }
