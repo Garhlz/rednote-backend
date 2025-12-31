@@ -2,7 +2,7 @@
   "openapi": "3.0.1",
   "info": {
     "title": "管理员端接口",
-    "description": "郑煜坤负责的第二次迭代内容。导入后请全选内部文件夹拖拽至上级，然后删除本文件夹。",
+    "description": "管理员端的相关api。本地开发环境需要删除/api前缀再进行请求，服务器生产环境配置了nginx路由，直接请求即可。最终版。",
     "version": "1.0.0"
   },
   "tags": [
@@ -55,7 +55,7 @@
                 ]
               },
               "example": {
-                "account": "garhlz257@gmail.com",
+                "account": "admin1@test.com",
                 "password": "123456"
               }
             }
@@ -68,46 +68,87 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "title": "登录成功响应",
                   "type": "object",
                   "properties": {
                     "code": {
-                      "title": "状态码",
-                      "type": "integer",
-                      "description": "200表示成功",
-                      "example": 200
+                      "type": "integer"
                     },
-                    "msg": {
-                      "title": "提示信息",
-                      "type": "string",
-                      "example": "登录成功"
+                    "message": {
+                      "type": "string"
                     },
                     "data": {
-                      "title": "业务数据",
                       "type": "object",
                       "properties": {
+                        "isNewUser": {
+                          "type": "boolean"
+                        },
+                        "hasPassword": {
+                          "type": "boolean"
+                        },
+                        "userInfo": {
+                          "type": "object",
+                          "properties": {
+                            "userId": {
+                              "type": "string"
+                            },
+                            "nickname": {
+                              "type": "string"
+                            },
+                            "avatar": {
+                              "type": "string"
+                            },
+                            "email": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "userId",
+                            "nickname",
+                            "avatar",
+                            "email"
+                          ]
+                        },
+                        "userSig": {
+                          "type": "string"
+                        },
                         "token": {
-                          "title": "鉴权令牌",
-                          "type": "string",
-                          "description": "后续请求需带在Header中"
+                          "type": "string"
+                        },
+                        "refreshToken": {
+                          "type": "string"
                         }
                       },
                       "required": [
-                        "token"
+                        "isNewUser",
+                        "hasPassword",
+                        "userInfo",
+                        "userSig",
+                        "token",
+                        "refreshToken"
                       ]
                     }
                   },
                   "required": [
                     "code",
-                    "msg",
+                    "message",
                     "data"
                   ]
                 },
                 "example": {
                   "code": 200,
-                  "msg": "登录成功",
+                  "message": "操作成功",
                   "data": {
-                    "token": "deserunt aliquip pariatur irure veniam"
+                    "isNewUser": false,
+                    "hasPassword": true,
+                    "userInfo": {
+                      "userId": "15",
+                      "nickname": "elaine",
+                      "avatar": "https://afternoon3-rednote.oss-cn-shenzhen.aliyuncs.com/default_avatar.jpg",
+                      "email": "garhlz257@gmail.com"
+                    },
+                    "userSig": "eJyrVgrxCdZLrSjILEpVsjIzMLEwMNABi5WlFilZKRnpGShB*MUp2YkFBZkpSlaGZgYGhobmRibGEJnMlNS8ksy0TLAGQ1OY*sx0IDfcPSTIJTA13T8lvCzMzz0gvbzEVF87wzIzpMI-qSw4M8TYL00-yT84uyDQFqqxJDMX6BRDczMzEwtTI1PjWgArDS*b",
+                    "token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VySWQiOjE1LCJyb2xlIjoiQURNSU4iLCJuaWNrbmFtZSI6ImVsYWluZSIsInR5cGUiOiJhY2Nlc3MiLCJleHAiOjE3NjcwOTAwNTN9.n5RqcnxwNcP1kF9NJxbqJnapxA8Fxp1RxWa_68Snsp8",
+                    "refreshToken": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VySWQiOjE1LCJ0eXBlIjoicmVmcmVzaCIsImV4cCI6MTc2OTA3NzI1M30.0b5cYEPz0m9BtvvgakmlI145k41w01VGZ3BI4KFFNvE"
                   }
                 }
               }
@@ -619,6 +660,103 @@
         ]
       }
     },
+    "/api/admin/auth/refresh": {
+      "post": {
+        "summary": "刷新token",
+        "deprecated": false,
+        "description": "",
+        "tags": [],
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {}
+              },
+              "example": {
+                "refreshToken": "..."
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "isNewUser": {
+                          "type": "null"
+                        },
+                        "hasPassword": {
+                          "type": "null"
+                        },
+                        "userInfo": {
+                          "type": "null"
+                        },
+                        "userSig": {
+                          "type": "null"
+                        },
+                        "token": {
+                          "type": "string"
+                        },
+                        "refreshToken": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "isNewUser",
+                        "hasPassword",
+                        "userInfo",
+                        "userSig",
+                        "token",
+                        "refreshToken"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                },
+                "example": {
+                  "code": 200,
+                  "message": "操作成功",
+                  "data": {
+                    "isNewUser": null,
+                    "hasPassword": null,
+                    "userInfo": null,
+                    "userSig": null,
+                    "token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VySWQiOjE3LCJyb2xlIjoiVVNFUiIsIm5pY2tuYW1lIjoi5pig6K6w5rWL6K-V6LSm5Y-3Lea1i-ivleeJiCIsInR5cGUiOiJhY2Nlc3MiLCJleHAiOjE3NjY5MDk1NTR9.oHGva64ncj8Zw2v1YkonQzJNUJRokr5qnZ9JVYXYCX8",
+                    "refreshToken": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VySWQiOjE3LCJ0eXBlIjoicmVmcmVzaCIsImV4cCI6MTc2ODg5Njc1NH0.vLRdH_bOujDVR41KLSASVPHJe7c8he0iIPRzLGAglQE"
+                  }
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "jwt": []
+          }
+        ]
+      }
+    },
     "/api/admin/profile/info": {
       "get": {
         "summary": "获取管理员账户信息",
@@ -848,292 +986,6 @@
         ]
       }
     },
-    "/api//admin/user/list": {
-      "post": {
-        "summary": "获取用户列表",
-        "deprecated": false,
-        "description": "分页查询小程序用户列表。",
-        "tags": [
-          "UserMgr"
-        ],
-        "parameters": [],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "nickname": {
-                    "type": "string"
-                  },
-                  "email": {
-                    "type": "string"
-                  },
-                  "startTime": {
-                    "type": "string"
-                  },
-                  "endTime": {
-                    "type": "string"
-                  },
-                  "page": {
-                    "type": "integer"
-                  },
-                  "size": {
-                    "type": "integer"
-                  }
-                }
-              },
-              "example": {
-                "page": 1,
-                "size": 30
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "message": {
-                      "type": "string"
-                    },
-                    "data": {
-                      "type": "object",
-                      "properties": {
-                        "total": {
-                          "type": "integer"
-                        },
-                        "records": {
-                          "type": "array",
-                          "items": {
-                            "type": "object",
-                            "properties": {
-                              "id": {
-                                "type": "integer"
-                              },
-                              "email": {
-                                "type": "string"
-                              },
-                              "nickname": {
-                                "type": "string"
-                              },
-                              "registerTime": {
-                                "type": "string"
-                              },
-                              "postCount": {
-                                "type": "integer"
-                              },
-                              "fanCount": {
-                                "type": "integer"
-                              },
-                              "likeCount": {
-                                "type": "integer"
-                              },
-                              "followCount": {
-                                "type": "integer"
-                              },
-                              "avgScore": {
-                                "type": "integer"
-                              }
-                            },
-                            "required": [
-                              "id",
-                              "email",
-                              "nickname",
-                              "registerTime",
-                              "postCount",
-                              "fanCount",
-                              "likeCount",
-                              "followCount",
-                              "avgScore"
-                            ]
-                          }
-                        }
-                      },
-                      "required": [
-                        "total",
-                        "records"
-                      ]
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message",
-                    "data"
-                  ]
-                },
-                "example": {
-                  "code": 200,
-                  "message": "操作成功",
-                  "data": {
-                    "total": 18,
-                    "records": [
-                      {
-                        "id": 14,
-                        "email": "admin1@test.com",
-                        "nickname": "elaine",
-                        "registerTime": "2025-12-12T17:47:39.795979",
-                        "postCount": 0,
-                        "fanCount": 0,
-                        "likeCount": 0,
-                        "followCount": 0,
-                        "avgScore": 0
-                      },
-                      {
-                        "id": 15,
-                        "email": "garhlz257@gmail.com",
-                        "nickname": "elaine",
-                        "registerTime": "2025-12-12T17:48:29.77561",
-                        "postCount": 0,
-                        "fanCount": 0,
-                        "likeCount": 0,
-                        "followCount": 0,
-                        "avgScore": 0
-                      },
-                      {
-                        "id": 10,
-                        "email": "1719295572@qq.com",
-                        "nickname": "zyt",
-                        "registerTime": "2025-12-09T08:45:30.264214",
-                        "postCount": 0,
-                        "fanCount": 0,
-                        "likeCount": 0,
-                        "followCount": 0,
-                        "avgScore": 0
-                      },
-                      {
-                        "id": 16,
-                        "email": "garhlz257@163.com",
-                        "nickname": "elaine",
-                        "registerTime": "2025-12-13T02:43:34.874059",
-                        "postCount": 0,
-                        "fanCount": 0,
-                        "likeCount": 0,
-                        "followCount": 0,
-                        "avgScore": 0
-                      },
-                      {
-                        "id": 4,
-                        "email": "smoke_prod_1@szu.edu.cn",
-                        "nickname": "生产环境测试员",
-                        "registerTime": "2025-12-01T04:26:30.385505",
-                        "postCount": 0,
-                        "fanCount": 0,
-                        "likeCount": 0,
-                        "followCount": 0,
-                        "avgScore": 0
-                      },
-                      {
-                        "id": 5,
-                        "email": "smoke_test@szu.edu.cn",
-                        "nickname": "冒烟测试员",
-                        "registerTime": "2025-12-01T17:32:34.133259",
-                        "postCount": 0,
-                        "fanCount": 0,
-                        "likeCount": 0,
-                        "followCount": 0,
-                        "avgScore": 0
-                      },
-                      {
-                        "id": 6,
-                        "email": "test2@szu.edu.cn",
-                        "nickname": "冒烟测试员",
-                        "registerTime": "2025-12-01T17:41:23.165041",
-                        "postCount": 0,
-                        "fanCount": 0,
-                        "likeCount": 0,
-                        "followCount": 0,
-                        "avgScore": 0
-                      },
-                      {
-                        "id": 17,
-                        "email": "ai_bot@szu.edu.cn",
-                        "nickname": "AI省流助手",
-                        "registerTime": "2025-12-12T19:53:09.075142",
-                        "postCount": 0,
-                        "fanCount": 0,
-                        "likeCount": 0,
-                        "followCount": 0,
-                        "avgScore": 0
-                      },
-                      {
-                        "id": 13,
-                        "email": "admin@test.com",
-                        "nickname": "admin",
-                        "registerTime": "2025-12-11T13:10:15.221613",
-                        "postCount": 0,
-                        "fanCount": 0,
-                        "likeCount": 0,
-                        "followCount": 0,
-                        "avgScore": 0
-                      },
-                      {
-                        "id": 19,
-                        "email": "photo@test.com",
-                        "nickname": "PhotoLife",
-                        "registerTime": "2025-12-13T15:13:38.123768",
-                        "postCount": 2,
-                        "fanCount": 0,
-                        "likeCount": 3,
-                        "followCount": 2,
-                        "avgScore": 0
-                      }
-                    ]
-                  }
-                }
-              }
-            },
-            "headers": {}
-          },
-          "500": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "title": "服务器错误响应",
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "title": "状态码",
-                      "type": "integer",
-                      "example": 500
-                    },
-                    "msg": {
-                      "title": "错误提示",
-                      "type": "string",
-                      "example": "数据库查询失败"
-                    },
-                    "data": {
-                      "title": "数据",
-                      "type": "null"
-                    }
-                  }
-                },
-                "example": {
-                  "code": 500,
-                  "msg": "数据库查询失败",
-                  "data": null
-                }
-              }
-            },
-            "headers": {}
-          }
-        },
-        "security": [
-          {
-            "jwt": []
-          }
-        ]
-      }
-    },
     "/api/admin/user/{id}": {
       "get": {
         "summary": "获取用户详情",
@@ -1345,6 +1197,7 @@
             "in": "path",
             "description": "",
             "required": true,
+            "example": "16",
             "schema": {
               "type": "string"
             }
@@ -1368,7 +1221,7 @@
                 ]
               },
               "example": {
-                "reason": "eiusmod sit laborum ex sint"
+                "reason": "测试删除用户"
               }
             }
           },
@@ -1455,11 +1308,252 @@
         ]
       }
     },
+    "/api/admin/user/list": {
+      "post": {
+        "summary": "获取用户列表",
+        "deprecated": false,
+        "description": "分页查询小程序用户列表。",
+        "tags": [
+          "UserMgr"
+        ],
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "nickname": {
+                    "type": "string"
+                  },
+                  "email": {
+                    "type": "string"
+                  },
+                  "startTime": {
+                    "type": "string"
+                  },
+                  "endTime": {
+                    "type": "string"
+                  },
+                  "page": {
+                    "type": "integer"
+                  },
+                  "size": {
+                    "type": "integer"
+                  }
+                }
+              },
+              "example": {
+                "page": 1,
+                "size": 3
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "records": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "integer"
+                              },
+                              "email": {
+                                "type": "string",
+                                "nullable": true
+                              },
+                              "nickname": {
+                                "type": "string"
+                              },
+                              "registerTime": {
+                                "type": "string"
+                              },
+                              "postCount": {
+                                "type": "integer"
+                              },
+                              "fanCount": {
+                                "type": "integer"
+                              },
+                              "likeCount": {
+                                "type": "integer"
+                              },
+                              "followCount": {
+                                "type": "integer"
+                              },
+                              "avgScore": {
+                                "type": "integer"
+                              },
+                              "pendingPostCount": {
+                                "type": "integer"
+                              },
+                              "passedPostCount": {
+                                "type": "integer"
+                              },
+                              "rejectedPostCount": {
+                                "type": "integer"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "email",
+                              "nickname",
+                              "registerTime",
+                              "postCount",
+                              "fanCount",
+                              "likeCount",
+                              "followCount",
+                              "avgScore",
+                              "pendingPostCount",
+                              "passedPostCount",
+                              "rejectedPostCount"
+                            ]
+                          }
+                        },
+                        "total": {
+                          "type": "integer"
+                        },
+                        "current": {
+                          "type": "integer"
+                        },
+                        "size": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "records",
+                        "total",
+                        "current",
+                        "size"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                },
+                "example": {
+                  "code": 200,
+                  "message": "操作成功",
+                  "data": {
+                    "records": [
+                      {
+                        "id": 9,
+                        "email": "user_1764531045463@szu.edu.cn",
+                        "nickname": "杜沐阳",
+                        "registerTime": "2025-12-01 03:30:45",
+                        "postCount": 1,
+                        "fanCount": 0,
+                        "likeCount": 0,
+                        "followCount": 0,
+                        "avgScore": 0,
+                        "pendingPostCount": 0,
+                        "passedPostCount": 1,
+                        "rejectedPostCount": 0
+                      },
+                      {
+                        "id": 5,
+                        "email": null,
+                        "nickname": "TestUser_1764530902698",
+                        "registerTime": "2025-12-01 03:28:22",
+                        "postCount": 0,
+                        "fanCount": 0,
+                        "likeCount": 0,
+                        "followCount": 0,
+                        "avgScore": 0,
+                        "pendingPostCount": 0,
+                        "passedPostCount": 0,
+                        "rejectedPostCount": 0
+                      },
+                      {
+                        "id": 6,
+                        "email": null,
+                        "nickname": "TestUser_1764530941996",
+                        "registerTime": "2025-12-01 03:29:01",
+                        "postCount": 0,
+                        "fanCount": 0,
+                        "likeCount": 0,
+                        "followCount": 0,
+                        "avgScore": 0,
+                        "pendingPostCount": 0,
+                        "passedPostCount": 0,
+                        "rejectedPostCount": 0
+                      }
+                    ],
+                    "total": 15,
+                    "current": 1,
+                    "size": 3
+                  }
+                }
+              }
+            },
+            "headers": {}
+          },
+          "500": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "服务器错误响应",
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "title": "状态码",
+                      "type": "integer",
+                      "example": 500
+                    },
+                    "msg": {
+                      "title": "错误提示",
+                      "type": "string",
+                      "example": "数据库查询失败"
+                    },
+                    "data": {
+                      "title": "数据",
+                      "type": "null"
+                    }
+                  }
+                },
+                "example": {
+                  "code": 500,
+                  "msg": "数据库查询失败",
+                  "data": null
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "jwt": []
+          }
+        ]
+      }
+    },
     "/api/admin/post/audit-list": {
       "post": {
         "summary": "获取内容审核列表",
         "deprecated": false,
-        "description": "分页获取帖子列表。",
+        "description": "管理员后台的核心列表接口。支持按 Tab（审核状态）分类，支持按标题、昵称、邮箱、时间等多维度筛选。注意：默认情况下（全部 Tab），列表会优先显示“待审核”的帖子。\nTab 类型:\n     0 或 null = 全部 (执行默认排序：待审核 - 已通过 - 已拒绝 - 回收站)\n     1 = 待审核 (status=0)\n     2 = 已通过 (status=1)\n     3 = 已拒绝 (status=2)\n     4 = 回收站 (isDeleted=1)",
         "tags": [
           "ContentAudit"
         ],
@@ -1504,7 +1598,8 @@
                 }
               },
               "example": {
-                "tab": 2
+                "page": 1,
+                "size": 5
               }
             }
           },
@@ -1527,9 +1622,6 @@
                     "data": {
                       "type": "object",
                       "properties": {
-                        "total": {
-                          "type": "integer"
-                        },
                         "records": {
                           "type": "array",
                           "items": {
@@ -1551,7 +1643,8 @@
                                 "type": "integer"
                               },
                               "userEmail": {
-                                "type": "string"
+                                "type": "string",
+                                "nullable": true
                               },
                               "userNickname": {
                                 "type": "string"
@@ -1559,8 +1652,8 @@
                               "userAvatar": {
                                 "type": "string"
                               },
-                              "createTime": {
-                                "type": "null"
+                              "createdAt": {
+                                "type": "string"
                               },
                               "tags": {
                                 "type": "array",
@@ -1581,18 +1674,64 @@
                                 "type": "string"
                               },
                               "coverWidth": {
-                                "type": "integer"
+                                "type": "integer",
+                                "nullable": true
                               },
                               "coverHeight": {
+                                "type": "integer",
+                                "nullable": true
+                              },
+                              "viewCount": {
+                                "type": "integer"
+                              },
+                              "likeCount": {
+                                "type": "integer"
+                              },
+                              "collectCount": {
+                                "type": "integer"
+                              },
+                              "commentCount": {
                                 "type": "integer"
                               }
-                            }
+                            },
+                            "required": [
+                              "id",
+                              "status",
+                              "title",
+                              "content",
+                              "userId",
+                              "userEmail",
+                              "userNickname",
+                              "userAvatar",
+                              "createdAt",
+                              "tags",
+                              "type",
+                              "resources",
+                              "cover",
+                              "coverWidth",
+                              "coverHeight",
+                              "viewCount",
+                              "likeCount",
+                              "collectCount",
+                              "commentCount"
+                            ]
                           }
+                        },
+                        "total": {
+                          "type": "integer"
+                        },
+                        "current": {
+                          "type": "integer"
+                        },
+                        "size": {
+                          "type": "integer"
                         }
                       },
                       "required": [
+                        "records",
                         "total",
-                        "records"
+                        "current",
+                        "size"
                       ]
                     }
                   },
@@ -1606,31 +1745,151 @@
                   "code": 200,
                   "message": "操作成功",
                   "data": {
-                    "total": 1,
                     "records": [
                       {
-                        "id": "693fae15a7f63f5102d5084a",
+                        "id": "694cde730d1efc60a4e52248",
                         "status": 2,
-                        "title": "测试视频接口",
-                        "content": "测试视频接口测试视频接口测试视频接口测试视频接口测试视频接口测试视频接口测试视频接口测试视频接口测试",
-                        "userId": 9,
-                        "userEmail": "test5@test.com",
-                        "userNickname": "映记测试账号",
+                        "title": "集成测试帖子标题",
+                        "content": "这是测试内容，包含标签 #Tag",
+                        "userId": 287,
+                        "userEmail": "test_user_1766645360176@test.com",
+                        "userNickname": "Updated_TestNick_7GCG1",
                         "userAvatar": "https://afternoon3-rednote.oss-cn-shenzhen.aliyuncs.com/default_avatar.jpg",
-                        "createTime": null,
+                        "createdAt": "2025-12-25 14:49:23",
                         "tags": [
-                          "洱海",
-                          "风景"
+                          "Daily",
+                          "Tech"
                         ],
-                        "type": 1,
+                        "type": 0,
                         "resources": [
-                          "https://afternoon3-rednote.oss-cn-shenzhen.aliyuncs.com/erhai-lake.mp4"
+                          "http://localhost:8080/uploads/2025/12/25/46258a736bb24214844de57e621d9f7b.jpg"
                         ],
-                        "cover": "https://afternoon3-rednote.oss-cn-shenzhen.aliyuncs.com/erhai-lake.mp4?x-oss-process=video/snapshot,t_1000,f_jpg,w_0,h_0,m_fast",
-                        "coverWidth": 1280,
-                        "coverHeight": 720
+                        "cover": "http://localhost:8080/uploads/2025/12/25/46258a736bb24214844de57e621d9f7b.jpg",
+                        "coverWidth": null,
+                        "coverHeight": null,
+                        "viewCount": 0,
+                        "likeCount": 0,
+                        "collectCount": 0,
+                        "commentCount": 0
+                      },
+                      {
+                        "id": "6947725ecb6fa1497839c29e",
+                        "status": 2,
+                        "title": "测试删除帖子",
+                        "content": "深圳",
+                        "userId": 17,
+                        "userEmail": null,
+                        "userNickname": "已注销用户",
+                        "userAvatar": "https://afternoon3-rednote.oss-cn-shenzhen.aliyuncs.com/deleted_user.png",
+                        "createdAt": "2025-12-21 12:06:54",
+                        "tags": [
+                          "深圳",
+                          "大学",
+                          "test"
+                        ],
+                        "type": 0,
+                        "resources": [
+                          "https://afternoon3-rednote.oss-cn-shenzhen.aliyuncs.com/szu-logo.png",
+                          "https://afternoon3-rednote.oss-cn-shenzhen.aliyuncs.com/szu-campus1.jpg",
+                          "https://afternoon3-rednote.oss-cn-shenzhen.aliyuncs.com/shadow.jpg"
+                        ],
+                        "cover": "https://afternoon3-rednote.oss-cn-shenzhen.aliyuncs.com/szu-logo.png",
+                        "coverWidth": null,
+                        "coverHeight": null,
+                        "viewCount": 0,
+                        "likeCount": 0,
+                        "collectCount": 0,
+                        "commentCount": 1
+                      },
+                      {
+                        "id": "693c5c9951cd4f43d5167f5e",
+                        "status": 1,
+                        "title": "考古学惟独跳在在附属噢许多",
+                        "content": "dolor culpa",
+                        "userId": 17,
+                        "userEmail": null,
+                        "userNickname": "已注销用户",
+                        "userAvatar": "https://afternoon3-rednote.oss-cn-shenzhen.aliyuncs.com/deleted_user.png",
+                        "createdAt": "2025-12-13 02:19:05",
+                        "tags": [
+                          "esse",
+                          "test"
+                        ],
+                        "type": 0,
+                        "resources": [
+                          "https://loremflickr.com/400/400?lock=5640052667389008",
+                          "https://loremflickr.com/400/400?lock=243450103764033"
+                        ],
+                        "cover": "https://loremflickr.com/400/400?lock=5640052667389008",
+                        "coverWidth": 400,
+                        "coverHeight": 400,
+                        "viewCount": 0,
+                        "likeCount": 0,
+                        "collectCount": 0,
+                        "commentCount": 0
+                      },
+                      {
+                        "id": "6950d15e49c8fa17e5ed5362",
+                        "status": 1,
+                        "title": "测试",
+                        "content": "深圳",
+                        "userId": 283,
+                        "userEmail": "photo@test.com",
+                        "userNickname": "PhotoLife",
+                        "userAvatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=PhotoLife",
+                        "createdAt": "2025-12-28 14:42:38",
+                        "tags": [
+                          "深圳",
+                          "大学",
+                          "test"
+                        ],
+                        "type": 0,
+                        "resources": [
+                          "https://afternoon3-rednote.oss-cn-shenzhen.aliyuncs.com/szu-logo.png",
+                          "https://afternoon3-rednote.oss-cn-shenzhen.aliyuncs.com/szu-campus1.jpg",
+                          "https://afternoon3-rednote.oss-cn-shenzhen.aliyuncs.com/shadow.jpg"
+                        ],
+                        "cover": "https://afternoon3-rednote.oss-cn-shenzhen.aliyuncs.com/szu-logo.png",
+                        "coverWidth": null,
+                        "coverHeight": null,
+                        "viewCount": 0,
+                        "likeCount": 0,
+                        "collectCount": 0,
+                        "commentCount": 1
+                      },
+                      {
+                        "id": "6950b0c4964cb8113c1162f2",
+                        "status": 1,
+                        "title": "忍",
+                        "content": "深圳",
+                        "userId": 283,
+                        "userEmail": "photo@test.com",
+                        "userNickname": "PhotoLife",
+                        "userAvatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=PhotoLife",
+                        "createdAt": "2025-12-28 12:23:32",
+                        "tags": [
+                          "深圳",
+                          "大学",
+                          "test"
+                        ],
+                        "type": 0,
+                        "resources": [
+                          "https://afternoon3-rednote.oss-cn-shenzhen.aliyuncs.com/szu-logo.png",
+                          "https://afternoon3-rednote.oss-cn-shenzhen.aliyuncs.com/szu-campus1.jpg",
+                          "https://afternoon3-rednote.oss-cn-shenzhen.aliyuncs.com/shadow.jpg"
+                        ],
+                        "cover": "https://afternoon3-rednote.oss-cn-shenzhen.aliyuncs.com/szu-logo.png",
+                        "coverWidth": null,
+                        "coverHeight": null,
+                        "viewCount": 0,
+                        "likeCount": 0,
+                        "collectCount": 0,
+                        "commentCount": 12
                       }
-                    ]
+                    ],
+                    "total": 57,
+                    "current": 1,
+                    "size": 5
                   }
                 }
               }
@@ -1726,7 +1985,7 @@
                           "type": "object",
                           "properties": {
                             "userId": {
-                              "type": "string"
+                              "type": "integer"
                             },
                             "nickname": {
                               "type": "string"
@@ -2278,6 +2537,14 @@
                   },
                   "endTime": {
                     "type": "string"
+                  },
+                  "username": {
+                    "type": "string",
+                    "description": "操作者昵称"
+                  },
+                  "module": {
+                    "type": "string",
+                    "description": "按照模块经精准检索"
                   }
                 },
                 "required": [
@@ -2288,10 +2555,15 @@
                   "status",
                   "bizId",
                   "startTime",
-                  "endTime"
+                  "endTime",
+                  "username",
+                  "module"
                 ]
               },
-              "example": {}
+              "example": {
+                "page": 1,
+                "size": 3
+              }
             }
           },
           "required": true
@@ -2313,15 +2585,6 @@
                     "data": {
                       "type": "object",
                       "properties": {
-                        "total": {
-                          "type": "integer"
-                        },
-                        "size": {
-                          "type": "integer"
-                        },
-                        "current": {
-                          "type": "integer"
-                        },
                         "records": {
                           "type": "array",
                           "items": {
@@ -2342,14 +2605,11 @@
                               "bizId": {
                                 "type": "string"
                               },
-                              "traceId": {
-                                "type": "string"
-                              },
                               "userId": {
                                 "type": "integer"
                               },
                               "username": {
-                                "type": "null"
+                                "type": "string"
                               },
                               "role": {
                                 "type": "string"
@@ -2363,14 +2623,11 @@
                               "ip": {
                                 "type": "string"
                               },
-                              "params": {
-                                "type": "string"
-                              },
                               "status": {
                                 "type": "integer"
                               },
                               "errorMsg": {
-                                "type": "null"
+                                "type": "string"
                               },
                               "timeCost": {
                                 "type": "integer"
@@ -2385,27 +2642,34 @@
                               "module",
                               "description",
                               "bizId",
-                              "traceId",
                               "userId",
                               "username",
                               "role",
                               "method",
                               "uri",
                               "ip",
-                              "params",
                               "status",
                               "errorMsg",
                               "timeCost",
                               "createdAt"
                             ]
                           }
+                        },
+                        "total": {
+                          "type": "integer"
+                        },
+                        "current": {
+                          "type": "integer"
+                        },
+                        "size": {
+                          "type": "integer"
                         }
                       },
                       "required": [
+                        "records",
                         "total",
-                        "size",
                         "current",
-                        "records"
+                        "size"
                       ]
                     }
                   },
@@ -2419,49 +2683,62 @@
                   "code": 200,
                   "message": "操作成功",
                   "data": {
-                    "total": 5,
-                    "size": 20,
-                    "current": 1,
                     "records": [
                       {
-                        "id": "656e...",
-                        "logType": "ADMIN_OPER",
-                        "module": "后台认证",
-                        "description": "管理员登录",
-                        "bizId": "admin@szu.edu.cn",
-                        "traceId": "a1b2c3d4...",
-                        "userId": 1,
-                        "username": null,
-                        "role": "ADMIN",
-                        "method": "POST",
-                        "uri": "/admin/auth/login",
-                        "ip": "127.0.0.1",
-                        "params": "[{\"account\":\"admin@szu.edu.cn\",\"password\":\"******\"}]",
-                        "status": 200,
-                        "errorMsg": null,
-                        "timeCost": 45,
-                        "createdAt": "2023-11-25 10:30:00"
-                      },
-                      {
-                        "id": "656f...",
+                        "id": "6950a941ec3318d02d2fb973",
                         "logType": "ADMIN_OPER",
                         "module": "后台用户管理",
                         "description": "删除用户",
-                        "bizId": "10086",
-                        "traceId": "x9y8z7...",
-                        "userId": 1,
-                        "username": null,
+                        "bizId": "16",
+                        "userId": 275,
+                        "username": "小青",
                         "role": "ADMIN",
                         "method": "POST",
-                        "uri": "/admin/user/10086",
-                        "ip": "192.168.1.5",
-                        "params": "[10086, {\"reason\":\"发布违规内容\"}]",
+                        "uri": "/admin/user/16",
+                        "ip": "0:0:0:0:0:0:0:1",
                         "status": 200,
-                        "errorMsg": null,
-                        "timeCost": 120,
-                        "createdAt": "2023-11-25 11:00:00"
+                        "errorMsg": "",
+                        "timeCost": 39,
+                        "createdAt": "2025-12-28 11:51:29"
+                      },
+                      {
+                        "id": "6950a92eec3318d02d2fb972",
+                        "logType": "ADMIN_OPER",
+                        "module": "后台用户管理",
+                        "description": "删除用户",
+                        "bizId": "18",
+                        "userId": 275,
+                        "username": "小青",
+                        "role": "ADMIN",
+                        "method": "POST",
+                        "uri": "/admin/user/18",
+                        "ip": "0:0:0:0:0:0:0:1",
+                        "status": 200,
+                        "errorMsg": "",
+                        "timeCost": 6,
+                        "createdAt": "2025-12-28 11:51:10"
+                      },
+                      {
+                        "id": "6950a925ec3318d02d2fb971",
+                        "logType": "ADMIN_OPER",
+                        "module": "后台用户管理",
+                        "description": "删除用户",
+                        "bizId": "17",
+                        "userId": 275,
+                        "username": "小青",
+                        "role": "ADMIN",
+                        "method": "POST",
+                        "uri": "/admin/user/17",
+                        "ip": "0:0:0:0:0:0:0:1",
+                        "status": 200,
+                        "errorMsg": "",
+                        "timeCost": 48,
+                        "createdAt": "2025-12-28 11:51:01"
                       }
-                    ]
+                    ],
+                    "total": 15,
+                    "current": 1,
+                    "size": 3
                   }
                 }
               }
@@ -2512,6 +2789,13 @@
                   },
                   "endTime": {
                     "type": "string"
+                  },
+                  "username": {
+                    "type": "string"
+                  },
+                  "module": {
+                    "type": "string",
+                    "description": "按照模块经精准检索"
                   }
                 },
                 "required": [
@@ -2522,10 +2806,15 @@
                   "status",
                   "bizId",
                   "startTime",
-                  "endTime"
+                  "endTime",
+                  "username",
+                  "module"
                 ]
               },
-              "example": {}
+              "example": {
+                "page": 1,
+                "size": 3
+              }
             }
           },
           "required": true
@@ -2547,15 +2836,6 @@
                     "data": {
                       "type": "object",
                       "properties": {
-                        "total": {
-                          "type": "integer"
-                        },
-                        "current": {
-                          "type": "integer"
-                        },
-                        "size": {
-                          "type": "integer"
-                        },
                         "records": {
                           "type": "array",
                           "items": {
@@ -2574,21 +2854,16 @@
                                 "type": "string"
                               },
                               "bizId": {
-                                "type": "null"
-                              },
-                              "traceId": {
                                 "type": "string"
                               },
                               "userId": {
-                                "type": "integer",
-                                "nullable": true
+                                "type": "integer"
                               },
                               "username": {
-                                "type": "null"
+                                "type": "string"
                               },
                               "role": {
-                                "type": "string",
-                                "nullable": true
+                                "type": "string"
                               },
                               "method": {
                                 "type": "string"
@@ -2599,14 +2874,11 @@
                               "ip": {
                                 "type": "string"
                               },
-                              "params": {
-                                "type": "string"
-                              },
                               "status": {
                                 "type": "integer"
                               },
                               "errorMsg": {
-                                "type": "null"
+                                "type": "string"
                               },
                               "timeCost": {
                                 "type": "integer"
@@ -2621,27 +2893,34 @@
                               "module",
                               "description",
                               "bizId",
-                              "traceId",
                               "userId",
                               "username",
                               "role",
                               "method",
                               "uri",
                               "ip",
-                              "params",
                               "status",
                               "errorMsg",
                               "timeCost",
                               "createdAt"
                             ]
                           }
+                        },
+                        "total": {
+                          "type": "integer"
+                        },
+                        "current": {
+                          "type": "integer"
+                        },
+                        "size": {
+                          "type": "integer"
                         }
                       },
                       "required": [
+                        "records",
                         "total",
                         "current",
-                        "size",
-                        "records"
+                        "size"
                       ]
                     }
                   },
@@ -2655,392 +2934,146 @@
                   "code": 200,
                   "message": "操作成功",
                   "data": {
-                    "total": 2178,
-                    "current": 1,
-                    "size": 20,
                     "records": [
                       {
-                        "id": "6940cd0108135f60d593a404",
+                        "id": "6950d408ec3318d02d2fb993",
                         "logType": "USER_OPER",
-                        "module": "通用",
-                        "description": "printHello",
-                        "bizId": null,
-                        "traceId": "20bff2e254bf4e43bf641bd8f62c5822",
-                        "userId": null,
-                        "username": null,
-                        "role": null,
-                        "method": "GET",
-                        "uri": "/api/auth/test",
-                        "ip": "113.84.170.217",
-                        "params": "",
-                        "status": 200,
-                        "errorMsg": null,
-                        "timeCost": 0,
-                        "createdAt": "2025-12-16T11:07:45.906"
-                      },
-                      {
-                        "id": "6940ccf808135f60d593a403",
-                        "logType": "USER_OPER",
-                        "module": "通用",
-                        "description": "printHello",
-                        "bizId": null,
-                        "traceId": "0cc860858d7e4e2094e8966a7c7992b0",
-                        "userId": null,
-                        "username": null,
-                        "role": null,
-                        "method": "GET",
-                        "uri": "/api/auth/test",
-                        "ip": "113.84.170.217",
-                        "params": "",
-                        "status": 200,
-                        "errorMsg": null,
-                        "timeCost": 0,
-                        "createdAt": "2025-12-16T11:07:36.405"
-                      },
-                      {
-                        "id": "6940cceb08135f60d593a402",
-                        "logType": "USER_OPER",
-                        "module": "通用",
-                        "description": "printHello",
-                        "bizId": null,
-                        "traceId": "4f072b26ceb64d029c9d81b3e1d41f8c",
-                        "userId": null,
-                        "username": null,
-                        "role": null,
-                        "method": "GET",
-                        "uri": "/api/auth/test",
-                        "ip": "113.84.170.217",
-                        "params": "",
-                        "status": 200,
-                        "errorMsg": null,
-                        "timeCost": 0,
-                        "createdAt": "2025-12-16T11:07:23.454"
-                      },
-                      {
-                        "id": "6940cc0c08135f60d593a401",
-                        "logType": "USER_OPER",
-                        "module": "通用",
-                        "description": "printHello",
-                        "bizId": null,
-                        "traceId": "fa771a6704e840699f48357d42657065",
-                        "userId": null,
-                        "username": null,
-                        "role": null,
-                        "method": "GET",
-                        "uri": "/api/auth/test",
-                        "ip": "112.97.80.184",
-                        "params": "",
-                        "status": 200,
-                        "errorMsg": null,
-                        "timeCost": 2,
-                        "createdAt": "2025-12-16T11:03:39.56"
-                      },
-                      {
-                        "id": "6940c7275407f63afd5cd563",
-                        "logType": "USER_OPER",
-                        "module": "通用",
-                        "description": "printHello",
-                        "bizId": null,
-                        "traceId": "2eadd5ed85cc47668718d10f9fd7d248",
-                        "userId": null,
-                        "username": null,
-                        "role": null,
-                        "method": "GET",
-                        "uri": "/api/auth/test",
-                        "ip": "172.18.0.10",
-                        "params": "",
-                        "status": 200,
-                        "errorMsg": null,
-                        "timeCost": 0,
-                        "createdAt": "2025-12-16T10:42:47.446"
-                      },
-                      {
-                        "id": "69403b4b5407f63afd5cd562",
-                        "logType": "USER_OPER",
-                        "module": "帖子模块",
-                        "description": "浏览帖子流",
-                        "bizId": null,
-                        "traceId": "e83ede66437c434a857dda293d05d12e",
-                        "userId": 23,
-                        "username": null,
+                        "module": "评论模块",
+                        "description": "获取一级评论",
+                        "bizId": "693d0c3f579b0b45a9ac9a4f",
+                        "userId": 283,
+                        "username": "PhotoLife",
                         "role": "USER",
                         "method": "GET",
-                        "uri": "/api/post/list",
-                        "ip": "172.18.0.10",
-                        "params": "[1,10,\"recommend\"]",
+                        "uri": "/api/comment/list",
+                        "ip": "0:0:0:0:0:0:0:1",
                         "status": 200,
-                        "errorMsg": null,
-                        "timeCost": 48,
-                        "createdAt": "2025-12-16T00:46:03.663"
+                        "errorMsg": "",
+                        "timeCost": 119,
+                        "createdAt": "2025-12-28 14:54:00"
                       },
                       {
-                        "id": "69403b4b5407f63afd5cd561",
+                        "id": "6950d3b7ec3318d02d2fb992",
                         "logType": "USER_OPER",
-                        "module": "帖子模块",
-                        "description": "浏览帖子流",
-                        "bizId": null,
-                        "traceId": "e9f868e4b7f8410d94195d87c1a2902b",
-                        "userId": 23,
-                        "username": null,
+                        "module": "评论模块",
+                        "description": "获取一级评论",
+                        "bizId": "693d0c3f579b0b45a9ac9a4f",
+                        "userId": 283,
+                        "username": "PhotoLife",
                         "role": "USER",
                         "method": "GET",
-                        "uri": "/api/post/list",
-                        "ip": "172.18.0.10",
-                        "params": "[1,10,\"follow\"]",
+                        "uri": "/api/comment/list",
+                        "ip": "0:0:0:0:0:0:0:1",
                         "status": 200,
-                        "errorMsg": null,
-                        "timeCost": 13,
-                        "createdAt": "2025-12-16T00:46:03.623"
+                        "errorMsg": "",
+                        "timeCost": 113,
+                        "createdAt": "2025-12-28 14:52:39"
                       },
                       {
-                        "id": "69403b4b5407f63afd5cd560",
+                        "id": "6950d392ec3318d02d2fb991",
                         "logType": "USER_OPER",
-                        "module": "标签模块",
-                        "description": "获取热门标签",
-                        "bizId": null,
-                        "traceId": "38321aa45c1c4882a78b272684f327ed",
-                        "userId": 23,
-                        "username": null,
+                        "module": "评论模块",
+                        "description": "获取一级评论",
+                        "bizId": "693d0c3f579b0b45a9ac9a4f",
+                        "userId": 283,
+                        "username": "PhotoLife",
                         "role": "USER",
                         "method": "GET",
-                        "uri": "/api/tag/hot",
-                        "ip": "172.18.0.10",
-                        "params": "",
+                        "uri": "/api/comment/list",
+                        "ip": "0:0:0:0:0:0:0:1",
                         "status": 200,
-                        "errorMsg": null,
-                        "timeCost": 6,
-                        "createdAt": "2025-12-16T00:46:03.486"
-                      },
-                      {
-                        "id": "694038e85407f63afd5cd55f",
-                        "logType": "USER_OPER",
-                        "module": "帖子模块",
-                        "description": "浏览帖子流",
-                        "bizId": null,
-                        "traceId": "0991640938284d38a71f6ea71592b67c",
-                        "userId": 23,
-                        "username": null,
-                        "role": "USER",
-                        "method": "GET",
-                        "uri": "/api/post/list",
-                        "ip": "172.18.0.10",
-                        "params": "[1,10,\"recommend\"]",
-                        "status": 200,
-                        "errorMsg": null,
-                        "timeCost": 24,
-                        "createdAt": "2025-12-16T00:35:52.877"
-                      },
-                      {
-                        "id": "694038e85407f63afd5cd55e",
-                        "logType": "USER_OPER",
-                        "module": "帖子模块",
-                        "description": "浏览帖子流",
-                        "bizId": null,
-                        "traceId": "9498605cf2624b1bb33b80d6c97f6e8a",
-                        "userId": 23,
-                        "username": null,
-                        "role": "USER",
-                        "method": "GET",
-                        "uri": "/api/post/list",
-                        "ip": "172.18.0.10",
-                        "params": "[1,10,\"follow\"]",
-                        "status": 200,
-                        "errorMsg": null,
-                        "timeCost": 6,
-                        "createdAt": "2025-12-16T00:35:52.856"
-                      },
-                      {
-                        "id": "694038e85407f63afd5cd55d",
-                        "logType": "USER_OPER",
-                        "module": "标签模块",
-                        "description": "获取热门标签",
-                        "bizId": null,
-                        "traceId": "7988e8ef8cb94ec7b4ec263c6c137da9",
-                        "userId": 23,
-                        "username": null,
-                        "role": "USER",
-                        "method": "GET",
-                        "uri": "/api/tag/hot",
-                        "ip": "172.18.0.10",
-                        "params": "",
-                        "status": 200,
-                        "errorMsg": null,
-                        "timeCost": 11,
-                        "createdAt": "2025-12-16T00:35:52.696"
-                      },
-                      {
-                        "id": "694038d65407f63afd5cd55c",
-                        "logType": "USER_OPER",
-                        "module": "帖子模块",
-                        "description": "浏览帖子流",
-                        "bizId": null,
-                        "traceId": "9719da8eb24d428aa50652d223e9f571",
-                        "userId": 23,
-                        "username": null,
-                        "role": "USER",
-                        "method": "GET",
-                        "uri": "/api/post/list",
-                        "ip": "172.18.0.10",
-                        "params": "[1,10,\"recommend\"]",
-                        "status": 200,
-                        "errorMsg": null,
-                        "timeCost": 19,
-                        "createdAt": "2025-12-16T00:35:34.03"
-                      },
-                      {
-                        "id": "694038d65407f63afd5cd55b",
-                        "logType": "USER_OPER",
-                        "module": "帖子模块",
-                        "description": "浏览帖子流",
-                        "bizId": null,
-                        "traceId": "fe9ceacbe9fb4c18a08bc023dc7f4b9c",
-                        "userId": 23,
-                        "username": null,
-                        "role": "USER",
-                        "method": "GET",
-                        "uri": "/api/post/list",
-                        "ip": "172.18.0.10",
-                        "params": "[1,10,\"follow\"]",
-                        "status": 200,
-                        "errorMsg": null,
-                        "timeCost": 4,
-                        "createdAt": "2025-12-16T00:35:34"
-                      },
-                      {
-                        "id": "694038d55407f63afd5cd55a",
-                        "logType": "USER_OPER",
-                        "module": "标签模块",
-                        "description": "获取热门标签",
-                        "bizId": null,
-                        "traceId": "aa36fe80aa434863909c41a2e1d2b7f0",
-                        "userId": 23,
-                        "username": null,
-                        "role": "USER",
-                        "method": "GET",
-                        "uri": "/api/tag/hot",
-                        "ip": "172.18.0.10",
-                        "params": "",
-                        "status": 200,
-                        "errorMsg": null,
-                        "timeCost": 10,
-                        "createdAt": "2025-12-16T00:35:33.765"
-                      },
-                      {
-                        "id": "694038bf5407f63afd5cd559",
-                        "logType": "USER_OPER",
-                        "module": "帖子模块",
-                        "description": "浏览帖子流",
-                        "bizId": null,
-                        "traceId": "6fb1611646864b1996b64da52b85e7f0",
-                        "userId": 23,
-                        "username": null,
-                        "role": "USER",
-                        "method": "GET",
-                        "uri": "/api/post/list",
-                        "ip": "172.18.0.10",
-                        "params": "[1,10,\"recommend\"]",
-                        "status": 200,
-                        "errorMsg": null,
-                        "timeCost": 30,
-                        "createdAt": "2025-12-16T00:35:11.739"
-                      },
-                      {
-                        "id": "694038bf5407f63afd5cd558",
-                        "logType": "USER_OPER",
-                        "module": "帖子模块",
-                        "description": "浏览帖子流",
-                        "bizId": null,
-                        "traceId": "4e8afb7bd9ac4a3b99e7078340711333",
-                        "userId": 23,
-                        "username": null,
-                        "role": "USER",
-                        "method": "GET",
-                        "uri": "/api/post/list",
-                        "ip": "172.18.0.10",
-                        "params": "[1,10,\"follow\"]",
-                        "status": 200,
-                        "errorMsg": null,
-                        "timeCost": 4,
-                        "createdAt": "2025-12-16T00:35:11.7"
-                      },
-                      {
-                        "id": "694038bf5407f63afd5cd557",
-                        "logType": "USER_OPER",
-                        "module": "标签模块",
-                        "description": "获取热门标签",
-                        "bizId": null,
-                        "traceId": "8f61ef95a4184cbbb8dc627147c8874e",
-                        "userId": 23,
-                        "username": null,
-                        "role": "USER",
-                        "method": "GET",
-                        "uri": "/api/tag/hot",
-                        "ip": "172.18.0.10",
-                        "params": "",
-                        "status": 200,
-                        "errorMsg": null,
-                        "timeCost": 2,
-                        "createdAt": "2025-12-16T00:35:11.457"
-                      },
-                      {
-                        "id": "694038bf5407f63afd5cd556",
-                        "logType": "USER_OPER",
-                        "module": "标签模块",
-                        "description": "获取热门标签",
-                        "bizId": null,
-                        "traceId": "c2a699b81fc942cf8709c4914351dc12",
-                        "userId": 23,
-                        "username": null,
-                        "role": "USER",
-                        "method": "GET",
-                        "uri": "/api/tag/hot",
-                        "ip": "172.18.0.10",
-                        "params": "",
-                        "status": 200,
-                        "errorMsg": null,
-                        "timeCost": 9,
-                        "createdAt": "2025-12-16T00:35:11.339"
-                      },
-                      {
-                        "id": "694038945407f63afd5cd555",
-                        "logType": "USER_OPER",
-                        "module": "帖子模块",
-                        "description": "浏览帖子流",
-                        "bizId": null,
-                        "traceId": "76253fc60d554e8da241658262012b52",
-                        "userId": 23,
-                        "username": null,
-                        "role": "USER",
-                        "method": "GET",
-                        "uri": "/api/post/list",
-                        "ip": "172.18.0.10",
-                        "params": "[1,10,\"recommend\"]",
-                        "status": 200,
-                        "errorMsg": null,
-                        "timeCost": 20,
-                        "createdAt": "2025-12-16T00:34:28.519"
-                      },
-                      {
-                        "id": "694038945407f63afd5cd554",
-                        "logType": "USER_OPER",
-                        "module": "帖子模块",
-                        "description": "浏览帖子流",
-                        "bizId": null,
-                        "traceId": "c652f8738b834fa6ab06d9d840a47399",
-                        "userId": 23,
-                        "username": null,
-                        "role": "USER",
-                        "method": "GET",
-                        "uri": "/api/post/list",
-                        "ip": "172.18.0.10",
-                        "params": "[1,10,\"follow\"]",
-                        "status": 200,
-                        "errorMsg": null,
-                        "timeCost": 4,
-                        "createdAt": "2025-12-16T00:34:28.483"
+                        "errorMsg": "",
+                        "timeCost": 41,
+                        "createdAt": "2025-12-28 14:52:02"
                       }
-                    ]
+                    ],
+                    "total": 41504,
+                    "current": 1,
+                    "size": 3
                   }
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/admin/log/export": {
+      "get": {
+        "summary": "导出管理员操作日志",
+        "deprecated": false,
+        "description": "导出为excel表格，请下载数据",
+        "tags": [],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "page": {
+                      "type": "integer"
+                    },
+                    "size": {
+                      "type": "integer"
+                    },
+                    "userId": {
+                      "type": "integer"
+                    },
+                    "keyword": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "bizId": {
+                      "type": "string"
+                    },
+                    "startTime": {
+                      "type": "string"
+                    },
+                    "endTime": {
+                      "type": "string"
+                    },
+                    "username": {
+                      "type": "string"
+                    },
+                    "module": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "page",
+                    "size",
+                    "userId",
+                    "keyword",
+                    "status",
+                    "bizId",
+                    "startTime",
+                    "endTime",
+                    "username",
+                    "module"
+                  ]
+                },
+                "example": {
+                  "page": 57,
+                  "size": 69,
+                  "userId": 79,
+                  "keyword": "Lorem elit veniam",
+                  "status": 35,
+                  "bizId": "76",
+                  "startTime": "2025-06-12 08:34:19",
+                  "endTime": "2026-09-11 04:46:23",
+                  "username": "嘉兰英",
+                  "module": "nulla nisi aute"
                 }
               }
             },
@@ -3400,6 +3433,204 @@
         ]
       }
     },
+    "/api/admin/stats": {
+      "get": {
+        "summary": "获取后台首页统计数据",
+        "deprecated": false,
+        "description": "",
+        "tags": [],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "todayNewUsers": {
+                          "type": "integer",
+                          "description": "今日新增注册用户数"
+                        },
+                        "todayNewPosts": {
+                          "type": "integer",
+                          "description": "今日新增发帖数"
+                        },
+                        "userTrend": {
+                          "type": "object",
+                          "properties": {
+                            "dates": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              },
+                              "description": "X轴：日期列表 (MM-dd 或 yyyy-MM-dd)"
+                            },
+                            "values": {
+                              "type": "array",
+                              "items": {
+                                "type": "integer"
+                              },
+                              "description": "Y轴：每日新增数量 (与日期一一对应)"
+                            }
+                          },
+                          "required": [
+                            "dates",
+                            "values"
+                          ],
+                          "description": "近七日用户增长趋势 (折线图数据)"
+                        },
+                        "postTrend": {
+                          "type": "object",
+                          "properties": {
+                            "dates": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              },
+                              "description": "X轴：日期列表"
+                            },
+                            "values": {
+                              "type": "array",
+                              "items": {
+                                "type": "integer"
+                              },
+                              "description": "Y轴：每日发帖数量"
+                            }
+                          },
+                          "required": [
+                            "dates",
+                            "values"
+                          ]
+                        },
+                        "regionStats": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "name": {
+                                "type": "string",
+                                "description": "用户地区分布 (饼图数据)，按人数降序排列"
+                              },
+                              "value": {
+                                "type": "integer",
+                                "description": "该地区用户总数"
+                              }
+                            },
+                            "required": [
+                              "name",
+                              "value"
+                            ]
+                          },
+                          "description": "用户地区分布 (饼图数据)，按人数降序排列"
+                        }
+                      },
+                      "required": [
+                        "todayNewUsers",
+                        "todayNewPosts",
+                        "userTrend",
+                        "postTrend",
+                        "regionStats"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "msg",
+                    "data"
+                  ]
+                },
+                "example": {
+                  "code": 200,
+                  "msg": "操作成功",
+                  "data": {
+                    "todayNewUsers": 128,
+                    "todayNewPosts": 356,
+                    "userTrend": {
+                      "dates": [
+                        "2023-12-15",
+                        "2023-12-16",
+                        "2023-12-17",
+                        "2023-12-18",
+                        "2023-12-19",
+                        "2023-12-20",
+                        "2023-12-21"
+                      ],
+                      "values": [
+                        45,
+                        52,
+                        38,
+                        60,
+                        89,
+                        110,
+                        128
+                      ]
+                    },
+                    "postTrend": {
+                      "dates": [
+                        "2023-12-15",
+                        "2023-12-16",
+                        "2023-12-17",
+                        "2023-12-18",
+                        "2023-12-19",
+                        "2023-12-20",
+                        "2023-12-21"
+                      ],
+                      "values": [
+                        120,
+                        135,
+                        110,
+                        150,
+                        210,
+                        280,
+                        356
+                      ]
+                    },
+                    "regionStats": [
+                      {
+                        "name": "广东",
+                        "value": 1500
+                      },
+                      {
+                        "name": "北京",
+                        "value": 800
+                      },
+                      {
+                        "name": "上海",
+                        "value": 750
+                      },
+                      {
+                        "name": "浙江",
+                        "value": 600
+                      },
+                      {
+                        "name": "未知",
+                        "value": 200
+                      }
+                    ]
+                  }
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "jwt": []
+          }
+        ]
+      }
+    },
     "/admin/sync/mongo-to-es": {
       "post": {
         "summary": "全量同步mongo数据到es",
@@ -3560,6 +3791,10 @@
         "type": "http",
         "scheme": "bearer",
         "bearerFormat": "JWT"
+      },
+      "bearer": {
+        "type": "http",
+        "scheme": "bearer"
       }
     }
   },

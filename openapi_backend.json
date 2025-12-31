@@ -2,7 +2,7 @@
   "openapi": "3.0.1",
   "info": {
     "title": "后端服务接口",
-    "description": "这是评论相关的接口定义。",
+    "description": "这是评论相关的接口定义。最终版。\n",
     "version": "1.0.0"
   },
   "tags": [
@@ -62,8 +62,11 @@
                     "data": {
                       "type": "object",
                       "properties": {
-                        "token": {
-                          "type": "string"
+                        "isNewUser": {
+                          "type": "boolean"
+                        },
+                        "hasPassword": {
+                          "type": "boolean"
                         },
                         "userInfo": {
                           "type": "object",
@@ -75,8 +78,7 @@
                               "type": "string"
                             },
                             "avatar": {
-                              "type": "string",
-                              "description": "从OSS获取的URL"
+                              "type": "string"
                             },
                             "email": {
                               "type": "string"
@@ -89,25 +91,23 @@
                             "email"
                           ]
                         },
-                        "isNewUser": {
-                          "description": "前端注意：true 则弹窗绑定邮箱",
-                          "type": "boolean"
-                        },
-                        "hasPassword": {
-                          "description": "前端注意：false 则在设置页引导设密码",
-                          "type": "boolean"
-                        },
                         "userSig": {
-                          "type": "string",
-                          "description": "腾讯IM服务的用户凭证"
+                          "type": "string"
+                        },
+                        "token": {
+                          "type": "string"
+                        },
+                        "refreshToken": {
+                          "type": "string"
                         }
                       },
                       "required": [
-                        "token",
-                        "userInfo",
                         "isNewUser",
                         "hasPassword",
-                        "userSig"
+                        "userInfo",
+                        "userSig",
+                        "token",
+                        "refreshToken"
                       ]
                     }
                   },
@@ -118,18 +118,20 @@
                   ]
                 },
                 "example": {
-                  "code": 20000,
-                  "message": "登录成功",
+                  "code": 200,
+                  "message": "操作成功",
                   "data": {
-                    "token": "eyJhbGciOiJIUzI1NiJ9.eyJ1c2Vy...",
+                    "isNewUser": false,
+                    "hasPassword": true,
                     "userInfo": {
-                      "userId": "10086",
-                      "nickname": "微信用户",
-                      "avatar": "https://oss.example.com/default.png",
-                      "email": null
+                      "userId": "9",
+                      "nickname": "映记测试账号",
+                      "avatar": "https://afternoon3-rednote.oss-cn-shenzhen.aliyuncs.com/default_avatar.jpg",
+                      "email": "test5@test.com"
                     },
-                    "isNewUser": true,
-                    "hasPassword": false
+                    "userSig": "eJyrVgrxCdZLrSjILEpVsjIzMLEwMNABi5WlFilZKRnpGShB*MUp2YkFBZkpSlaGZgYGhobmRibGEJnMlNS8ksy0TLAGS5jyzHQgL70wws9JP9XXVN-dwti1oiIpy8PVycPPuKAyULskLzHEODFYP8zE1SSlLNAWqrEkMxfoEkNzMzMTC1MjQ6NaANaHLmU_",
+                    "token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VySWQiOjksInJvbGUiOiJVU0VSIiwibmlja25hbWUiOiLmmKDorrDmtYvor5XotKblj7ciLCJ0eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzY3MDkwMDEyfQ.d0-LLuEqehaisCuIYtZf2Cyc1mmwphupmuish7e5mXQ",
+                    "refreshToken": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VySWQiOjksInR5cGUiOiJyZWZyZXNoIiwiZXhwIjoxNzY5MDc3MjEyfQ.vess5PEmsEutwvKqz8FxqY-awHLGy6cxeIHuyLoji0I"
                   }
                 }
               }
@@ -233,7 +235,7 @@
                   "password"
                 ]
               },
-              "example": "{\n  \"account\": \"test5@test.com\", // 邮箱或用户名\n  \"password\": \"123456\"\n}"
+              "example": "{\n  \"account\": \"photo@test.com\", // 邮箱或用户名\n  \"password\": \"123456\"\n}"
             }
           },
           "required": true
@@ -255,8 +257,11 @@
                     "data": {
                       "type": "object",
                       "properties": {
-                        "token": {
-                          "type": "string"
+                        "isNewUser": {
+                          "type": "boolean"
+                        },
+                        "hasPassword": {
+                          "type": "boolean"
                         },
                         "userInfo": {
                           "type": "object",
@@ -281,23 +286,23 @@
                             "email"
                           ]
                         },
-                        "isNewUser": {
-                          "type": "boolean"
-                        },
-                        "hasPassword": {
-                          "type": "boolean"
-                        },
                         "userSig": {
-                          "type": "string",
-                          "description": "腾讯IM服务的用户凭证"
+                          "type": "string"
+                        },
+                        "token": {
+                          "type": "string"
+                        },
+                        "refreshToken": {
+                          "type": "string"
                         }
                       },
                       "required": [
-                        "token",
-                        "userInfo",
                         "isNewUser",
                         "hasPassword",
-                        "userSig"
+                        "userInfo",
+                        "userSig",
+                        "token",
+                        "refreshToken"
                       ]
                     }
                   },
@@ -311,7 +316,6 @@
                   "code": 200,
                   "message": "操作成功",
                   "data": {
-                    "token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VySWQiOjksInJvbGUiOiJVU0VSIiwiZXhwIjoxNzY2NTgwNzA4fQ.XlKg1uAD4hp8uMgw5yO2bGjn4BhTewVcBUrg2-uKb0U",
                     "isNewUser": false,
                     "hasPassword": true,
                     "userInfo": {
@@ -320,7 +324,9 @@
                       "avatar": "https://afternoon3-rednote.oss-cn-shenzhen.aliyuncs.com/default_avatar.jpg",
                       "email": "test5@test.com"
                     },
-                    "userSig": "eJyrVgrxCdZLrSjILEpVsjIzMLEwMNABi5WlFilZKRnpGShB*MUp2YkFBZkpSlaGZgYGhoZmliYWEJnMlNS8ksy0TLAGS5jyzHQgLyU1JyApzd*i0qw0LC-JJTE4MD8zPdjINDQoyMgpN9jP2LvYLTE4LCo1x8AWqrEkMxfoEkNzM1NLc1NLA4taAA*BL2Y_"
+                    "userSig": "eJyrVgrxCdZLrSjILEpVsjIzMLEwMNABi5WlFilZKRnpGShB*MUp2YkFBZkpSlaGZgYGhobmRibGEJnMlNS8ksy0TLAGS5jyzHQgL70wws9JP9XXVN-dwti1oiIpy8PVycPPuKAyULskLzHEODFYP8zE1SSlLNAWqrEkMxfoEkNzMzMTC1MjQ6NaANaHLmU_",
+                    "token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VySWQiOjksInJvbGUiOiJVU0VSIiwibmlja25hbWUiOiLmmKDorrDmtYvor5XotKblj7ciLCJ0eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzY3MDkwMDEyfQ.d0-LLuEqehaisCuIYtZf2Cyc1mmwphupmuish7e5mXQ",
+                    "refreshToken": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VySWQiOjksInR5cGUiOiJyZWZyZXNoIiwiZXhwIjoxNzY5MDc3MjEyfQ.vess5PEmsEutwvKqz8FxqY-awHLGy6cxeIHuyLoji0I"
                   }
                 }
               }
@@ -771,7 +777,7 @@
       "post": {
         "summary": "退出登录",
         "deprecated": false,
-        "description": "将当前 Token 加入 Redis 黑名单，使其立即失效。",
+        "description": "将当前 Token 加入 Redis 黑名单，使其立即失效。退出登陆之后，前端需要在storage中删除两个token",
         "tags": [],
         "parameters": [
           {
@@ -835,9 +841,47 @@
                 ]
               },
               "example": {
-                "nickname": "小青",
+                "nickname": "测试",
                 "password": "123456",
-                "email": "test5@test.com"
+                "email": "profile_1764530961500@test.com"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {}
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/auth/refresh": {
+      "post": {
+        "summary": "刷新token",
+        "deprecated": false,
+        "description": "",
+        "tags": [],
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {}
+              },
+              "example": {
+                "refreshToken": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VySWQiOjE3LCJ0eXBlIjoicmVmcmVzaCIsImV4cCI6MTc2ODg5NjU2M30.RcZIFOkBRH_6mdzZ-TexSnJhHXlVPBGeVxGEWKRS2YY"
               }
             }
           },
@@ -1297,6 +1341,120 @@
         ]
       }
     },
+    "/api/user/{userId}/profile": {
+      "get": {
+        "summary": "获取用户主页资料",
+        "deprecated": false,
+        "description": "",
+        "tags": [],
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "example": 16,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "userId": {
+                          "type": "string"
+                        },
+                        "nickname": {
+                          "type": "string"
+                        },
+                        "avatar": {
+                          "type": "string"
+                        },
+                        "bio": {
+                          "type": "string"
+                        },
+                        "gender": {
+                          "type": "integer"
+                        },
+                        "region": {
+                          "type": "null"
+                        },
+                        "followCount": {
+                          "type": "integer"
+                        },
+                        "fanCount": {
+                          "type": "integer"
+                        },
+                        "receivedLikeCount": {
+                          "type": "integer"
+                        },
+                        "isFollowed": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "userId",
+                        "nickname",
+                        "avatar",
+                        "bio",
+                        "gender",
+                        "region",
+                        "followCount",
+                        "fanCount",
+                        "receivedLikeCount",
+                        "isFollowed"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                },
+                "example": {
+                  "code": 200,
+                  "message": "操作成功",
+                  "data": {
+                    "userId": "16",
+                    "nickname": "杭梓馨",
+                    "avatar": "https://afternoon3-rednote.oss-cn-shenzhen.aliyuncs.com/default_avatar.jpg",
+                    "bio": "",
+                    "gender": 0,
+                    "region": null,
+                    "followCount": 0,
+                    "fanCount": 0,
+                    "receivedLikeCount": 0,
+                    "isFollowed": false
+                  }
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "jwt": []
+          }
+        ]
+      }
+    },
     "/api/user/password/set": {
       "post": {
         "summary": "首次设置密码 (验证邮箱)",
@@ -1555,7 +1713,7 @@
             "in": "path",
             "description": "",
             "required": true,
-            "example": 3,
+            "example": 282,
             "schema": {
               "type": "integer"
             }
@@ -1988,9 +2146,39 @@
       "get": {
         "summary": "获取好友列表",
         "deprecated": false,
-        "description": "",
+        "description": "修改，可以传入分页参数和好友昵称进行搜索",
         "tags": [],
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "description": "",
+            "required": false,
+            "example": 1,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "description": "",
+            "required": false,
+            "example": 20,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "nickname",
+            "in": "query",
+            "description": "",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "",
@@ -2003,35 +2191,49 @@
                       "type": "integer"
                     },
                     "message": {
-                      "description": "description: 请求成功",
                       "type": "string"
                     },
                     "data": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "userId": {
-                            "type": "integer"
-                          },
-                          "nickname": {
-                            "type": "string"
-                          },
-                          "avatar": {
-                            "type": "string"
-                          },
-                          "email": {
-                            "type": "string"
+                      "type": "object",
+                      "properties": {
+                        "records": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "userId": {
+                                "type": "integer"
+                              },
+                              "nickname": {
+                                "type": "string"
+                              },
+                              "avatar": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "userId",
+                              "nickname",
+                              "avatar"
+                            ]
                           }
                         },
-                        "required": [
-                          "userId",
-                          "nickname",
-                          "avatar",
-                          "email"
-                        ],
-                        "description": "UserInfo的VO类"
-                      }
+                        "total": {
+                          "type": "integer"
+                        },
+                        "current": {
+                          "type": "integer"
+                        },
+                        "size": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "records",
+                        "total",
+                        "current",
+                        "size"
+                      ]
                     }
                   },
                   "required": [
@@ -2043,20 +2245,28 @@
                 "example": {
                   "code": 200,
                   "message": "操作成功",
-                  "data": [
-                    {
-                      "userId": 10,
-                      "nickname": "Eglantine257",
-                      "avatar": "https://afternoon3-rednote.oss-cn-shenzhen.aliyuncs.com/default_avatar.jpg",
-                      "email": "test3@test.com"
-                    },
-                    {
-                      "userId": 9,
-                      "nickname": "Eglantine2357",
-                      "avatar": "https://afternoon3-rednote.oss-cn-shenzhen.aliyuncs.com/default_avatar.jpg",
-                      "email": "test4@test.com"
-                    }
-                  ]
+                  "data": {
+                    "records": [
+                      {
+                        "userId": "284",
+                        "nickname": "FoodieJane",
+                        "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=FoodieJane"
+                      },
+                      {
+                        "userId": "285",
+                        "nickname": "StudentMike",
+                        "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=StudentMike"
+                      },
+                      {
+                        "userId": "283",
+                        "nickname": "PhotoLife",
+                        "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=PhotoLife"
+                      }
+                    ],
+                    "total": 3,
+                    "current": 1,
+                    "size": 20
+                  }
                 }
               }
             },
@@ -2118,12 +2328,10 @@
                   "type": "object",
                   "properties": {
                     "code": {
-                      "type": "integer",
-                      "default": 200
+                      "type": "integer"
                     },
                     "message": {
-                      "type": "string",
-                      "default": "操作成功"
+                      "type": "string"
                     },
                     "data": {
                       "type": "object",
@@ -2134,23 +2342,7 @@
                             "type": "object",
                             "properties": {
                               "id": {
-                                "type": "string",
-                                "description": "帖子ID"
-                              },
-                              "title": {
-                                "type": "string",
-                                "description": "标题"
-                              },
-                              "type": {
-                                "type": "integer",
-                                "description": "0:图文, 1:视频"
-                              },
-                              "cover": {
-                                "type": "string",
-                                "description": "封面URL"
-                              },
-                              "likeCount": {
-                                "type": "integer"
+                                "type": "string"
                               },
                               "author": {
                                 "type": "object",
@@ -2163,50 +2355,220 @@
                                   },
                                   "avatar": {
                                     "type": "string"
+                                  },
+                                  "email": {
+                                    "type": "null"
                                   }
-                                }
+                                },
+                                "required": [
+                                  "userId",
+                                  "nickname",
+                                  "avatar",
+                                  "email"
+                                ]
+                              },
+                              "title": {
+                                "type": "string"
+                              },
+                              "content": {
+                                "type": "null"
+                              },
+                              "type": {
+                                "type": "integer"
+                              },
+                              "cover": {
+                                "type": "string"
+                              },
+                              "images": {
+                                "type": "null"
+                              },
+                              "video": {
+                                "type": "null"
+                              },
+                              "likeCount": {
+                                "type": "integer"
+                              },
+                              "collectCount": {
+                                "type": "integer"
+                              },
+                              "commentCount": {
+                                "type": "null"
+                              },
+                              "isLiked": {
+                                "type": "boolean"
+                              },
+                              "isCollected": {
+                                "type": "boolean"
+                              },
+                              "isFollowed": {
+                                "type": "null"
+                              },
+                              "ratingAverage": {
+                                "type": "null"
+                              },
+                              "ratingCount": {
+                                "type": "null"
+                              },
+                              "myScore": {
+                                "type": "null"
+                              },
+                              "createdAt": {
+                                "type": "string"
+                              },
+                              "tags": {
+                                "type": "null"
+                              },
+                              "coverWidth": {
+                                "type": "integer",
+                                "nullable": true
+                              },
+                              "coverHeight": {
+                                "type": "integer",
+                                "nullable": true
                               }
-                            }
+                            },
+                            "required": [
+                              "id",
+                              "author",
+                              "title",
+                              "content",
+                              "type",
+                              "cover",
+                              "images",
+                              "video",
+                              "likeCount",
+                              "collectCount",
+                              "commentCount",
+                              "isLiked",
+                              "isCollected",
+                              "isFollowed",
+                              "ratingAverage",
+                              "ratingCount",
+                              "myScore",
+                              "createdAt",
+                              "tags",
+                              "coverWidth",
+                              "coverHeight"
+                            ]
                           }
                         },
                         "total": {
                           "type": "integer"
+                        },
+                        "current": {
+                          "type": "integer"
+                        },
+                        "size": {
+                          "type": "integer"
                         }
-                      }
+                      },
+                      "required": [
+                        "records",
+                        "total",
+                        "current",
+                        "size"
+                      ]
                     }
-                  }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
                 },
                 "example": {
-                  "code": 11,
-                  "message": "Ut ipsum consectetur",
+                  "code": 200,
+                  "message": "操作成功",
                   "data": {
                     "records": [
                       {
-                        "id": "8",
-                        "title": "棒呆最面对哦自从",
-                        "type": 21,
-                        "cover": "consequat qui aliquip in",
-                        "likeCount": 25,
+                        "id": "693d0f62add946254e35d2b4",
                         "author": {
-                          "userId": "9",
-                          "nickname": "长孙梓晨",
-                          "avatar": "https://avatars.githubusercontent.com/u/67489248"
-                        }
+                          "userId": "282",
+                          "nickname": "TechGeek",
+                          "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=TechGeek",
+                          "email": null
+                        },
+                        "title": "求助：Spring Boot 启动报错 Qkl",
+                        "content": null,
+                        "type": 0,
+                        "cover": "https://afternoon3-rednote.oss-cn-shenzhen.aliyuncs.com/default_avatar.jpg",
+                        "images": null,
+                        "video": null,
+                        "likeCount": 3,
+                        "collectCount": 0,
+                        "commentCount": null,
+                        "isLiked": false,
+                        "isCollected": false,
+                        "isFollowed": null,
+                        "ratingAverage": null,
+                        "ratingCount": null,
+                        "myScore": null,
+                        "createdAt": "2025-12-13 15:01:54",
+                        "tags": null,
+                        "coverWidth": 320,
+                        "coverHeight": 426
                       },
                       {
-                        "id": "51",
-                        "title": "减去到一边直到跟着考虑到",
-                        "type": 90,
-                        "cover": "pariatur voluptate enim",
-                        "likeCount": 3,
+                        "id": "693d0f62add946254e35d2ae",
                         "author": {
-                          "userId": "14",
-                          "nickname": "象明",
-                          "avatar": "https://avatars.githubusercontent.com/u/81203236"
-                        }
+                          "userId": "282",
+                          "nickname": "TechGeek",
+                          "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=TechGeek",
+                          "email": null
+                        },
+                        "title": "周末去海边采风 lGT",
+                        "content": null,
+                        "type": 0,
+                        "cover": "https://images.unsplash.com/photo-1507525428034-b723cf961d3e",
+                        "images": null,
+                        "video": null,
+                        "likeCount": 3,
+                        "collectCount": 0,
+                        "commentCount": null,
+                        "isLiked": false,
+                        "isCollected": false,
+                        "isFollowed": null,
+                        "ratingAverage": null,
+                        "ratingCount": null,
+                        "myScore": null,
+                        "createdAt": "2025-12-13 15:01:54",
+                        "tags": null,
+                        "coverWidth": 4621,
+                        "coverHeight": 3072
+                      },
+                      {
+                        "id": "693d0c3f579b0b45a9ac9a4e",
+                        "author": {
+                          "userId": "282",
+                          "nickname": "TechGeek",
+                          "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=TechGeek",
+                          "email": null
+                        },
+                        "title": "新入手的机械键盘 aq0",
+                        "content": null,
+                        "type": 0,
+                        "cover": "https://images.unsplash.com/photo-1587829741301-dc798b91a603",
+                        "images": null,
+                        "video": null,
+                        "likeCount": 4,
+                        "collectCount": 0,
+                        "commentCount": null,
+                        "isLiked": true,
+                        "isCollected": false,
+                        "isFollowed": null,
+                        "ratingAverage": null,
+                        "ratingCount": null,
+                        "myScore": null,
+                        "createdAt": "2025-12-13 14:48:31",
+                        "tags": null,
+                        "coverWidth": null,
+                        "coverHeight": null
                       }
                     ],
-                    "total": 90
+                    "total": 3,
+                    "current": 1,
+                    "size": 20
                   }
                 }
               }
@@ -2260,14 +2622,10 @@
                   "type": "object",
                   "properties": {
                     "code": {
-                      "type": "integer",
-                      "description": "业务状态码",
-                      "default": 200
+                      "type": "integer"
                     },
                     "message": {
-                      "type": "string",
-                      "description": "提示信息",
-                      "default": "操作成功"
+                      "type": "string"
                     },
                     "data": {
                       "type": "object",
@@ -2278,65 +2636,131 @@
                             "type": "object",
                             "properties": {
                               "id": {
-                                "type": "string",
-                                "description": "帖子ID"
-                              },
-                              "title": {
-                                "type": "string",
-                                "description": "帖子标题"
-                              },
-                              "type": {
-                                "type": "integer",
-                                "description": "帖子类型: 0-图文, 1-视频"
-                              },
-                              "cover": {
-                                "type": "string",
-                                "description": "封面图URL"
-                              },
-                              "likeCount": {
-                                "type": "integer",
-                                "description": "点赞数"
+                                "type": "string"
                               },
                               "author": {
                                 "type": "object",
                                 "properties": {
                                   "userId": {
-                                    "type": "string",
-                                    "description": "作者ID"
+                                    "type": "string"
                                   },
                                   "nickname": {
-                                    "type": "string",
-                                    "description": "作者昵称"
+                                    "type": "string"
                                   },
                                   "avatar": {
-                                    "type": "string",
-                                    "description": "作者头像URL"
+                                    "type": "string"
+                                  },
+                                  "email": {
+                                    "type": "null"
                                   }
                                 },
                                 "required": [
                                   "userId",
                                   "nickname",
-                                  "avatar"
+                                  "avatar",
+                                  "email"
                                 ]
+                              },
+                              "title": {
+                                "type": "string"
+                              },
+                              "content": {
+                                "type": "null"
+                              },
+                              "type": {
+                                "type": "integer"
+                              },
+                              "cover": {
+                                "type": "string"
+                              },
+                              "images": {
+                                "type": "null"
+                              },
+                              "video": {
+                                "type": "null"
+                              },
+                              "likeCount": {
+                                "type": "integer"
+                              },
+                              "collectCount": {
+                                "type": "integer"
+                              },
+                              "commentCount": {
+                                "type": "null"
+                              },
+                              "isLiked": {
+                                "type": "boolean"
+                              },
+                              "isCollected": {
+                                "type": "boolean"
+                              },
+                              "isFollowed": {
+                                "type": "null"
+                              },
+                              "ratingAverage": {
+                                "type": "null"
+                              },
+                              "ratingCount": {
+                                "type": "null"
+                              },
+                              "myScore": {
+                                "type": "null"
+                              },
+                              "createdAt": {
+                                "type": "string"
+                              },
+                              "tags": {
+                                "type": "null"
+                              },
+                              "coverWidth": {
+                                "type": "integer",
+                                "nullable": true
+                              },
+                              "coverHeight": {
+                                "type": "integer",
+                                "nullable": true
                               }
                             },
                             "required": [
                               "id",
+                              "author",
                               "title",
+                              "content",
                               "type",
                               "cover",
-                              "author"
+                              "images",
+                              "video",
+                              "likeCount",
+                              "collectCount",
+                              "commentCount",
+                              "isLiked",
+                              "isCollected",
+                              "isFollowed",
+                              "ratingAverage",
+                              "ratingCount",
+                              "myScore",
+                              "createdAt",
+                              "tags",
+                              "coverWidth",
+                              "coverHeight"
                             ]
                           }
                         },
                         "total": {
-                          "type": "integer",
-                          "description": "总记录数"
+                          "type": "integer"
+                        },
+                        "current": {
+                          "type": "integer"
+                        },
+                        "size": {
+                          "type": "integer"
                         }
                       },
                       "required": [
                         "records",
-                        "total"
+                        "total",
+                        "current",
+                        "size"
                       ]
                     }
                   },
@@ -2348,35 +2772,263 @@
                 },
                 "example": {
                   "code": 200,
-                  "message": "获取成功",
+                  "message": "操作成功",
                   "data": {
                     "records": [
                       {
-                        "id": "656e1234abcd5678",
-                        "title": "Arch Linux折腾笔记",
-                        "type": 0,
-                        "cover": "https://oss.example.com/img1.jpg",
+                        "id": "693d0c3f579b0b45a9ac9a4f",
                         "author": {
-                          "userId": "10086",
-                          "nickname": "小青",
-                          "avatar": "https://oss.example.com/avatar.jpg"
+                          "userId": "283",
+                          "nickname": "PhotoLife",
+                          "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=PhotoLife",
+                          "email": null
                         },
-                        "likeCount": 120
+                        "title": "深夜加班的快乐 E57",
+                        "content": null,
+                        "type": 0,
+                        "cover": "https://images.unsplash.com/photo-1497366216548-37526070297c",
+                        "images": null,
+                        "video": null,
+                        "likeCount": 2,
+                        "collectCount": 0,
+                        "commentCount": null,
+                        "isLiked": true,
+                        "isCollected": false,
+                        "isFollowed": null,
+                        "ratingAverage": null,
+                        "ratingCount": null,
+                        "myScore": null,
+                        "createdAt": "2025-12-13 14:48:31",
+                        "tags": null,
+                        "coverWidth": 2301,
+                        "coverHeight": 1536
                       },
                       {
-                        "id": "656e9999xyz123",
-                        "title": "深圳周末去哪儿",
-                        "type": 1,
-                        "cover": "https://oss.example.com/video_cover.jpg",
+                        "id": "693d0c40579b0b45a9ac9a52",
                         "author": {
-                          "userId": "10010",
-                          "nickname": "探店博主",
-                          "avatar": "https://oss.example.com/av2.jpg"
+                          "userId": "285",
+                          "nickname": "StudentMike",
+                          "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=StudentMike",
+                          "email": null
                         },
-                        "likeCount": 88
+                        "title": "学校食堂的新菜品 Iiz",
+                        "content": null,
+                        "type": 0,
+                        "cover": "https://images.unsplash.com/photo-1504674900247-0877df9cc836",
+                        "images": null,
+                        "video": null,
+                        "likeCount": 3,
+                        "collectCount": 0,
+                        "commentCount": null,
+                        "isLiked": true,
+                        "isCollected": false,
+                        "isFollowed": null,
+                        "ratingAverage": null,
+                        "ratingCount": null,
+                        "myScore": null,
+                        "createdAt": "2025-12-13 14:48:32",
+                        "tags": null,
+                        "coverWidth": 4350,
+                        "coverHeight": 2900
+                      },
+                      {
+                        "id": "693d0f62add946254e35d2b5",
+                        "author": {
+                          "userId": "283",
+                          "nickname": "PhotoLife",
+                          "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=PhotoLife",
+                          "email": null
+                        },
+                        "title": "求助：Spring Boot 启动报错 uZe",
+                        "content": null,
+                        "type": 0,
+                        "cover": "https://afternoon3-rednote.oss-cn-shenzhen.aliyuncs.com/default_avatar.jpg",
+                        "images": null,
+                        "video": null,
+                        "likeCount": 3,
+                        "collectCount": 0,
+                        "commentCount": null,
+                        "isLiked": true,
+                        "isCollected": false,
+                        "isFollowed": null,
+                        "ratingAverage": null,
+                        "ratingCount": null,
+                        "myScore": null,
+                        "createdAt": "2025-12-13 15:01:54",
+                        "tags": null,
+                        "coverWidth": 320,
+                        "coverHeight": 426
+                      },
+                      {
+                        "id": "693d0f62add946254e35d2b6",
+                        "author": {
+                          "userId": "283",
+                          "nickname": "PhotoLife",
+                          "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=PhotoLife",
+                          "email": null
+                        },
+                        "title": "求助：Spring Boot 启动报错 CHy",
+                        "content": null,
+                        "type": 0,
+                        "cover": "https://afternoon3-rednote.oss-cn-shenzhen.aliyuncs.com/default_avatar.jpg",
+                        "images": null,
+                        "video": null,
+                        "likeCount": 2,
+                        "collectCount": 0,
+                        "commentCount": null,
+                        "isLiked": true,
+                        "isCollected": false,
+                        "isFollowed": null,
+                        "ratingAverage": null,
+                        "ratingCount": null,
+                        "myScore": null,
+                        "createdAt": "2025-12-13 15:01:54",
+                        "tags": null,
+                        "coverWidth": 320,
+                        "coverHeight": 426
+                      },
+                      {
+                        "id": "693d0f62add946254e35d2ba",
+                        "author": {
+                          "userId": "285",
+                          "nickname": "StudentMike",
+                          "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=StudentMike",
+                          "email": null
+                        },
+                        "title": "Java 21 新特性尝鲜 Pxl",
+                        "content": null,
+                        "type": 0,
+                        "cover": "https://afternoon3-rednote.oss-cn-shenzhen.aliyuncs.com/default_avatar.jpg",
+                        "images": null,
+                        "video": null,
+                        "likeCount": 2,
+                        "collectCount": 0,
+                        "commentCount": null,
+                        "isLiked": true,
+                        "isCollected": false,
+                        "isFollowed": null,
+                        "ratingAverage": null,
+                        "ratingCount": null,
+                        "myScore": null,
+                        "createdAt": "2025-12-13 15:01:54",
+                        "tags": null,
+                        "coverWidth": 320,
+                        "coverHeight": 426
+                      },
+                      {
+                        "id": "693d0f62add946254e35d2bc",
+                        "author": {
+                          "userId": "286",
+                          "nickname": "CatLover",
+                          "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=CatLover",
+                          "email": null
+                        },
+                        "title": "深夜加班的快乐 0b4",
+                        "content": null,
+                        "type": 0,
+                        "cover": "https://images.unsplash.com/photo-1497366216548-37526070297c",
+                        "images": null,
+                        "video": null,
+                        "likeCount": 3,
+                        "collectCount": 0,
+                        "commentCount": null,
+                        "isLiked": true,
+                        "isCollected": false,
+                        "isFollowed": null,
+                        "ratingAverage": null,
+                        "ratingCount": null,
+                        "myScore": null,
+                        "createdAt": "2025-12-13 15:01:54",
+                        "tags": null,
+                        "coverWidth": 2301,
+                        "coverHeight": 1536
+                      },
+                      {
+                        "id": "693d0c3f579b0b45a9ac9a4e",
+                        "author": {
+                          "userId": "282",
+                          "nickname": "TechGeek",
+                          "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=TechGeek",
+                          "email": null
+                        },
+                        "title": "新入手的机械键盘 aq0",
+                        "content": null,
+                        "type": 0,
+                        "cover": "https://images.unsplash.com/photo-1587829741301-dc798b91a603",
+                        "images": null,
+                        "video": null,
+                        "likeCount": 4,
+                        "collectCount": 0,
+                        "commentCount": null,
+                        "isLiked": true,
+                        "isCollected": false,
+                        "isFollowed": null,
+                        "ratingAverage": null,
+                        "ratingCount": null,
+                        "myScore": null,
+                        "createdAt": "2025-12-13 14:48:31",
+                        "tags": null,
+                        "coverWidth": null,
+                        "coverHeight": null
+                      },
+                      {
+                        "id": "693d0c40579b0b45a9ac9a50",
+                        "author": {
+                          "userId": "284",
+                          "nickname": "FoodieJane",
+                          "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=FoodieJane",
+                          "email": null
+                        },
+                        "title": "新入手的机械键盘 eli",
+                        "content": null,
+                        "type": 0,
+                        "cover": "https://images.unsplash.com/photo-1587829741301-dc798b91a603",
+                        "images": null,
+                        "video": null,
+                        "likeCount": 3,
+                        "collectCount": 0,
+                        "commentCount": null,
+                        "isLiked": true,
+                        "isCollected": false,
+                        "isFollowed": null,
+                        "ratingAverage": null,
+                        "ratingCount": null,
+                        "myScore": null,
+                        "createdAt": "2025-12-13 14:48:32",
+                        "tags": null,
+                        "coverWidth": null,
+                        "coverHeight": null
+                      },
+                      {
+                        "id": "693d0c40579b0b45a9ac9a51",
+                        "author": {
+                          "userId": "284",
+                          "nickname": "FoodieJane",
+                          "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=FoodieJane",
+                          "email": null
+                        },
+                        "title": "新入手的机械键盘 dbn",
+                        "content": null,
+                        "type": 0,
+                        "cover": "https://images.unsplash.com/photo-1587829741301-dc798b91a603",
+                        "images": null,
+                        "video": null,
+                        "likeCount": 4,
+                        "collectCount": 0,
+                        "commentCount": null,
+                        "isLiked": true,
+                        "isCollected": false,
+                        "isFollowed": null,
+                        "ratingAverage": null,
+                        "ratingCount": null,
+                        "myScore": null,
+                        "createdAt": "2025-12-13 14:48:32",
+                        "tags": null,
+                        "coverWidth": null,
+                        "coverHeight": null
                       }
                     ],
-                    "total": 52,
+                    "total": 9,
                     "current": 1,
                     "size": 20
                   }
@@ -2432,14 +3084,10 @@
                   "type": "object",
                   "properties": {
                     "code": {
-                      "type": "integer",
-                      "description": "业务状态码",
-                      "default": 200
+                      "type": "integer"
                     },
                     "message": {
-                      "type": "string",
-                      "description": "提示信息",
-                      "default": "操作成功"
+                      "type": "string"
                     },
                     "data": {
                       "type": "object",
@@ -2450,65 +3098,106 @@
                             "type": "object",
                             "properties": {
                               "id": {
-                                "type": "string",
-                                "description": "帖子ID"
-                              },
-                              "title": {
-                                "type": "string",
-                                "description": "帖子标题"
-                              },
-                              "type": {
-                                "type": "integer",
-                                "description": "帖子类型: 0-图文, 1-视频"
-                              },
-                              "cover": {
-                                "type": "string",
-                                "description": "封面图URL"
-                              },
-                              "likeCount": {
-                                "type": "integer",
-                                "description": "点赞数"
+                                "type": "string"
                               },
                               "author": {
                                 "type": "object",
                                 "properties": {
                                   "userId": {
-                                    "type": "string",
-                                    "description": "作者ID"
+                                    "type": "string"
                                   },
                                   "nickname": {
-                                    "type": "string",
-                                    "description": "作者昵称"
+                                    "type": "string"
                                   },
                                   "avatar": {
-                                    "type": "string",
-                                    "description": "作者头像URL"
+                                    "type": "string"
+                                  },
+                                  "email": {
+                                    "type": "null"
                                   }
                                 },
                                 "required": [
                                   "userId",
                                   "nickname",
-                                  "avatar"
+                                  "avatar",
+                                  "email"
                                 ]
+                              },
+                              "title": {
+                                "type": "string"
+                              },
+                              "content": {
+                                "type": "null"
+                              },
+                              "type": {
+                                "type": "integer"
+                              },
+                              "cover": {
+                                "type": "string"
+                              },
+                              "images": {
+                                "type": "null"
+                              },
+                              "video": {
+                                "type": "null"
+                              },
+                              "likeCount": {
+                                "type": "integer"
+                              },
+                              "collectCount": {
+                                "type": "integer"
+                              },
+                              "commentCount": {
+                                "type": "null"
+                              },
+                              "isLiked": {
+                                "type": "boolean"
+                              },
+                              "isCollected": {
+                                "type": "boolean"
+                              },
+                              "isFollowed": {
+                                "type": "null"
+                              },
+                              "ratingAverage": {
+                                "type": "null"
+                              },
+                              "ratingCount": {
+                                "type": "null"
+                              },
+                              "myScore": {
+                                "type": "null"
+                              },
+                              "createdAt": {
+                                "type": "string"
+                              },
+                              "tags": {
+                                "type": "null"
+                              },
+                              "coverWidth": {
+                                "type": "integer"
+                              },
+                              "coverHeight": {
+                                "type": "integer"
                               }
-                            },
-                            "required": [
-                              "id",
-                              "title",
-                              "type",
-                              "cover",
-                              "author"
-                            ]
+                            }
                           }
                         },
                         "total": {
-                          "type": "integer",
-                          "description": "总记录数"
+                          "type": "integer"
+                        },
+                        "current": {
+                          "type": "integer"
+                        },
+                        "size": {
+                          "type": "integer"
                         }
                       },
                       "required": [
                         "records",
-                        "total"
+                        "total",
+                        "current",
+                        "size"
                       ]
                     }
                   },
@@ -2519,24 +3208,40 @@
                   ]
                 },
                 "example": {
-                  "code": 20000,
-                  "message": "获取成功",
+                  "code": 200,
+                  "message": "操作成功",
                   "data": {
                     "records": [
                       {
-                        "id": "656e1234abcd5678",
-                        "title": "这是我收藏的帖子",
-                        "type": 0,
-                        "cover": "https://oss.example.com/img1.jpg",
+                        "id": "693d0c3f579b0b45a9ac9a4f",
                         "author": {
-                          "userId": "10086",
-                          "nickname": "小青",
-                          "avatar": "https://oss.example.com/avatar.jpg"
+                          "userId": "283",
+                          "nickname": "PhotoLife",
+                          "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=PhotoLife",
+                          "email": null
                         },
-                        "likeCount": 120
+                        "title": "深夜加班的快乐 E57",
+                        "content": null,
+                        "type": 0,
+                        "cover": "https://images.unsplash.com/photo-1497366216548-37526070297c",
+                        "images": null,
+                        "video": null,
+                        "likeCount": 2,
+                        "collectCount": 1,
+                        "commentCount": null,
+                        "isLiked": true,
+                        "isCollected": true,
+                        "isFollowed": null,
+                        "ratingAverage": null,
+                        "ratingCount": null,
+                        "myScore": null,
+                        "createdAt": "2025-12-13 14:48:31",
+                        "tags": null,
+                        "coverWidth": 2301,
+                        "coverHeight": 1536
                       }
                     ],
-                    "total": 10,
+                    "total": 1,
                     "current": 1,
                     "size": 20
                   }
@@ -2592,14 +3297,10 @@
                   "type": "object",
                   "properties": {
                     "code": {
-                      "type": "integer",
-                      "description": "业务状态码",
-                      "default": 200
+                      "type": "integer"
                     },
                     "message": {
-                      "type": "string",
-                      "description": "提示信息",
-                      "default": "操作成功"
+                      "type": "string"
                     },
                     "data": {
                       "type": "object",
@@ -2610,70 +3311,106 @@
                             "type": "object",
                             "properties": {
                               "id": {
-                                "type": "string",
-                                "description": "帖子ID"
-                              },
-                              "title": {
-                                "type": "string",
-                                "description": "帖子标题"
-                              },
-                              "type": {
-                                "type": "integer",
-                                "description": "帖子类型"
-                              },
-                              "cover": {
-                                "type": "string",
-                                "description": "封面图URL"
-                              },
-                              "likeCount": {
-                                "type": "integer",
-                                "description": "点赞数"
-                              },
-                              "myScore": {
-                                "type": "number",
-                                "description": "【重点】我给出的评分 (0.0 - 5.0)"
+                                "type": "string"
                               },
                               "author": {
                                 "type": "object",
                                 "properties": {
                                   "userId": {
-                                    "type": "string",
-                                    "description": "作者ID"
+                                    "type": "string"
                                   },
                                   "nickname": {
-                                    "type": "string",
-                                    "description": "作者昵称"
+                                    "type": "string"
                                   },
                                   "avatar": {
-                                    "type": "string",
-                                    "description": "作者头像URL"
+                                    "type": "string"
+                                  },
+                                  "email": {
+                                    "type": "null"
                                   }
                                 },
                                 "required": [
                                   "userId",
                                   "nickname",
-                                  "avatar"
+                                  "avatar",
+                                  "email"
                                 ]
+                              },
+                              "title": {
+                                "type": "string"
+                              },
+                              "content": {
+                                "type": "null"
+                              },
+                              "type": {
+                                "type": "integer"
+                              },
+                              "cover": {
+                                "type": "string"
+                              },
+                              "images": {
+                                "type": "null"
+                              },
+                              "video": {
+                                "type": "null"
+                              },
+                              "likeCount": {
+                                "type": "integer"
+                              },
+                              "collectCount": {
+                                "type": "integer"
+                              },
+                              "commentCount": {
+                                "type": "null"
+                              },
+                              "isLiked": {
+                                "type": "boolean"
+                              },
+                              "isCollected": {
+                                "type": "boolean"
+                              },
+                              "isFollowed": {
+                                "type": "null"
+                              },
+                              "ratingAverage": {
+                                "type": "null"
+                              },
+                              "ratingCount": {
+                                "type": "null"
+                              },
+                              "myScore": {
+                                "type": "number"
+                              },
+                              "createdAt": {
+                                "type": "string"
+                              },
+                              "tags": {
+                                "type": "null"
+                              },
+                              "coverWidth": {
+                                "type": "integer"
+                              },
+                              "coverHeight": {
+                                "type": "integer"
                               }
-                            },
-                            "required": [
-                              "id",
-                              "title",
-                              "type",
-                              "cover",
-                              "author",
-                              "myScore"
-                            ]
+                            }
                           }
                         },
                         "total": {
-                          "type": "integer",
-                          "description": "总记录数"
+                          "type": "integer"
+                        },
+                        "current": {
+                          "type": "integer"
+                        },
+                        "size": {
+                          "type": "integer"
                         }
                       },
                       "required": [
                         "records",
-                        "total"
+                        "total",
+                        "current",
+                        "size"
                       ]
                     }
                   },
@@ -2683,7 +3420,45 @@
                     "data"
                   ]
                 },
-                "example": "{\r\n    \"code\": 20000,\r\n    \"message\": \"获取成功\",\r\n    \"data\": {\r\n        \"records\": [\r\n            {\r\n                \"id\": \"656e1234abcd5678\",\r\n                \"title\": \"这就很好的帖子\",\r\n                \"type\": 0,\r\n                \"cover\": \"https://oss.example.com/img1.jpg\",\r\n                \"author\": {\r\n                    \"userId\": \"10086\",\r\n                    \"nickname\": \"小青\",\r\n                    \"avatar\": \"https://oss.example.com/avatar.jpg\"\r\n                },\r\n                \"likeCount\": 120,\r\n                \"myScore\": 5.0 // <--- 重点：我给它评了5分\r\n            },\r\n            {\r\n                \"id\": \"656e9876...\",\r\n                \"title\": \"这个帖子一般般\",\r\n                \"type\": 0,\r\n                \"cover\": \"...\",\r\n                \"author\": { ...\r\n                },\r\n                \"likeCount\": 2,\r\n                \"myScore\": 3.0 // <--- 重点：我给它评了3分\r\n            }\r\n        ],\r\n        \"total\": 5,\r\n        \"current\": 1,\r\n        \"size\": 20\r\n    }\r\n}"
+                "example": {
+                  "code": 200,
+                  "message": "操作成功",
+                  "data": {
+                    "records": [
+                      {
+                        "id": "693d0c3f579b0b45a9ac9a4f",
+                        "author": {
+                          "userId": "283",
+                          "nickname": "PhotoLife",
+                          "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=PhotoLife",
+                          "email": null
+                        },
+                        "title": "深夜加班的快乐 E57",
+                        "content": null,
+                        "type": 0,
+                        "cover": "https://images.unsplash.com/photo-1497366216548-37526070297c",
+                        "images": null,
+                        "video": null,
+                        "likeCount": 2,
+                        "collectCount": 1,
+                        "commentCount": null,
+                        "isLiked": true,
+                        "isCollected": true,
+                        "isFollowed": null,
+                        "ratingAverage": null,
+                        "ratingCount": null,
+                        "myScore": 4.5,
+                        "createdAt": "2025-12-13 14:48:31",
+                        "tags": null,
+                        "coverWidth": 2301,
+                        "coverHeight": 1536
+                      }
+                    ],
+                    "total": 1,
+                    "current": 1,
+                    "size": 20
+                  }
+                }
               }
             },
             "headers": {}
@@ -2735,12 +3510,10 @@
                   "type": "object",
                   "properties": {
                     "code": {
-                      "type": "integer",
-                      "default": 200
+                      "type": "integer"
                     },
                     "message": {
-                      "type": "string",
-                      "default": "操作成功"
+                      "type": "string"
                     },
                     "data": {
                       "type": "object",
@@ -2751,23 +3524,7 @@
                             "type": "object",
                             "properties": {
                               "id": {
-                                "type": "string",
-                                "description": "帖子ID"
-                              },
-                              "title": {
-                                "type": "string",
-                                "description": "标题"
-                              },
-                              "type": {
-                                "type": "integer",
-                                "description": "0:图文, 1:视频"
-                              },
-                              "cover": {
-                                "type": "string",
-                                "description": "封面URL"
-                              },
-                              "likeCount": {
-                                "type": "integer"
+                                "type": "string"
                               },
                               "author": {
                                 "type": "object",
@@ -2780,50 +3537,139 @@
                                   },
                                   "avatar": {
                                     "type": "string"
+                                  },
+                                  "email": {
+                                    "type": "null"
                                   }
-                                }
+                                },
+                                "required": [
+                                  "userId",
+                                  "nickname",
+                                  "avatar",
+                                  "email"
+                                ]
+                              },
+                              "title": {
+                                "type": "string"
+                              },
+                              "content": {
+                                "type": "null"
+                              },
+                              "type": {
+                                "type": "integer"
+                              },
+                              "cover": {
+                                "type": "string"
+                              },
+                              "images": {
+                                "type": "null"
+                              },
+                              "video": {
+                                "type": "null"
+                              },
+                              "likeCount": {
+                                "type": "integer"
+                              },
+                              "collectCount": {
+                                "type": "integer"
+                              },
+                              "commentCount": {
+                                "type": "null"
+                              },
+                              "isLiked": {
+                                "type": "boolean"
+                              },
+                              "isCollected": {
+                                "type": "boolean"
+                              },
+                              "isFollowed": {
+                                "type": "null"
+                              },
+                              "ratingAverage": {
+                                "type": "null"
+                              },
+                              "ratingCount": {
+                                "type": "null"
+                              },
+                              "myScore": {
+                                "type": "null"
+                              },
+                              "createdAt": {
+                                "type": "string"
+                              },
+                              "tags": {
+                                "type": "null"
+                              },
+                              "coverWidth": {
+                                "type": "integer"
+                              },
+                              "coverHeight": {
+                                "type": "integer"
                               }
                             }
                           }
                         },
                         "total": {
                           "type": "integer"
+                        },
+                        "current": {
+                          "type": "integer"
+                        },
+                        "size": {
+                          "type": "integer"
                         }
-                      }
+                      },
+                      "required": [
+                        "records",
+                        "total",
+                        "current",
+                        "size"
+                      ]
                     }
-                  }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
                 },
                 "example": {
-                  "code": 99,
-                  "message": "cillum pariatur ex commodo in",
+                  "code": 200,
+                  "message": "操作成功",
                   "data": {
                     "records": [
                       {
-                        "id": "40",
-                        "title": "整齐嗯航空邮件拉假设在弯曲一旦哎呀",
-                        "type": 45,
-                        "cover": "ut commodo occaecat",
-                        "likeCount": 82,
+                        "id": "693d0c3f579b0b45a9ac9a4f",
                         "author": {
-                          "userId": "41",
-                          "nickname": "华颖",
-                          "avatar": "https://avatars.githubusercontent.com/u/72897348"
-                        }
-                      },
-                      {
-                        "id": "5",
-                        "title": "如果幸亏别花朵嗯哎哟",
-                        "type": 87,
-                        "cover": "occaecat dolore",
-                        "likeCount": 6,
-                        "author": {
-                          "userId": "12",
-                          "nickname": "辛英",
-                          "avatar": "https://avatars.githubusercontent.com/u/75612705"
-                        }
+                          "userId": "283",
+                          "nickname": "PhotoLife",
+                          "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=PhotoLife",
+                          "email": null
+                        },
+                        "title": "深夜加班的快乐 E57",
+                        "content": null,
+                        "type": 0,
+                        "cover": "https://images.unsplash.com/photo-1497366216548-37526070297c",
+                        "images": null,
+                        "video": null,
+                        "likeCount": 2,
+                        "collectCount": 1,
+                        "commentCount": null,
+                        "isLiked": true,
+                        "isCollected": true,
+                        "isFollowed": null,
+                        "ratingAverage": null,
+                        "ratingCount": null,
+                        "myScore": null,
+                        "createdAt": "2025-12-13 14:48:31",
+                        "tags": null,
+                        "coverWidth": 2301,
+                        "coverHeight": 1536
                       }
                     ],
-                    "total": 96
+                    "total": 1,
+                    "current": 1,
+                    "size": 20
                   }
                 }
               }
@@ -2907,16 +3753,33 @@
                               "postTitle": {
                                 "type": "string"
                               }
-                            }
+                            },
+                            "required": [
+                              "id",
+                              "content",
+                              "createdAt",
+                              "likeCount",
+                              "postId",
+                              "postCover",
+                              "postTitle"
+                            ]
                           }
                         },
                         "total": {
+                          "type": "integer"
+                        },
+                        "current": {
+                          "type": "integer"
+                        },
+                        "size": {
                           "type": "integer"
                         }
                       },
                       "required": [
                         "records",
-                        "total"
+                        "total",
+                        "current",
+                        "size"
                       ]
                     }
                   },
@@ -2928,20 +3791,85 @@
                 },
                 "example": {
                   "code": 200,
-                  "message": "success",
+                  "message": "操作成功",
                   "data": {
                     "records": [
                       {
-                        "id": "comment_123",
-                        "content": "求问这个是在哪里买的呀...",
-                        "createdAt": "2023-11-05 10:30",
-                        "likeCount": 5,
-                        "postId": "post_999",
-                        "postCover": "https://oss.../cover.jpg",
-                        "postTitle": "周末探店分享"
+                        "id": "693d0f63add946254e35d2de",
+                        "content": "非常有用的分享，感谢。",
+                        "createdAt": "2025-12-13 15:01",
+                        "likeCount": 0,
+                        "postId": "693d0c3f579b0b45a9ac9a4f",
+                        "postCover": "https://images.unsplash.com/photo-1497366216548-37526070297c",
+                        "postTitle": "深夜加班的快乐 E57"
+                      },
+                      {
+                        "id": "693d0f63add946254e35d2db",
+                        "content": "图拍得真好看！",
+                        "createdAt": "2025-12-13 15:01",
+                        "likeCount": 0,
+                        "postId": "693d0c40579b0b45a9ac9a51",
+                        "postCover": "https://images.unsplash.com/photo-1587829741301-dc798b91a603",
+                        "postTitle": "新入手的机械键盘 dbn"
+                      },
+                      {
+                        "id": "693d0f63add946254e35d2ce",
+                        "content": "感同身受...",
+                        "createdAt": "2025-12-13 15:01",
+                        "likeCount": 0,
+                        "postId": "693d0f62add946254e35d2b5",
+                        "postCover": "https://afternoon3-rednote.oss-cn-shenzhen.aliyuncs.com/default_avatar.jpg",
+                        "postTitle": "求助：Spring Boot 启动报错 uZe"
+                      },
+                      {
+                        "id": "693d0f63add946254e35d2c9",
+                        "content": "哇，看起来好好吃！",
+                        "createdAt": "2025-12-13 15:01",
+                        "likeCount": 0,
+                        "postId": "693d0f62add946254e35d2ba",
+                        "postCover": "https://afternoon3-rednote.oss-cn-shenzhen.aliyuncs.com/default_avatar.jpg",
+                        "postTitle": "Java 21 新特性尝鲜 Pxl"
+                      },
+                      {
+                        "id": "693d0c40579b0b45a9ac9a60",
+                        "content": "这就是生活的意义啊。",
+                        "createdAt": "2025-12-13 14:48",
+                        "likeCount": 0,
+                        "postId": "693d0c3f579b0b45a9ac9a4e",
+                        "postCover": "https://images.unsplash.com/photo-1587829741301-dc798b91a603",
+                        "postTitle": "新入手的机械键盘 aq0"
+                      },
+                      {
+                        "id": "693d0c40579b0b45a9ac9a5b",
+                        "content": "太棒了，学到了！",
+                        "createdAt": "2025-12-13 14:48",
+                        "likeCount": 0,
+                        "postId": "693d0c3f579b0b45a9ac9a4f",
+                        "postCover": "https://images.unsplash.com/photo-1497366216548-37526070297c",
+                        "postTitle": "深夜加班的快乐 E57"
+                      },
+                      {
+                        "id": "693d0c40579b0b45a9ac9a57",
+                        "content": "太棒了，学到了！",
+                        "createdAt": "2025-12-13 14:48",
+                        "likeCount": 0,
+                        "postId": "693d0c40579b0b45a9ac9a50",
+                        "postCover": "https://images.unsplash.com/photo-1587829741301-dc798b91a603",
+                        "postTitle": "新入手的机械键盘 eli"
+                      },
+                      {
+                        "id": "693d0c40579b0b45a9ac9a53",
+                        "content": "这个我也遇到过，检查下配置文件。",
+                        "createdAt": "2025-12-13 14:48",
+                        "likeCount": 0,
+                        "postId": "693d0c40579b0b45a9ac9a51",
+                        "postCover": "https://images.unsplash.com/photo-1587829741301-dc798b91a603",
+                        "postTitle": "新入手的机械键盘 dbn"
                       }
                     ],
-                    "total": 1
+                    "total": 8,
+                    "current": 1,
+                    "size": 20
                   }
                 }
               }
@@ -2973,7 +3901,7 @@
                     "format": "binary",
                     "type": "string",
                     "description": "图片/视频文件二进制流",
-                    "example": "cmMtdXBsb2FkLTE3NjQ1ODMyMjk1NzItNg==/pasted file.png"
+                    "example": "file:///home/elaine/Desktop/steve.zip"
                   }
                 },
                 "required": [
@@ -3098,6 +4026,7 @@
             "in": "query",
             "description": "页码",
             "required": false,
+            "example": 1,
             "schema": {
               "type": "integer"
             }
@@ -3107,6 +4036,7 @@
             "in": "query",
             "description": "每页数量",
             "required": false,
+            "example": 5,
             "schema": {
               "type": "integer",
               "default": 20
@@ -3142,7 +4072,7 @@
             "in": "query",
             "description": "new/old/likes/hot,默认按照hot排序",
             "required": false,
-            "example": "likes",
+            "example": "hot",
             "schema": {
               "type": "string",
               "enum": [
@@ -3190,12 +4120,16 @@
                                   },
                                   "avatar": {
                                     "type": "string"
+                                  },
+                                  "email": {
+                                    "type": "null"
                                   }
                                 },
                                 "required": [
                                   "userId",
                                   "nickname",
-                                  "avatar"
+                                  "avatar",
+                                  "email"
                                 ]
                               },
                               "title": {
@@ -3205,41 +4139,84 @@
                                 "type": "string"
                               },
                               "type": {
-                                "type": "integer",
-                                "description": "0：图文，1：视频，2：文字",
-                                "title": "帖子类型"
+                                "type": "integer"
                               },
                               "cover": {
-                                "type": "string",
-                                "title": "封面",
-                                "description": "封面图/视频截帧/文字转图片"
+                                "type": "string"
+                              },
+                              "images": {
+                                "type": "null"
+                              },
+                              "video": {
+                                "type": "null"
                               },
                               "likeCount": {
                                 "type": "integer"
                               },
                               "collectCount": {
-                                "type": "integer"
+                                "type": "null"
+                              },
+                              "commentCount": {
+                                "type": "null"
                               },
                               "isLiked": {
                                 "type": "boolean"
                               },
                               "isCollected": {
-                                "type": "boolean"
+                                "type": "null"
+                              },
+                              "isFollowed": {
+                                "type": "null"
+                              },
+                              "ratingAverage": {
+                                "type": "null"
+                              },
+                              "ratingCount": {
+                                "type": "null"
+                              },
+                              "myScore": {
+                                "type": "null"
                               },
                               "createdAt": {
                                 "type": "string"
                               },
-                              "coverHeight": {
-                                "type": "integer"
+                              "tags": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
                               },
                               "coverWidth": {
-                                "type": "integer"
+                                "type": "integer",
+                                "nullable": true
+                              },
+                              "coverHeight": {
+                                "type": "integer",
+                                "nullable": true
                               }
                             },
                             "required": [
+                              "id",
+                              "author",
+                              "title",
+                              "content",
+                              "type",
                               "cover",
-                              "coverHeight",
-                              "coverWidth"
+                              "images",
+                              "video",
+                              "likeCount",
+                              "collectCount",
+                              "commentCount",
+                              "isLiked",
+                              "isCollected",
+                              "isFollowed",
+                              "ratingAverage",
+                              "ratingCount",
+                              "myScore",
+                              "createdAt",
+                              "tags",
+                              "coverWidth",
+                              "coverHeight"
                             ]
                           }
                         },
@@ -3268,33 +4245,174 @@
                   ]
                 },
                 "example": {
-                  "code": 20000,
-                  "message": "获取成功",
+                  "code": 200,
+                  "message": "操作成功",
                   "data": {
                     "records": [
                       {
-                        "id": "656e12...",
+                        "id": "693d0f62add946254e35d2bb",
                         "author": {
-                          "userId": "10086",
-                          "nickname": "小青",
-                          "avatar": "http://..."
+                          "userId": "285",
+                          "nickname": "StudentMike",
+                          "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=StudentMike",
+                          "email": null
                         },
-                        "title": "Arch Linux折腾笔记",
-                        "content": "今天安装了KDE...",
+                        "title": "深夜加班的快乐 lfA",
+                        "content": "改完最后一个 Bug，看着窗外的夜景，感觉一切都值得。",
                         "type": 0,
-                        "images": [
-                          "http://..."
+                        "cover": "https://images.unsplash.com/photo-1497366216548-37526070297c",
+                        "images": null,
+                        "video": null,
+                        "likeCount": 4,
+                        "collectCount": null,
+                        "commentCount": null,
+                        "isLiked": false,
+                        "isCollected": null,
+                        "isFollowed": null,
+                        "ratingAverage": null,
+                        "ratingCount": null,
+                        "myScore": null,
+                        "createdAt": "2025-12-13 15:01:54",
+                        "tags": [
+                          "测试",
+                          "生活",
+                          "技术"
                         ],
-                        "likeCount": 102,
-                        "collectCount": 20,
-                        "isLiked": true,
-                        "isCollected": false,
-                        "createdAt": "2023-11-02 12:00:00"
+                        "coverWidth": 2301,
+                        "coverHeight": 1536
+                      },
+                      {
+                        "id": "693d0c40579b0b45a9ac9a51",
+                        "author": {
+                          "userId": "284",
+                          "nickname": "FoodieJane",
+                          "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=FoodieJane",
+                          "email": null
+                        },
+                        "title": "新入手的机械键盘 dbn",
+                        "content": "红轴的手感果然不一样，打字停不下来。",
+                        "type": 0,
+                        "cover": "https://images.unsplash.com/photo-1587829741301-dc798b91a603",
+                        "images": null,
+                        "video": null,
+                        "likeCount": 4,
+                        "collectCount": null,
+                        "commentCount": null,
+                        "isLiked": false,
+                        "isCollected": null,
+                        "isFollowed": null,
+                        "ratingAverage": null,
+                        "ratingCount": null,
+                        "myScore": null,
+                        "createdAt": "2025-12-13 14:48:32",
+                        "tags": [
+                          "测试",
+                          "生活",
+                          "技术"
+                        ],
+                        "coverWidth": null,
+                        "coverHeight": null
+                      },
+                      {
+                        "id": "693d0c3f579b0b45a9ac9a4e",
+                        "author": {
+                          "userId": "282",
+                          "nickname": "TechGeek",
+                          "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=TechGeek",
+                          "email": null
+                        },
+                        "title": "新入手的机械键盘 aq0",
+                        "content": "红轴的手感果然不一样，打字停不下来。",
+                        "type": 0,
+                        "cover": "https://images.unsplash.com/photo-1587829741301-dc798b91a603",
+                        "images": null,
+                        "video": null,
+                        "likeCount": 4,
+                        "collectCount": null,
+                        "commentCount": null,
+                        "isLiked": false,
+                        "isCollected": null,
+                        "isFollowed": null,
+                        "ratingAverage": null,
+                        "ratingCount": null,
+                        "myScore": null,
+                        "createdAt": "2025-12-13 14:48:31",
+                        "tags": [
+                          "测试",
+                          "生活",
+                          "技术"
+                        ],
+                        "coverWidth": null,
+                        "coverHeight": null
+                      },
+                      {
+                        "id": "693d0f62add946254e35d2be",
+                        "author": {
+                          "userId": "286",
+                          "nickname": "CatLover",
+                          "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=CatLover",
+                          "email": null
+                        },
+                        "title": "学校食堂的新菜品 aYu",
+                        "content": "今天食堂二楼开了家新窗口，味道意外的不错，价格也实惠。哥哥的鸡巴好大",
+                        "type": 0,
+                        "cover": "https://images.unsplash.com/photo-1504674900247-0877df9cc836",
+                        "images": null,
+                        "video": null,
+                        "likeCount": 3,
+                        "collectCount": null,
+                        "commentCount": null,
+                        "isLiked": false,
+                        "isCollected": null,
+                        "isFollowed": null,
+                        "ratingAverage": null,
+                        "ratingCount": null,
+                        "myScore": null,
+                        "createdAt": "2025-12-13 15:01:54",
+                        "tags": [
+                          "测试",
+                          "生活",
+                          "技术"
+                        ],
+                        "coverWidth": 4350,
+                        "coverHeight": 2900
+                      },
+                      {
+                        "id": "693d0f62add946254e35d2b5",
+                        "author": {
+                          "userId": "283",
+                          "nickname": "PhotoLife",
+                          "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=PhotoLife",
+                          "email": null
+                        },
+                        "title": "求助：Spring Boot 启动报错 uZe",
+                        "content": "有没有大佬遇到过这个 BeanCreationException？卡了一下午了...",
+                        "type": 0,
+                        "cover": "https://afternoon3-rednote.oss-cn-shenzhen.aliyuncs.com/default_avatar.jpg",
+                        "images": null,
+                        "video": null,
+                        "likeCount": 3,
+                        "collectCount": null,
+                        "commentCount": null,
+                        "isLiked": false,
+                        "isCollected": null,
+                        "isFollowed": null,
+                        "ratingAverage": null,
+                        "ratingCount": null,
+                        "myScore": null,
+                        "createdAt": "2025-12-13 15:01:54",
+                        "tags": [
+                          "测试",
+                          "生活",
+                          "技术"
+                        ],
+                        "coverWidth": 320,
+                        "coverHeight": 426
                       }
                     ],
-                    "total": 100,
+                    "total": 53,
                     "current": 1,
-                    "size": 10
+                    "size": 5
                   }
                 }
               }
@@ -3399,6 +4517,7 @@
             "in": "query",
             "description": "",
             "required": false,
+            "example": 1,
             "schema": {
               "type": "integer",
               "default": 1
@@ -3409,6 +4528,7 @@
             "in": "query",
             "description": "",
             "required": false,
+            "example": 5,
             "schema": {
               "type": "integer",
               "default": 20
@@ -3419,7 +4539,7 @@
             "in": "query",
             "description": "new/old/likes/hot,默认按照hot排序",
             "required": false,
-            "example": "",
+            "example": "new",
             "schema": {
               "type": "string",
               "enum": [
@@ -3477,12 +4597,16 @@
                                   },
                                   "avatar": {
                                     "type": "string"
+                                  },
+                                  "email": {
+                                    "type": "null"
                                   }
                                 },
                                 "required": [
                                   "userId",
                                   "nickname",
-                                  "avatar"
+                                  "avatar",
+                                  "email"
                                 ]
                               },
                               "title": {
@@ -3492,40 +4616,82 @@
                                 "type": "string"
                               },
                               "type": {
-                                "type": "integer",
-                                "description": "0：图文，1：视频，2：文字",
-                                "title": "帖子类型"
+                                "type": "integer"
                               },
                               "cover": {
-                                "type": "string",
-                                "title": "封面"
+                                "type": "string"
+                              },
+                              "images": {
+                                "type": "null"
+                              },
+                              "video": {
+                                "type": "null"
                               },
                               "likeCount": {
                                 "type": "integer"
                               },
                               "collectCount": {
-                                "type": "integer"
+                                "type": "null"
+                              },
+                              "commentCount": {
+                                "type": "null"
                               },
                               "isLiked": {
                                 "type": "boolean"
                               },
                               "isCollected": {
-                                "type": "boolean"
+                                "type": "null"
+                              },
+                              "isFollowed": {
+                                "type": "null"
+                              },
+                              "ratingAverage": {
+                                "type": "null"
+                              },
+                              "ratingCount": {
+                                "type": "null"
+                              },
+                              "myScore": {
+                                "type": "null"
                               },
                               "createdAt": {
                                 "type": "string"
                               },
-                              "coverHeight": {
-                                "type": "integer"
+                              "tags": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
                               },
                               "coverWidth": {
+                                "type": "integer"
+                              },
+                              "coverHeight": {
                                 "type": "integer"
                               }
                             },
                             "required": [
+                              "id",
+                              "author",
+                              "title",
+                              "content",
+                              "type",
                               "cover",
-                              "coverHeight",
-                              "coverWidth"
+                              "images",
+                              "video",
+                              "likeCount",
+                              "collectCount",
+                              "commentCount",
+                              "isLiked",
+                              "isCollected",
+                              "isFollowed",
+                              "ratingAverage",
+                              "ratingCount",
+                              "myScore",
+                              "createdAt",
+                              "tags",
+                              "coverWidth",
+                              "coverHeight"
                             ]
                           }
                         },
@@ -3554,33 +4720,174 @@
                   ]
                 },
                 "example": {
-                  "code": 20000,
-                  "message": "获取成功",
+                  "code": 200,
+                  "message": "操作成功",
                   "data": {
                     "records": [
                       {
-                        "id": "656e12...",
+                        "id": "6950b0c4964cb8113c1162f2",
                         "author": {
-                          "userId": "10086",
-                          "nickname": "小青",
-                          "avatar": "http://..."
+                          "userId": "283",
+                          "nickname": "PhotoLife",
+                          "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=PhotoLife",
+                          "email": null
                         },
-                        "title": "Arch Linux折腾笔记",
-                        "content": "今天安装了KDE...",
+                        "title": "忍",
+                        "content": "深圳",
                         "type": 0,
-                        "images": [
-                          "http://..."
+                        "cover": "https://afternoon3-rednote.oss-cn-shenzhen.aliyuncs.com/szu-logo.png",
+                        "images": null,
+                        "video": null,
+                        "likeCount": 0,
+                        "collectCount": null,
+                        "commentCount": null,
+                        "isLiked": false,
+                        "isCollected": null,
+                        "isFollowed": null,
+                        "ratingAverage": null,
+                        "ratingCount": null,
+                        "myScore": null,
+                        "createdAt": "2025-12-28 12:23:32",
+                        "tags": [
+                          "深圳",
+                          "大学",
+                          "test"
                         ],
-                        "likeCount": 102,
-                        "collectCount": 20,
-                        "isLiked": true,
-                        "isCollected": false,
-                        "createdAt": "2023-11-02 12:00:00"
+                        "coverWidth": 0,
+                        "coverHeight": 0
+                      },
+                      {
+                        "id": "6950b0b2964cb8113c1162f0",
+                        "author": {
+                          "userId": "283",
+                          "nickname": "PhotoLife",
+                          "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=PhotoLife",
+                          "email": null
+                        },
+                        "title": "写的真好",
+                        "content": "深圳",
+                        "type": 0,
+                        "cover": "https://afternoon3-rednote.oss-cn-shenzhen.aliyuncs.com/szu-logo.png",
+                        "images": null,
+                        "video": null,
+                        "likeCount": 0,
+                        "collectCount": null,
+                        "commentCount": null,
+                        "isLiked": false,
+                        "isCollected": null,
+                        "isFollowed": null,
+                        "ratingAverage": null,
+                        "ratingCount": null,
+                        "myScore": null,
+                        "createdAt": "2025-12-28 12:23:14",
+                        "tags": [
+                          "深圳",
+                          "大学",
+                          "test"
+                        ],
+                        "coverWidth": 0,
+                        "coverHeight": 0
+                      },
+                      {
+                        "id": "6950b03d964cb8113c1162ee",
+                        "author": {
+                          "userId": "283",
+                          "nickname": "PhotoLife",
+                          "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=PhotoLife",
+                          "email": null
+                        },
+                        "title": "深圳 cs",
+                        "content": "深圳",
+                        "type": 0,
+                        "cover": "https://afternoon3-rednote.oss-cn-shenzhen.aliyuncs.com/szu-logo.png",
+                        "images": null,
+                        "video": null,
+                        "likeCount": 0,
+                        "collectCount": null,
+                        "commentCount": null,
+                        "isLiked": false,
+                        "isCollected": null,
+                        "isFollowed": null,
+                        "ratingAverage": null,
+                        "ratingCount": null,
+                        "myScore": null,
+                        "createdAt": "2025-12-28 12:21:17",
+                        "tags": [
+                          "深圳",
+                          "大学",
+                          "test"
+                        ],
+                        "coverWidth": 0,
+                        "coverHeight": 0
+                      },
+                      {
+                        "id": "6950b037964cb8113c1162ec",
+                        "author": {
+                          "userId": "283",
+                          "nickname": "PhotoLife",
+                          "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=PhotoLife",
+                          "email": null
+                        },
+                        "title": "深圳 下台",
+                        "content": "深圳",
+                        "type": 0,
+                        "cover": "https://afternoon3-rednote.oss-cn-shenzhen.aliyuncs.com/szu-logo.png",
+                        "images": null,
+                        "video": null,
+                        "likeCount": 0,
+                        "collectCount": null,
+                        "commentCount": null,
+                        "isLiked": false,
+                        "isCollected": null,
+                        "isFollowed": null,
+                        "ratingAverage": null,
+                        "ratingCount": null,
+                        "myScore": null,
+                        "createdAt": "2025-12-28 12:21:11",
+                        "tags": [
+                          "深圳",
+                          "大学",
+                          "test"
+                        ],
+                        "coverWidth": 0,
+                        "coverHeight": 0
+                      },
+                      {
+                        "id": "69478f7b71c26c67ccfbade3",
+                        "author": {
+                          "userId": "17",
+                          "nickname": "映记测试账号-测试版",
+                          "avatar": "https://afternoon3-rednote.oss-cn-shenzhen.aliyuncs.com/default_avatar.jpg",
+                          "email": null
+                        },
+                        "title": "深圳 刘广智",
+                        "content": "深圳",
+                        "type": 0,
+                        "cover": "https://afternoon3-rednote.oss-cn-shenzhen.aliyuncs.com/szu-logo.png",
+                        "images": null,
+                        "video": null,
+                        "likeCount": 0,
+                        "collectCount": null,
+                        "commentCount": null,
+                        "isLiked": false,
+                        "isCollected": null,
+                        "isFollowed": null,
+                        "ratingAverage": null,
+                        "ratingCount": null,
+                        "myScore": null,
+                        "createdAt": "2025-12-21 14:11:07",
+                        "tags": [
+                          "深圳",
+                          "大学",
+                          "test"
+                        ],
+                        "coverWidth": 0,
+                        "coverHeight": 0
                       }
                     ],
-                    "total": 100,
+                    "total": 33,
                     "current": 1,
-                    "size": 10
+                    "size": 5
                   }
                 }
               }
@@ -3607,7 +4914,7 @@
             "in": "path",
             "description": "帖子ID (Mongo ObjectId)",
             "required": true,
-            "example": "694509693735285a10a6340d",
+            "example": "693d12247a34472e0da632d3",
             "schema": {
               "type": "string"
             }
@@ -3712,6 +5019,12 @@
                           "items": {
                             "type": "string"
                           }
+                        },
+                        "coverWidth": {
+                          "type": "integer"
+                        },
+                        "coverHeight": {
+                          "type": "integer"
                         }
                       },
                       "required": [
@@ -3733,7 +5046,9 @@
                         "ratingCount",
                         "myScore",
                         "createdAt",
-                        "tags"
+                        "tags",
+                        "coverWidth",
+                        "coverHeight"
                       ]
                     }
                   },
@@ -3744,34 +5059,43 @@
                   ]
                 },
                 "example": {
-                  "code": 20000,
-                  "message": "获取成功",
+                  "code": 200,
+                  "message": "操作成功",
                   "data": {
-                    "id": "656e...",
+                    "id": "693fefb1064987397086eaf4",
                     "author": {
-                      "userId": "1001",
-                      "nickname": "..."
+                      "userId": "18",
+                      "nickname": "TechGeek",
+                      "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=TechGeek",
+                      "email": null
                     },
-                    "title": "完整标题",
-                    "content": "这里是非常长的完整正文内容...",
+                    "title": "深圳大学计算机系介绍",
+                    "content": "深圳大学计算机系依托粤港澳大湾区的科创优势，深耕计算机科学与技术、软件工程、人工智能等核心领域，以 “厚基础、强实践、重创新” 为培养理念，配备由院士、国家级高层次人才领衔的师资团队，搭建了国家级实验教学示范中心、省级重点实验室等多个高水平科研平台，与腾讯、华为等龙头企业共建产学研合作基地和特色实训项目，课程体系紧密对接产业前沿，涵盖大数据分析、机器学习、网络安全等热门方向，不仅注重学生的理论功底夯实，更着力提升工程实践与创新创业能力，历届毕业生凭借扎实的专业技能和突出的解决问题能力，在互联网、人工智能、信息技术等领域崭露头角，就业率与深造率稳居全校前列，是培养大湾区新一代计算机领域高素质人才的优质摇篮。",
                     "type": 0,
+                    "cover": "https://afternoon3-rednote.oss-cn-shenzhen.aliyuncs.com/szu-logo.png",
                     "images": [
-                      "url1",
-                      "url2",
-                      "url3"
+                      "https://afternoon3-rednote.oss-cn-shenzhen.aliyuncs.com/szu-logo.png",
+                      "https://afternoon3-rednote.oss-cn-shenzhen.aliyuncs.com/szu-campus1.jpg",
+                      "https://afternoon3-rednote.oss-cn-shenzhen.aliyuncs.com/shadow.jpg"
                     ],
-                    "videos": [
-                      "url1",
-                      "url2",
-                      "url3"
-                    ],
-                    "likeCount": 100,
-                    "collectCount": 50,
-                    "commentCount": 12,
-                    "isLiked": true,
-                    "isCollected": true,
+                    "video": null,
+                    "likeCount": 1,
+                    "collectCount": 0,
+                    "commentCount": 1,
+                    "isLiked": false,
+                    "isCollected": false,
                     "isFollowed": false,
-                    "createdAt": "2023-11-02 12:00:00"
+                    "ratingAverage": 0,
+                    "ratingCount": 0,
+                    "myScore": null,
+                    "createdAt": "2025-12-15 19:23:29",
+                    "tags": [
+                      "深圳大学",
+                      "深圳",
+                      "大学"
+                    ],
+                    "coverWidth": 225,
+                    "coverHeight": 225
                   }
                 }
               }
@@ -3936,7 +5260,7 @@
             "in": "query",
             "description": "用户输入的关键词",
             "required": true,
-            "example": "深圳",
+            "example": "shen",
             "schema": {
               "type": "string"
             }
@@ -4003,7 +5327,7 @@
             "in": "path",
             "description": "目标用户ID",
             "required": true,
-            "example": "9",
+            "example": "282",
             "schema": {
               "type": "string"
             }
@@ -4013,6 +5337,7 @@
             "in": "query",
             "description": "页码",
             "required": false,
+            "example": 1,
             "schema": {
               "type": "integer",
               "default": 1
@@ -4023,6 +5348,7 @@
             "in": "query",
             "description": "每页数量",
             "required": false,
+            "example": 5,
             "schema": {
               "type": "integer",
               "default": 20
@@ -4038,13 +5364,10 @@
                   "type": "object",
                   "properties": {
                     "code": {
-                      "type": "integer",
-                      "title": "状态码"
+                      "type": "integer"
                     },
                     "message": {
-                      "type": "string",
-                      "title": "提示信息",
-                      "description": "操作结果的文本描述"
+                      "type": "string"
                     },
                     "data": {
                       "type": "object",
@@ -4055,9 +5378,7 @@
                             "type": "object",
                             "properties": {
                               "id": {
-                                "type": "string",
-                                "title": "帖子id",
-                                "description": "mongo的id,是string"
+                                "type": "string"
                               },
                               "author": {
                                 "type": "object",
@@ -4069,12 +5390,10 @@
                                     "type": "string"
                                   },
                                   "avatar": {
-                                    "type": "string",
-                                    "nullable": true
+                                    "type": "string"
                                   },
                                   "email": {
-                                    "type": "string",
-                                    "nullable": true
+                                    "type": "null"
                                   }
                                 },
                                 "required": [
@@ -4091,18 +5410,19 @@
                                 "type": "string"
                               },
                               "type": {
-                                "type": "integer",
-                                "description": "0：图文，1：视频，2：文字"
+                                "type": "integer"
                               },
                               "cover": {
-                                "type": "string",
-                                "title": "封面"
+                                "type": "string"
                               },
-                              "tags": {
+                              "images": {
                                 "type": "array",
                                 "items": {
                                   "type": "string"
                                 }
+                              },
+                              "video": {
+                                "type": "null"
                               },
                               "likeCount": {
                                 "type": "integer"
@@ -4122,43 +5442,74 @@
                               "isFollowed": {
                                 "type": "boolean"
                               },
+                              "ratingAverage": {
+                                "type": "integer"
+                              },
+                              "ratingCount": {
+                                "type": "integer"
+                              },
+                              "myScore": {
+                                "type": "null"
+                              },
                               "createdAt": {
                                 "type": "string"
+                              },
+                              "tags": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              },
+                              "coverWidth": {
+                                "type": "integer",
+                                "nullable": true
+                              },
+                              "coverHeight": {
+                                "type": "integer",
+                                "nullable": true
                               }
                             },
-                            "description": "单个帖子的详细信息",
                             "required": [
-                              "cover"
+                              "id",
+                              "author",
+                              "title",
+                              "content",
+                              "type",
+                              "cover",
+                              "images",
+                              "video",
+                              "likeCount",
+                              "collectCount",
+                              "commentCount",
+                              "isLiked",
+                              "isCollected",
+                              "isFollowed",
+                              "ratingAverage",
+                              "ratingCount",
+                              "myScore",
+                              "createdAt",
+                              "tags",
+                              "coverWidth",
+                              "coverHeight"
                             ]
-                          },
-                          "title": "帖子列表",
-                          "description": "当前页包含的所有帖子记录"
+                          }
                         },
                         "total": {
-                          "type": "integer",
-                          "title": "总条数",
-                          "description": "满足条件的总记录数量"
+                          "type": "integer"
                         },
                         "current": {
-                          "type": "integer",
-                          "title": "当前页码",
-                          "description": "当前查询的是第几页"
+                          "type": "integer"
                         },
                         "size": {
-                          "type": "integer",
-                          "title": "每页数量",
-                          "description": "每页显示的记录条数"
+                          "type": "integer"
                         }
                       },
-                      "title": "数据主体",
-                      "description": "包含分页信息和帖子列表的核心数据",
                       "required": [
                         "records",
                         "total",
                         "current",
                         "size"
-                      ],
-                      "nullable": true
+                      ]
                     }
                   },
                   "required": [
@@ -4173,37 +5524,105 @@
                   "data": {
                     "records": [
                       {
-                        "id": "656e1234abcd5678",
+                        "id": "693d0f62add946254e35d2b4",
                         "author": {
-                          "userId": "10086",
-                          "nickname": "小青",
-                          "avatar": "https://oss.example.com/avatar.jpg",
-                          "email": "user@example.com"
+                          "userId": "282",
+                          "nickname": "TechGeek",
+                          "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=TechGeek",
+                          "email": null
                         },
-                        "title": "这是帖子标题",
-                        "content": "这是帖子摘要内容，通常只显示前50个字...",
+                        "title": "求助：Spring Boot 启动报错 Qkl",
+                        "content": "有没有大佬遇到过这个 BeanCreationException？卡了一下午了...",
                         "type": 0,
-                        "images": [
-                          "https://oss.example.com/img1.jpg",
-                          "https://oss.example.com/img2.jpg"
-                        ],
-                        "videos": [],
-                        "tags": [
-                          "美食",
-                          "探店"
-                        ],
-                        "likeCount": 102,
-                        "collectCount": 20,
-                        "commentCount": 5,
-                        "isLiked": true,
+                        "cover": "https://afternoon3-rednote.oss-cn-shenzhen.aliyuncs.com/default_avatar.jpg",
+                        "images": [],
+                        "video": null,
+                        "likeCount": 3,
+                        "collectCount": 0,
+                        "commentCount": 2,
+                        "isLiked": false,
                         "isCollected": false,
-                        "isFollowed": true,
-                        "createdAt": "2025-12-05 12:00:00"
+                        "isFollowed": false,
+                        "ratingAverage": 0,
+                        "ratingCount": 0,
+                        "myScore": null,
+                        "createdAt": "2025-12-13 15:01:54",
+                        "tags": [
+                          "测试",
+                          "生活",
+                          "技术"
+                        ],
+                        "coverWidth": 320,
+                        "coverHeight": 426
+                      },
+                      {
+                        "id": "693d0f62add946254e35d2ae",
+                        "author": {
+                          "userId": "282",
+                          "nickname": "TechGeek",
+                          "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=TechGeek",
+                          "email": null
+                        },
+                        "title": "周末去海边采风 lGT",
+                        "content": "天气真好，随手拍了几张。大海真的很治愈。",
+                        "type": 0,
+                        "cover": "https://images.unsplash.com/photo-1507525428034-b723cf961d3e",
+                        "images": [],
+                        "video": null,
+                        "likeCount": 3,
+                        "collectCount": 0,
+                        "commentCount": 5,
+                        "isLiked": false,
+                        "isCollected": false,
+                        "isFollowed": false,
+                        "ratingAverage": 0,
+                        "ratingCount": 0,
+                        "myScore": null,
+                        "createdAt": "2025-12-13 15:01:54",
+                        "tags": [
+                          "测试",
+                          "生活",
+                          "技术"
+                        ],
+                        "coverWidth": 4621,
+                        "coverHeight": 3072
+                      },
+                      {
+                        "id": "693d0c3f579b0b45a9ac9a4e",
+                        "author": {
+                          "userId": "282",
+                          "nickname": "TechGeek",
+                          "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=TechGeek",
+                          "email": null
+                        },
+                        "title": "新入手的机械键盘 aq0",
+                        "content": "红轴的手感果然不一样，打字停不下来。",
+                        "type": 0,
+                        "cover": "https://images.unsplash.com/photo-1587829741301-dc798b91a603",
+                        "images": [],
+                        "video": null,
+                        "likeCount": 4,
+                        "collectCount": 0,
+                        "commentCount": 6,
+                        "isLiked": false,
+                        "isCollected": false,
+                        "isFollowed": false,
+                        "ratingAverage": 0,
+                        "ratingCount": 0,
+                        "myScore": null,
+                        "createdAt": "2025-12-13 14:48:31",
+                        "tags": [
+                          "测试",
+                          "生活",
+                          "技术"
+                        ],
+                        "coverWidth": null,
+                        "coverHeight": null
                       }
                     ],
-                    "total": 50,
+                    "total": 3,
                     "current": 1,
-                    "size": 20
+                    "size": 5
                   }
                 }
               }
@@ -4288,7 +5707,7 @@
                 ]
               },
               "example": {
-                "title": "深圳",
+                "title": "测试",
                 "content": "深圳",
                 "images": [
                   "https://afternoon3-rednote.oss-cn-shenzhen.aliyuncs.com/szu-logo.png",
@@ -4538,7 +5957,7 @@
                 ]
               },
               "example": {
-                "postId": "693644a98ed84a6cc5bce5a3"
+                "postId": "693d0c3f579b0b45a9ac9a4f"
               }
             }
           },
@@ -4609,7 +6028,7 @@
                 ]
               },
               "example": {
-                "postId": "693644a98ed84a6cc5bce5a3"
+                "postId": "693d0c3f579b0b45a9ac9a4f"
               }
             }
           },
@@ -4680,7 +6099,7 @@
                 ]
               },
               "example": {
-                "postId": "693d12247a34472e0da632d4"
+                "postId": "693d0c3f579b0b45a9ac9a4f"
               }
             }
           },
@@ -4750,7 +6169,9 @@
                   "postId"
                 ]
               },
-              "examples": {}
+              "example": {
+                "postId": "693d0c3f579b0b45a9ac9a4f"
+              }
             }
           },
           "required": true
@@ -4824,7 +6245,7 @@
                 ]
               },
               "example": {
-                "postId": "693644a98ed84a6cc5bce5a3",
+                "postId": "693d0c3f579b0b45a9ac9a4f",
                 "score": 4.5
               }
             }
@@ -4987,7 +6408,11 @@
                   "content"
                 ]
               },
-              "examples": {}
+              "example": {
+                "postId": "6950b0c4964cb8113c1162f2",
+                "content": "@AI省流助手 测试",
+                "parentId": ""
+              }
             }
           }
         },
@@ -5072,6 +6497,7 @@
             "in": "query",
             "description": "",
             "required": true,
+            "example": "693d0c3f579b0b45a9ac9a4f",
             "schema": {
               "type": "string"
             }
@@ -5081,6 +6507,7 @@
             "in": "query",
             "description": "",
             "required": false,
+            "example": 1,
             "schema": {
               "type": "integer",
               "default": 1
@@ -5091,6 +6518,7 @@
             "in": "query",
             "description": "",
             "required": false,
+            "example": 3,
             "schema": {
               "type": "integer",
               "default": 20
@@ -5114,9 +6542,6 @@
                     "data": {
                       "type": "object",
                       "properties": {
-                        "total": {
-                          "type": "integer"
-                        },
                         "records": {
                           "type": "array",
                           "items": {
@@ -5130,15 +6555,6 @@
                               },
                               "createdAt": {
                                 "type": "string"
-                              },
-                              "likeCount": {
-                                "type": "integer"
-                              },
-                              "isLiked": {
-                                "type": "boolean"
-                              },
-                              "replyCount": {
-                                "type": "integer"
                               },
                               "author": {
                                 "type": "object",
@@ -5159,70 +6575,22 @@
                                   "avatar"
                                 ]
                               },
+                              "likeCount": {
+                                "type": "integer"
+                              },
+                              "isLiked": {
+                                "type": "boolean"
+                              },
+                              "replyToUser": {
+                                "type": "null"
+                              },
+                              "replyCount": {
+                                "type": "integer"
+                              },
                               "childComments": {
                                 "type": "array",
                                 "items": {
-                                  "type": "object",
-                                  "properties": {
-                                    "id": {
-                                      "type": "string"
-                                    },
-                                    "content": {
-                                      "type": "string"
-                                    },
-                                    "createdAt": {
-                                      "type": "string"
-                                    },
-                                    "likeCount": {
-                                      "type": "integer"
-                                    },
-                                    "isLiked": {
-                                      "type": "boolean"
-                                    },
-                                    "author": {
-                                      "type": "object",
-                                      "properties": {
-                                        "userId": {
-                                          "type": "string"
-                                        },
-                                        "nickname": {
-                                          "type": "string"
-                                        },
-                                        "avatar": {
-                                          "type": "string"
-                                        }
-                                      },
-                                      "required": [
-                                        "userId",
-                                        "nickname",
-                                        "avatar"
-                                      ]
-                                    },
-                                    "replyToUser": {
-                                      "type": "object",
-                                      "properties": {
-                                        "userId": {
-                                          "type": "string"
-                                        },
-                                        "nickname": {
-                                          "type": "string"
-                                        }
-                                      },
-                                      "required": [
-                                        "userId",
-                                        "nickname"
-                                      ]
-                                    }
-                                  },
-                                  "required": [
-                                    "id",
-                                    "content",
-                                    "createdAt",
-                                    "likeCount",
-                                    "isLiked",
-                                    "author",
-                                    "replyToUser"
-                                  ]
+                                  "type": "string"
                                 }
                               }
                             },
@@ -5230,18 +6598,30 @@
                               "id",
                               "content",
                               "createdAt",
+                              "author",
                               "likeCount",
                               "isLiked",
+                              "replyToUser",
                               "replyCount",
-                              "author",
                               "childComments"
                             ]
                           }
+                        },
+                        "total": {
+                          "type": "integer"
+                        },
+                        "current": {
+                          "type": "integer"
+                        },
+                        "size": {
+                          "type": "integer"
                         }
                       },
                       "required": [
+                        "records",
                         "total",
-                        "records"
+                        "current",
+                        "size"
                       ]
                     }
                   },
@@ -5255,70 +6635,56 @@
                   "code": 200,
                   "message": "操作成功",
                   "data": {
-                    "total": 42,
                     "records": [
                       {
-                        "id": "656e1234abcd5678",
-                        "content": "这是一个热门的一级评论，下面有很多回复。",
-                        "createdAt": "2023-12-12 10:00:00",
-                        "likeCount": 1280,
-                        "isLiked": true,
-                        "replyCount": 15,
+                        "id": "693d0f63add946254e35d2de",
+                        "content": "非常有用的分享，感谢。",
+                        "createdAt": "2025-12-13 15:01:55",
                         "author": {
-                          "userId": "1001",
-                          "nickname": "热心网友A",
-                          "avatar": "https://oss.example.com/avatar/1.jpg"
+                          "userId": "282",
+                          "nickname": "TechGeek",
+                          "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=TechGeek"
                         },
-                        "childComments": [
-                          {
-                            "id": "sub_111",
-                            "content": "这是第一条预览回复。",
-                            "createdAt": "2023-12-12 10:05:00",
-                            "likeCount": 50,
-                            "isLiked": false,
-                            "author": {
-                              "userId": "1002",
-                              "nickname": "路人甲",
-                              "avatar": "https://oss.example.com/avatar/2.jpg"
-                            },
-                            "replyToUser": {
-                              "userId": "1001",
-                              "nickname": "热心网友A"
-                            }
-                          },
-                          {
-                            "id": "sub_112",
-                            "content": "回复 @路人甲：这是楼中楼回复。",
-                            "createdAt": "2023-12-12 10:10:00",
-                            "likeCount": 12,
-                            "isLiked": false,
-                            "author": {
-                              "userId": "1003",
-                              "nickname": "路人乙",
-                              "avatar": "https://oss.example.com/avatar/3.jpg"
-                            },
-                            "replyToUser": {
-                              "userId": "1002",
-                              "nickname": "路人甲"
-                            }
-                          }
-                        ]
+                        "likeCount": 0,
+                        "isLiked": false,
+                        "replyToUser": null,
+                        "replyCount": 0,
+                        "childComments": []
                       },
                       {
-                        "id": "656e9999xyz123",
-                        "content": "这是一个没有回复的普通评论。",
-                        "createdAt": "2023-12-12 09:30:00",
-                        "likeCount": 5,
-                        "isLiked": false,
-                        "replyCount": 0,
+                        "id": "693d0c43579b0b45a9ac9a6c",
+                        "content": "课代表总结：半夜修完bug，窗外夜景美得让人忘了加班。",
+                        "createdAt": "2025-12-13 14:48:35",
                         "author": {
-                          "userId": "1004",
-                          "nickname": "潜水员",
-                          "avatar": "https://oss.example.com/avatar/4.jpg"
+                          "userId": "276",
+                          "nickname": "AI省流助手",
+                          "avatar": "https://afternoon3-rednote.oss-cn-shenzhen.aliyuncs.com/default_avatar.jpg"
                         },
+                        "likeCount": 0,
+                        "isLiked": false,
+                        "replyToUser": null,
+                        "replyCount": 0,
+                        "childComments": []
+                      },
+                      {
+                        "id": "693d0c40579b0b45a9ac9a5c",
+                        "content": "感同身受...",
+                        "createdAt": "2025-12-13 14:48:32",
+                        "author": {
+                          "userId": "284",
+                          "nickname": "FoodieJane",
+                          "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=FoodieJane"
+                        },
+                        "likeCount": 0,
+                        "isLiked": false,
+                        "replyToUser": null,
+                        "replyCount": 0,
                         "childComments": []
                       }
-                    ]
+                    ],
+                    "total": 4,
+                    "current": 1,
+                    "size": 3
                   }
                 }
               }
@@ -5744,7 +7110,7 @@
       "get": {
         "summary": "获取消息列表",
         "deprecated": false,
-        "description": "用户点击底部“消息”Tab，获取分页的消息列表",
+        "description": "用户点击底部“消息”Tab，获取分页的消息列表。后端支持消息去重",
         "tags": [],
         "parameters": [],
         "requestBody": {
@@ -5765,7 +7131,10 @@
                   "size"
                 ]
               },
-              "examples": {}
+              "example": {
+                "page": 1,
+                "size": 20
+              }
             }
           },
           "required": true
@@ -5787,55 +7156,71 @@
                     "data": {
                       "type": "object",
                       "properties": {
-                        "total": {
-                          "type": "integer"
-                        },
                         "records": {
                           "type": "array",
                           "items": {
                             "type": "object",
                             "properties": {
                               "id": {
-                                "description": "通知id",
                                 "type": "string"
                               },
                               "receiverId": {
-                                "description": "接受者id",
-                                "type": "string"
+                                "type": "integer"
                               },
                               "senderId": {
-                                "description": "发送者id",
-                                "type": "string"
+                                "type": "integer"
                               },
                               "senderNickname": {
-                                "description": "发送者昵称",
                                 "type": "string"
                               },
                               "senderAvatar": {
                                 "type": "string"
                               },
                               "type": {
-                                "description": "通知类型:LIKE_POST: 赞了你的帖子; COLLECT_POST: 收藏了你的帖子; RATE_POST: 给你的帖子评了分; LIKE_COMMENT: 赞了你的评论; FOLLOW: 关注了你; SYSTEM: 系统通知",
                                 "type": "string"
                               },
                               "targetId": {
-                                "description": "关联的id",
                                 "type": "string"
                               },
                               "targetPreview": {
-                                "description": "关联的内容摘要",
                                 "type": "string"
                               },
                               "isRead": {
                                 "type": "boolean"
+                              },
+                              "createdAt": {
+                                "type": "string"
                               }
-                            }
+                            },
+                            "required": [
+                              "id",
+                              "receiverId",
+                              "senderId",
+                              "senderNickname",
+                              "senderAvatar",
+                              "type",
+                              "targetId",
+                              "targetPreview",
+                              "isRead",
+                              "createdAt"
+                            ]
                           }
+                        },
+                        "total": {
+                          "type": "integer"
+                        },
+                        "current": {
+                          "type": "integer"
+                        },
+                        "size": {
+                          "type": "integer"
                         }
                       },
                       "required": [
+                        "records",
                         "total",
-                        "records"
+                        "current",
+                        "size"
                       ]
                     }
                   },
@@ -5847,22 +7232,133 @@
                 },
                 "example": {
                   "code": 200,
-                  "message": "success",
+                  "message": "操作成功",
                   "data": {
-                    "total": 2,
                     "records": [
                       {
-                        "id": "114514",
-                        "receiverId": "123",
-                        "senderId": "234",
-                        "senderNickname": "Alice",
-                        "senderAvatar": "https://afternoon3-rednote.oss-cn-shenzhen.aliyuncs.com/default_avatar.jpg",
+                        "id": "693d0f64add946254e35d31a",
+                        "receiverId": 282,
+                        "senderId": 283,
+                        "senderNickname": "PhotoLife",
+                        "senderAvatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=PhotoLife",
                         "type": "LIKE_POST",
-                        "targetId": "345",
-                        "targetPreview": "hello world",
-                        "isRead": false
+                        "targetId": "693d0c3f579b0b45a9ac9a4e",
+                        "targetPreview": "新入手的机械键盘 aq0",
+                        "isRead": false,
+                        "createdAt": "2025-12-13T15:01:56.626"
+                      },
+                      {
+                        "id": "693d0f64add946254e35d317",
+                        "receiverId": 282,
+                        "senderId": 284,
+                        "senderNickname": "FoodieJane",
+                        "senderAvatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=FoodieJane",
+                        "type": "LIKE_POST",
+                        "targetId": "693d0c3f579b0b45a9ac9a4e",
+                        "targetPreview": "新入手的机械键盘 aq0",
+                        "isRead": false,
+                        "createdAt": "2025-12-13T15:01:56.157"
+                      },
+                      {
+                        "id": "693d0f64add946254e35d30a",
+                        "receiverId": 282,
+                        "senderId": 286,
+                        "senderNickname": "CatLover",
+                        "senderAvatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=CatLover",
+                        "type": "LIKE_POST",
+                        "targetId": "693d0f62add946254e35d2ae",
+                        "targetPreview": "周末去海边采风 lGT",
+                        "isRead": false,
+                        "createdAt": "2025-12-13T15:01:56.014"
+                      },
+                      {
+                        "id": "693d0f63add946254e35d308",
+                        "receiverId": 282,
+                        "senderId": 283,
+                        "senderNickname": "PhotoLife",
+                        "senderAvatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=PhotoLife",
+                        "type": "LIKE_POST",
+                        "targetId": "693d0f62add946254e35d2ae",
+                        "targetPreview": "周末去海边采风 lGT",
+                        "isRead": false,
+                        "createdAt": "2025-12-13T15:01:55.992"
+                      },
+                      {
+                        "id": "693d0f63add946254e35d306",
+                        "receiverId": 282,
+                        "senderId": 285,
+                        "senderNickname": "StudentMike",
+                        "senderAvatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=StudentMike",
+                        "type": "LIKE_POST",
+                        "targetId": "693d0f62add946254e35d2ae",
+                        "targetPreview": "周末去海边采风 lGT",
+                        "isRead": false,
+                        "createdAt": "2025-12-13T15:01:55.968"
+                      },
+                      {
+                        "id": "693d0f63add946254e35d304",
+                        "receiverId": 282,
+                        "senderId": 283,
+                        "senderNickname": "PhotoLife",
+                        "senderAvatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=PhotoLife",
+                        "type": "LIKE_POST",
+                        "targetId": "693d0f62add946254e35d2b4",
+                        "targetPreview": "求助：Spring Boot 启动报错 Qkl",
+                        "isRead": false,
+                        "createdAt": "2025-12-13T15:01:55.941"
+                      },
+                      {
+                        "id": "693d0f63add946254e35d302",
+                        "receiverId": 282,
+                        "senderId": 286,
+                        "senderNickname": "CatLover",
+                        "senderAvatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=CatLover",
+                        "type": "LIKE_POST",
+                        "targetId": "693d0f62add946254e35d2b4",
+                        "targetPreview": "求助：Spring Boot 启动报错 Qkl",
+                        "isRead": false,
+                        "createdAt": "2025-12-13T15:01:55.92"
+                      },
+                      {
+                        "id": "693d0f63add946254e35d300",
+                        "receiverId": 282,
+                        "senderId": 284,
+                        "senderNickname": "FoodieJane",
+                        "senderAvatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=FoodieJane",
+                        "type": "LIKE_POST",
+                        "targetId": "693d0f62add946254e35d2b4",
+                        "targetPreview": "求助：Spring Boot 启动报错 Qkl",
+                        "isRead": false,
+                        "createdAt": "2025-12-13T15:01:55.89"
+                      },
+                      {
+                        "id": "693d0f62add946254e35d2b0",
+                        "receiverId": 282,
+                        "senderId": 283,
+                        "senderNickname": "PhotoLife",
+                        "senderAvatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=PhotoLife",
+                        "type": "FOLLOW",
+                        "targetId": "283",
+                        "targetPreview": "关注了你",
+                        "isRead": false,
+                        "createdAt": "2025-12-13T15:01:54.245"
+                      },
+                      {
+                        "id": "693d0c40579b0b45a9ac9a69",
+                        "receiverId": 282,
+                        "senderId": 286,
+                        "senderNickname": "CatLover",
+                        "senderAvatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=CatLover",
+                        "type": "LIKE_POST",
+                        "targetId": "693d0c3f579b0b45a9ac9a4e",
+                        "targetPreview": "新入手的机械键盘 aq0",
+                        "isRead": false,
+                        "createdAt": "2025-12-13T14:48:32.798"
                       }
-                    ]
+                    ],
+                    "total": 10,
+                    "current": 1,
+                    "size": 20
                   }
                 }
               }
@@ -5903,11 +7399,112 @@
             "jwt": []
           }
         ]
+      },
+      "put": {
+        "summary": "批量已读消息",
+        "deprecated": false,
+        "description": "批量将消息设为已读\n场景：前端滑动列表，元素曝光时调用",
+        "tags": [],
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "required": [
+                  "ids"
+                ]
+              },
+              "example": {
+                "ids": [
+                  "693d0f64add946254e35d31a",
+                  "693d0f64add946254e35d317"
+                ]
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                },
+                "example": {
+                  "code": 200,
+                  "message": "操作成功",
+                  "data": null
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "jwt": []
+          }
+        ]
       }
     },
     "/api/dev/seed": {
       "post": {
         "summary": "获取测试数据",
+        "deprecated": false,
+        "description": "",
+        "tags": [],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {}
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "jwt": []
+          }
+        ]
+      }
+    },
+    "/api/dev/clean-notifications": {
+      "post": {
+        "summary": "清洗重复的通知数据",
         "deprecated": false,
         "description": "",
         "tags": [],
