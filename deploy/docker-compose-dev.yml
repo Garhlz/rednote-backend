@@ -1,0 +1,223 @@
+version: '3.8'
+
+services:
+  # ==========================================
+  # 0. 微服务基础设施 (新增 Etcd)
+  # ==========================================
+
+  # Etcd: Go-Zero 的服务发现与配置中心 (必须!)
+  etcd-dev:
+    image: quay.io/coreos/etcd:v3.5.0
+    container_name: etcd-local-dev
+    command:
+      - /usr/local/bin/etcd
+      - --advertise-client-urls=http://0.0.0.0:2379
+      - --listen-client-urls=http://0.0.0.0:2379
+    environment:
+      - ALLOW_NONE_AUTHENTICATION=yes
+      - ETCD_ADVERTISE_CLIENT_URLS=http://etcd-dev:2379
+    ports:
+      - "2379:2379"
+    networks:
+      - dev-net
+
+  # ==========================================
+  # 1. 基础数据库
+  # ==========================================
+
+  postgres-dev:
+    image: postgres:15-alpine
+    container_name: postgres-local-dev
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: platform_db
+      TZ: Asia/Shanghai
+    volumes:
+      - pg_local_data:/var/lib/postgresql/data
+      # Docker 容器首次启动（且数据卷为空）时，会自动执行这个目录下的 .sql 文件
+      - ../scripts/init-mongodb.sql:/docker-entrypoint-initdb.d/restore.sql
+    networks:
+      - dev-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mongodb-dev:
+    image: mongo:6.0
+    container_name: mongo-local-dev
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_DATABASE: rednote
+      TZ: Asia/Shanghai
+    volumes:
+      - mongo_local_data:/data/db
+    networks:
+      - dev-net
+
+  redis-dev:
+    image: redis:7-alpine
+    container_name: redis-local-dev
+    ports:
+      - "6379:6379"
+    environment:
+      TZ: Asia/Shanghai
+    volumes:
+      - redis_local_data:/data
+    networks:
+      - dev-net
+
+  rabbitmq-dev:
+    image: rabbitmq:3.12-management-alpine
+    container_name: mq-local-dev
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: admin
+      TZ: Asia/Shanghai
+    volumes:
+      - mq_local_data:/var/lib/rabbitmq
+    networks:
+      - dev-net
+    healthcheck:
+      test: [ "CMD", "rabbitmq-diagnostics", "-q", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ==========================================
+  # 3. 搜索服务
+  # ==========================================
+
+  elasticsearch-dev:
+    # 注意路径：假设 Dockerfile.es 和插件 zip 包也移动到了 deploy/ 目录下
+    # 如果没移，还在根目录，则是 ../Dockerfile.es
+    build:
+      context: .
+      dockerfile: Dockerfile.es
+    container_name: es-local-dev
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - TZ=Asia/Shanghai
+    ports:
+      - "9200:9200"
+    volumes:
+      - es_local_data:/usr/share/elasticsearch/data
+    networks:
+      - dev-net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cat/health || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+
+  kibana-dev:
+    image: kibana:8.11.1
+    container_name: kibana-local-dev
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch-dev:9200
+      - TZ=Asia/Shanghai
+    ports:
+      - "5601:5601"
+    depends_on:
+      elasticsearch-dev:
+        condition: service_healthy
+    networks:
+      - dev-net
+
+  # ==========================================
+  # 4. 业务服务 (Go Sidecar & New Interaction Service)
+  # ==========================================
+#  platform-java-dev:
+#    build:
+#      context: ../services/platform-java
+#      dockerfile: Dockerfile
+#    container_name: platform-java-local-dev
+#    # 负载均衡和扩展预留：如果是生产环境，通常不固定 container_name
+#    ports:
+#      - "8080:8080"
+#    env_file:
+#      - ../services/platform-java/.env
+#    environment:
+#      - SPRING_PROFILES_ACTIVE=dev
+#      # 显式指定容器内通信地址，覆盖 .env 中的 localhost
+#      - DB_URL=jdbc:postgresql://postgres-local-dev:5432/platform_db
+#      - REDIS_HOST=redis-local-dev
+#      - SPRING_RABBITMQ_HOST=mq-local-dev
+#      - MONGO_URI=mongodb://mongo-local-dev:27017/rednote
+#      - ETCD_ENDPOINTS=http://etcd-local-dev:2379
+#    volumes:
+#      - ../services/platform-java/logs:/app/logs
+#      - ../services/platform-java/uploads:/app/uploads
+#    depends_on:
+#      postgres-dev:
+#        condition: service_healthy
+#      elasticsearch-dev:
+#        condition: service_healthy
+#      rabbitmq-dev:
+#        condition: service_healthy
+#      etcd-dev:
+#        condition: service_started
+#    deploy:
+#      resources:
+#        limits:
+#          memory: 1G # Java 17 + Spring Boot 3 建议给到 1G
+#    networks:
+#      - dev-net
+
+  sync-sidecar-dev:
+    build:
+      # ⚠️ 关键修改：因为 docker-compose 在 deploy/ 下，所以要往上一级找 services
+      context: ../services/sync-sidecar
+      dockerfile: Dockerfile.dev
+    container_name: sidecar-local-dev
+    environment:
+      - ES_ADDRESS=http://elasticsearch-dev:9200
+      - RABBITMQ_URL=amqp://admin:admin@rabbitmq-dev:5672/
+      - MONGO_URI=mongodb://mongodb-dev:27017
+      - TZ=Asia/Shanghai
+      - POST_AUDIT_ENABLE=false
+    volumes:
+      # ⚠️ 关键修改：挂载本地源码也要用相对路径，确保热重载生效
+      - ../services/sync-sidecar:/app
+    depends_on:
+      elasticsearch-dev:
+        condition: service_healthy
+      rabbitmq-dev:
+        condition: service_healthy
+      mongodb-dev:
+        condition: service_started
+    networks:
+      - dev-net
+
+  # --- 这里预留给你即将生成的 Interaction 微服务 ---
+  # interaction-rpc:
+  #   build:
+  #     context: ../services/interaction-rpc
+  #     dockerfile: Dockerfile
+  #   container_name: interaction-rpc-dev
+  #   environment:
+  #     - ETCD_HOST=etcd-dev:2379
+  #   depends_on:
+  #     - etcd-dev
+
+volumes:
+  pg_local_data:
+  mongo_local_data:
+  redis_local_data:
+  mq_local_data:
+  es_local_data:
+
+networks:
+  dev-net:
+    driver: bridge

@@ -1,5 +1,5 @@
 HELP.md
-target/
+**/target/
 .mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/
@@ -37,39 +37,21 @@ build/
 **/repomix-output.xml
 .repomixignore
 
-.env
+services/platform-java/.env
 
 uploads/
 
 mongo_data/
 pg_data/
 
-logs/
-prometheus_data/
-grafana_data/
+**/logs/
 
 **/diff.txt
 
 # 忽略部署配置
-.deploy_env
+deploy/.deploy_env
 
 **/log.txt
-
-mongo_backup/
-
-platform_db_backup.sql
-
-sync-sidecar/sync-sidecar-linux
-
-sync-sidecar/sidecar-image.tar.gz
-
-docker-compose-local.yml
-test_avatar.jpg
-
-arthas-boot.jar
-arthas-output/
-
-es_data/
 
 raw_dict/
 
