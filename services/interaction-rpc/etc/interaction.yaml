@@ -1,0 +1,16 @@
+Name: interaction.rpc
+ListenOn: 0.0.0.0:8080
+Etcd:
+  Hosts:
+    - etcd-local-dev:2379 # 改为 etcd 容器名
+  Key: interaction.rpc
+
+# 业务 Redis 配置
+BizRedis:
+  Host: redis-local-dev:6379 # 改为 redis 容器名
+  Type: node
+  Pass:
+
+# RabbitMQ 配置
+RabbitMQ:
+  DataSource: "amqp://admin:admin@mq-local-dev:5672/" # 改为 mq 容器名

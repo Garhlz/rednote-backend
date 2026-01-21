@@ -16,7 +16,6 @@ type AppConfig struct {
 
 	// 队列名称配置 (与 Java RabbitConfig 保持一致)
 	QueueLog    string
-	QueueSearch string
 	QueueEsSync string
 	QueueUser   string
 
@@ -43,7 +42,6 @@ func LoadConfig() *AppConfig {
 
 		// 队列名硬编码以匹配 Java 配置
 		QueueLog:    "platform.log.queue",
-		QueueSearch: "platform.search.queue",
 		QueueEsSync: "platform.es.sync.queue",
 		QueueUser:   "platform.user.queue",
 
@@ -52,7 +50,6 @@ func LoadConfig() *AppConfig {
 
 		QueueBindings: map[string][]string{
 			"platform.log.queue":     {"log.#"},
-			"platform.search.queue":  {"search.#"},
 			"platform.user.queue":    {"user.#"},
 			"platform.es.sync.queue": {"post.#", "user.update", "post.audit.pass"},
 		},

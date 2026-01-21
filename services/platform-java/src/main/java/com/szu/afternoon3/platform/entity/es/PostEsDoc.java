@@ -9,7 +9,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 @Data
-@Document(indexName = "post_index") // 对应 ES 中的索引名称
+@Document(indexName = "posts") // 对应 ES 中的索引名称
 @Setting(settingPath = "es-settings.json")
 public class PostEsDoc {
 

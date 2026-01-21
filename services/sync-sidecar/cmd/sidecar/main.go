@@ -23,7 +23,6 @@ func main() {
 
 	// 3. 初始化 Handlers
 	logHandler := &handler.LogHandler{Infra: infra}
-	searchHandler := &handler.SearchHandler{Infra: infra}
 	syncHandler := &handler.SyncHandler{Infra: infra}
 	userHandler := &handler.UserHandler{Infra: infra}
 
@@ -34,7 +33,6 @@ func main() {
 	infra.StartConsumerGroup(&wg, cfg.QueueLog, logHandler.Handle)
 
 	// Group 2: 搜索历史
-	infra.StartConsumerGroup(&wg, cfg.QueueSearch, searchHandler.Handle)
 
 	// Group 3: ES 同步 (只负责 ES)
 	infra.StartConsumerGroup(&wg, cfg.QueueEsSync, syncHandler.Handle)

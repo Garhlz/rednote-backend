@@ -1,10 +1,12 @@
 package com.szu.afternoon3.platform.vo;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.Data;
 
 import java.util.List;
 
 @Data
+@JsonInclude(JsonInclude.Include.NON_EMPTY)
 public class PostVO {
     private String id;           // 帖子ID
     // 作者信息 (聚合展示用)

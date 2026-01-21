@@ -1,0 +1,75 @@
+// 声明使用 proto3 语法版本 (目前的主流版本，默认字段可选)
+syntax = "proto3";
+
+// 定义包名，类似于 Java 的 package com.szu...
+package interaction;
+
+// 【重要】指定 Go 代码生成的导入路径
+// ./interaction 表示生成的 Go 文件位于当前目录下的 interaction 文件夹内
+option go_package = "./interaction";
+
+// ==========================================
+// 1. 消息体定义 (Message Definitions)
+// ==========================================
+
+// 通用的空响应
+// 对应 Java Result<Void>，gRPC 必须有返回类型，哪怕是空的
+message Empty {}
+
+// 针对“目标”的互动请求
+// 适用于：点赞帖子/评论、取消点赞、收藏/取消收藏
+// Java 对应: PostIdDTO 或 CommentIdDTO + UserContext.getUserId()
+message InteractionRequest {
+  int64 user_id = 1;      // 发起互动的用户ID (Java中从Token解析，RPC需显式传递)
+  string target_id = 2;   // 目标ID (PostId 或 CommentId)
+}
+
+// 评分请求
+// Java 对应: PostRateDTO
+message RateRequest {
+  int64 user_id = 1;      // 用户ID
+  string target_id = 2;   // PostId
+  double score = 3;       // 分数 (Java Double 对应 proto double)
+}
+
+// ==========================================
+// 2. 服务接口定义 (Service Definitions)
+// ==========================================
+
+service InteractionService {
+  // ------------------------------------
+  // 帖子相关 (Post Interaction)
+  // ------------------------------------
+
+  // 点赞帖子
+  // 对应 Java: likePost(PostIdDTO)
+  rpc LikePost(InteractionRequest) returns (Empty);
+
+  // 取消点赞帖子
+  // 对应 Java: unlikePost(PostIdDTO)
+  rpc UnlikePost(InteractionRequest) returns (Empty);
+
+  // 收藏帖子
+  // 对应 Java: collectPost(PostIdDTO)
+  rpc CollectPost(InteractionRequest) returns (Empty);
+
+  // 取消收藏帖子
+  // 对应 Java: uncollectPost(PostIdDTO)
+  rpc UncollectPost(InteractionRequest) returns (Empty);
+
+  // 评分帖子
+  // 对应 Java: ratePost(PostRateDTO)
+  rpc RatePost(RateRequest) returns (Empty);
+
+  // ------------------------------------
+  // 评论相关 (Comment Interaction)
+  // ------------------------------------
+
+  // 点赞评论
+  // 对应 Java: likeComment(CommentIdDTO)
+  rpc LikeComment(InteractionRequest) returns (Empty);
+
+  // 取消点赞评论
+  // 对应 Java: unlikeComment(CommentIdDTO)
+  rpc UnlikeComment(InteractionRequest) returns (Empty);
+}

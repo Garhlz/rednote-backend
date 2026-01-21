@@ -33,6 +33,7 @@ import com.szu.afternoon3.platform.entity.mongo.SearchHistoryDoc;
 import com.szu.afternoon3.platform.repository.SearchHistoryRepository;
 import lombok.extern.slf4j.Slf4j;
 import lombok.extern.slf4j.XSlf4j;
+import net.devh.boot.grpc.client.inject.GrpcClient;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -68,6 +69,10 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import com.szu.afternoon3.platform.vo.PageResult;
 
+// 引入 gRPC 生成的代码
+import search.Search;
+import search.SearchServiceGrpc;
+
 @Slf4j
 @Service
 public class PostServiceImpl implements PostService {
@@ -101,6 +106,15 @@ public class PostServiceImpl implements PostService {
     @Autowired
     private SensitiveWordFilter sensitiveWordFilter;
 
+    // --- 注入 Go 搜索微服务的 Stub ---
+    // 构造器注入，确保依赖不为空
+    private final SearchServiceGrpc.SearchServiceBlockingStub searchStub;
+
+    public PostServiceImpl(@GrpcClient("search-service") SearchServiceGrpc.SearchServiceBlockingStub searchStub) {
+        this.searchStub = searchStub;
+        log.info(">>>>>> gRPC Stub Initialized: {}", searchStub);
+    }
+
     // 提取为成员变量，避免重复创建 (DateTimeFormatter 是线程安全的)
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
@@ -108,196 +122,122 @@ public class PostServiceImpl implements PostService {
     private static final DateTimeFormatter ES_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS");
 
     /**
-     * 获取帖子列表 (入口路由)
+     * 获取帖子列表 (入口)
      */
     @Override
     public PageResult<PostVO> getPostList(Integer page, Integer size, String tab, String tag, String sort) {
-        // 1. 场景 A: 关注流 (Follow)
-        // 必须走 MongoDB，因为涉及复杂的关系链查询 (User -> Follow -> Post)
-        // 且关注流通常要求强一致性，不需要复杂的 ES 算分
+        // 1. 关注流 (Follow) - 走 Mongo，这是关系链查询，不是搜索
         if ("follow".equalsIgnoreCase(tab)) {
             return queryFollowStreamFromMongo(page, size);
         }
 
-        // 2. 场景 B: 其他所有场景 (首页推荐、标签筛选、热门、最新)
-        // 全部交给 ES 处理，享受高性能和智能排序
-        // keyword 传 null，表示不是搜索框发起的
+        // 2. 其他场景 (推荐/搜索/标签) - 走 Go 微服务
         return searchPosts(null, tag, page, size, sort);
     }
 
     /**
-     * 核心搜索与列表查询方法 (Elasticsearch)
+     * 核心搜索与列表查询方法 (Elasticsearch) - 转发给 Go
      * 支持：关键词搜索、标签精确过滤、多种排序策略
      */
     @Override
-    public PageResult<PostVO>  searchPosts(String keyword, String tag, Integer page, Integer size, String sort) {
+    public PageResult<PostVO> searchPosts(String keyword, String tag, Integer page, Integer size, String sort) {
         Long currentUserId = UserContext.getUserId();
 
-        // 1. 记录搜索历史 (仅当是显式的关键词搜索时)
-        if (currentUserId != null && StrUtil.isNotBlank(keyword)) {
-            rabbitTemplate.convertAndSend(RabbitConfig.PLATFORM_EXCHANGE, "search.history", new UserSearchEvent(currentUserId, keyword));
+        // 1. 构建 gRPC 请求
+        Search.SearchRequest.Builder builder = Search.SearchRequest.newBuilder()
+                .setKeyword(keyword == null ? "" : keyword)
+                .setTag(tag == null ? "" : tag)
+                .setPage(page == null ? 1 : page)
+                .setPageSize(size == null ? 20 : size)
+                .setSort(sort == null ? "" : sort);
+
+        if (currentUserId != null) {
+            builder.setUserId(currentUserId);
         }
 
-        // 2. 参数处理
-        int pageNum = (page == null || page < 1) ? 0 : page - 1;
-        int pageSize = (size == null || size < 1) ? 20 : size;
-
-        // 3. 构建 ES 查询 Builder
-        NativeQueryBuilder queryBuilder = NativeQuery.builder();
-
-        // =========================================================
-        // Step 3.1: 构建 Bool Query (内容匹配 + 过滤)
-        // =========================================================
-        BoolQuery.Builder boolQueryBuilder = QueryBuilders.bool();
-
-        // A. 关键词匹配 (Must / Should)
-        if (StrUtil.isNotBlank(keyword)) {
-            boolQueryBuilder.must(QueryBuilders.multiMatch()
-                    .query(keyword)
-                    // 包含 title, content, tags, 以及 pinyin 字段
-                    .fields("title^3", "title.pinyin^1.5", "content", "tags^2", "tags.pinyin^1.0")
-                    .build()._toQuery());
-        } else {
-            // 如果没有关键词，匹配所有文档 (用于首页推荐或纯标签筛选)
-            boolQueryBuilder.must(QueryBuilders.matchAll().build()._toQuery());
-        }
-
-        // B. 标签精确过滤 (Filter - 高效且缓存)
-        if (StrUtil.isNotBlank(tag)) {
-            // 使用 .keyword 子字段进行精确匹配
-            boolQueryBuilder.filter(QueryBuilders.term()
-                    .field("tags.keyword")
-                    .value(tag)
-                    .build()._toQuery());
-        }
-
-        // 得到最终的内容查询条件
-        Query finalContentQuery = boolQueryBuilder.build()._toQuery();
-
-        // =========================================================
-        // Step 3.2: 应用排序策略
-        // =========================================================
-        if ("hot".equalsIgnoreCase(sort)) {
-            // [F] 综合热度 (Hot/Default) - 使用 Function Score
-            // 核心公式：最终分 = (BM25相关度) * (点赞加成) * (时间衰减)
-            queryBuilder.withQuery(q -> q.functionScore(fs -> fs
-                    .query(finalContentQuery) // 将上面的 Bool Query 包裹在 Function Score 内部
-                    .functions(f -> f
-                            // 函数1：点赞数加分 (log1p平滑)
-                            .filter(QueryBuilders.matchAll().build()._toQuery())
-                            .fieldValueFactor(fv -> fv
-                                    .field("likeCount")
-                                    .modifier(FieldValueFactorModifier.Log1p)
-                                    .factor(1.0)
-                                    .missing(0.0)
-                            )
-                    )
-                    .functions(f -> f
-                            // 函数2：高斯时间衰减
-                            .filter(QueryBuilders.matchAll().build()._toQuery())
-                            .gauss(g -> g
-                                    .field("createdAt")
-                                    .placement(p -> p
-                                            .origin(JsonData.of(LocalDateTime.now().format(ES_TIME_FORMATTER)))
-                                            .scale(JsonData.of("3d"))   // 3天作为一个刻度
-                                            .offset(JsonData.of("1d"))  // 1天内不衰减
-                                            .decay(0.5)                 // 超过 scale 后衰减 50%
-                                    )
-                            )
-                    )
-                    .boostMode(FunctionBoostMode.Multiply)
-            ));
-            // Function Score 默认按 _score 排序
-            queryBuilder.withSort(Sort.by(Sort.Direction.DESC, "_score"));
-            // 兜底排序：如果分数完全一样，按时间倒序
-            queryBuilder.withSort(Sort.by(Sort.Direction.DESC, "createdAt"));
-
-        } else if ("new".equalsIgnoreCase(sort)) {
-            queryBuilder.withQuery(finalContentQuery);
-            queryBuilder.withSort(Sort.by(Sort.Direction.DESC, "createdAt"));
-
-        } else if ("old".equalsIgnoreCase(sort)) {
-            queryBuilder.withQuery(finalContentQuery);
-            queryBuilder.withSort(Sort.by(Sort.Direction.ASC, "createdAt"));
-
-        } else if ("likes".equalsIgnoreCase(sort)) {
-            queryBuilder.withQuery(finalContentQuery);
-            queryBuilder.withSort(Sort.by(Sort.Direction.DESC, "likeCount"));
-
-        } else {
-            // 默认排序 (通常也是 hot，或者 new，视需求而定)
-            queryBuilder.withQuery(finalContentQuery);
-            queryBuilder.withSort(Sort.by(Sort.Direction.DESC, "createdAt"));
-        }
-
-        // 4. 分页与字段过滤
-        queryBuilder.withPageable(PageRequest.of(pageNum, pageSize));
-        queryBuilder.withSourceFilter(new FetchSourceFilter(
-                new String[]{"id", "title", "content", "cover", "coverWidth", "coverHeight", "type", "tags", "userId", "userNickname", "userAvatar", "likeCount", "createdAt"},
-                null
-        ));
-
-        // 5. 执行搜索
-        SearchHits<PostEsDoc> searchHits;
+        // 2. 调用 Go 微服务
+        Search.SearchResponse response;
         try {
-            searchHits = esOperations.search(queryBuilder.build(), PostEsDoc.class);
-        } catch (UncategorizedElasticsearchException e) {
-            log.error("ES Search Error: {}", e.getResponseBody());
-            throw new AppException(ResultCode.ELASTIC_SEARCH_ERROR);
+            response = searchStub.search(builder.build());
+        } catch (Exception e) {
+            log.error("调用搜索微服务失败: ", e);
+            throw new AppException(ResultCode.SYSTEM_ERROR, "搜索服务暂时不可用");
         }
 
-        // =======================================================
-        // 6. 批量查询交互状态 (MySQL/Mongo 回查)
-        // =======================================================
-        Set<String> likedPostIds = new HashSet<>();
-        if (currentUserId != null && searchHits.hasSearchHits()) {
-            List<String> postIds = searchHits.getSearchHits().stream()
-                    .map(hit -> hit.getContent().getId())
-                    .collect(Collectors.toList());
+        // 3. 处理空结果
+        if (response.getItemsCount() == 0) {
+            return PageResult.empty(page == null ? 1 : page, size == null ? 20 : size);
+        }
+
+        // 4. 【关键】批量查询交互状态 (IsLiked, IsCollected, IsFollowed)
+        // Go 只返回了帖子基础数据，Java 负责把"当前用户是否点过赞"这些个性化状态填进去
+        List<PostVO> postVOs = enrichInteractionStatus(response.getItemsList(), currentUserId);
+
+        return PageResult.of(postVOs, response.getTotal(), page == null ? 1 : page, size == null ? 20 : size);
+    }
+
+    /**
+     * 辅助方法：将 Go 返回的 Proto 对象转为 Java VO，并填充交互状态
+     */
+    private List<PostVO> enrichInteractionStatus(List<Search.SearchPostVO> items, Long currentUserId) {
+        // 1. 提取 ID 列表
+        List<String> postIds = items.stream().map(Search.SearchPostVO::getId).collect(Collectors.toList());
+        List<Long> authorIds = items.stream()
+                .map(item -> Long.parseLong(item.getAuthor().getUserId()))
+                .distinct()
+                .collect(Collectors.toList());
+
+        // 2. 批量查库 (仅当用户登录时)
+        Set<String> likedSet = new HashSet<>();
+        Set<String> collectedSet = new HashSet<>();
+        Set<Long> followedSet = new HashSet<>();
+
+        if (currentUserId != null) {
+            // 查点赞
             List<PostLikeDoc> likes = postLikeRepository.findByUserIdAndPostIdIn(currentUserId, postIds);
-            likedPostIds = likes.stream().map(PostLikeDoc::getPostId).collect(Collectors.toSet());
+            likedSet = likes.stream().map(PostLikeDoc::getPostId).collect(Collectors.toSet());
+            // 查收藏
+            List<PostCollectDoc> collects = postCollectRepository.findByUserIdAndPostIdIn(currentUserId, postIds);
+            collectedSet = collects.stream().map(PostCollectDoc::getPostId).collect(Collectors.toSet());
+            // 查关注
+            List<UserFollowDoc> follows = userFollowRepository.findByUserIdAndTargetUserIdIn(currentUserId, authorIds);
+            followedSet = follows.stream().map(UserFollowDoc::getTargetUserId).collect(Collectors.toSet());
         }
 
-        // 7. [重构] 组装结果为 PostVO
-        Set<String> finalLikedPostIds = likedPostIds;
-        List<PostVO> resultList = searchHits.getSearchHits().stream().map(hit -> {
-            PostEsDoc doc = hit.getContent();
-            PostVO vo = new PostVO(); // 使用 VO
+        // 3. 转换并填充
+        List<PostVO> result = new ArrayList<>();
+        for (Search.SearchPostVO item : items) {
+            PostVO vo = new PostVO();
+            vo.setId(item.getId());
+            vo.setTitle(item.getTitle());
+            vo.setContent(item.getContent()); // Go 已经截取了摘要
+            vo.setCover(item.getCover());
+            vo.setType(item.getType());
+            vo.setLikeCount(item.getLikeCount());
+            vo.setTags(item.getTagsList());
+            vo.setCoverWidth(item.getCoverWidth());
+            vo.setCoverHeight(item.getCoverHeight());
 
-            vo.setId(doc.getId());
-            vo.setTitle(doc.getTitle());
-            vo.setContent(StrUtil.subPre(doc.getContent(), 50)); // 摘要
-            vo.setCover(doc.getCover());
-            vo.setCoverWidth(doc.getCoverWidth());
-            vo.setCoverHeight(doc.getCoverHeight());
-            vo.setType(doc.getType());
-            vo.setTags(doc.getTags());
-            vo.setLikeCount(doc.getLikeCount());
-
-            // 格式化时间
-            if (doc.getCreatedAt() != null) {
-                vo.setCreatedAt(DATE_FORMATTER.format(doc.getCreatedAt()));
-            }
-
-            // 组装作者信息
+            // 作者信息
             UserInfo author = new UserInfo();
-            author.setUserId(doc.getUserId() != null ? doc.getUserId().toString() : "");
-            author.setNickname(doc.getUserNickname());
-            author.setAvatar(doc.getUserAvatar());
+            author.setUserId(item.getAuthor().getUserId());
+            author.setNickname(item.getAuthor().getNickname());
+            author.setAvatar(item.getAuthor().getAvatar());
             vo.setAuthor(author);
 
-            // 状态
-            vo.setIsLiked(finalLikedPostIds.contains(doc.getId()));
+            // 状态填充
+            vo.setIsLiked(likedSet.contains(item.getId()));
+            vo.setIsCollected(collectedSet.contains(item.getId()));
+            if (StrUtil.isNotBlank(item.getAuthor().getUserId())) {
+                vo.setIsFollowed(followedSet.contains(Long.parseLong(item.getAuthor().getUserId())));
+            }
 
-            // 注意：ES 数据通常不包含 isCollected / isFollowed，如需支持需额外回查
-            // vo.setIsCollected(false);
-            // vo.setIsFollowed(false);
+            // 列表页通常不需要详细资源列表
+            vo.setImages(Collections.emptyList());
 
-            return vo;
-        }).collect(Collectors.toList());
-
-        // 8. 返回 PageResult
-        return PageResult.of(resultList, searchHits.getTotalHits(), pageNum + 1, pageSize);
+            result.add(vo);
+        }
+        return result;
     }
 
     /**
@@ -325,145 +265,58 @@ public class PostServiceImpl implements PostService {
         return buildResultMap(postDocPage);
     }
 
-
+    /**
+     * 搜索补全 - 转发给 Go
+     */
     @Override
     public List<String> getSearchSuggestions(String keyword) {
-        if (StrUtil.isBlank(keyword)) {
-            return new ArrayList<>();
+        if (StrUtil.isBlank(keyword)) return new ArrayList<>();
+
+        Search.SuggestRequest request = Search.SuggestRequest.newBuilder().setKeyword(keyword).build();
+        try {
+            return searchStub.suggest(request).getSuggestionsList();
+        } catch (Exception e) {
+            log.error("调用搜索建议失败", e);
+            return new ArrayList<>(); // 降级处理：返回空列表
         }
-
-        // 1. 构建查询 `
-        NativeQueryBuilder queryBuilder = NativeQuery.builder();
-        BoolQuery.Builder boolQueryBuilder = QueryBuilders.bool();
-
-        // 【核心修改】判断 keyword 是否包含中文
-        // 正则表达式：[\u4e00-\u9fa5] 匹配常见汉字
-        boolean hasChinese = keyword.matches(".*[\\u4e00-\\u9fa5].*");
-
-        if (hasChinese) {
-            // ==========================================
-            // 场景 A: 输入包含中文 (如 "大学", "深圳")
-            // 策略: 只查 IK 分词字段，不查拼音！防止 "d,x" 匹配到 "年度杏子"
-            // ==========================================
-            boolQueryBuilder
-                    .should(s -> s.matchPhrasePrefix(m -> m
-                            .field("title") // 查原标题 (IK)
-                            .query(keyword)
-                    ))
-                    .should(s -> s.matchPhrasePrefix(m -> m
-                            .field("tags")  // 查原标签 (IK)
-                            .query(keyword)
-                    ));
-        } else {
-            // ==========================================
-            // 场景 B: 纯英文/拼音 (如 "shen", "sz", "shenzhen")
-            // 策略: 查 Pinyin 字段
-            // ==========================================
-            boolQueryBuilder
-                    .should(s -> s.matchPhrasePrefix(m -> m
-                            .field("title.pinyin")
-                            .query(keyword)
-                            .slop(2)
-                    ))
-                    .should(s -> s.matchPhrasePrefix(m -> m
-                            .field("tags.pinyin")
-                            .query(keyword)
-                    ));
-        }
-        queryBuilder.withQuery(boolQueryBuilder.build()._toQuery());
-
-        // 2. 设置分页
-        queryBuilder.withPageable(PageRequest.of(0, 10));
-
-        // 3. 设置高亮
-        HighlightParameters parameters = HighlightParameters.builder()
-                .withPreTags("<em>")
-                .withPostTags("</em>")
-                .withRequireFieldMatch(false)
-                .withNumberOfFragments(1)
-                .withFragmentSize(50)
-                .build();
-
-        List<HighlightField> fields = List.of(
-                new HighlightField("title"),       // 对应中文匹配的高亮
-                new HighlightField("tags"),
-                new HighlightField("title.pinyin"), // 对应拼音匹配的高亮
-                new HighlightField("tags.pinyin")
-        );
-
-        // Spring Data ES 5.x 要求 parameters 在前，fields 在后
-        queryBuilder.withHighlightQuery(new HighlightQuery(
-                new Highlight(parameters, fields),
-                PostEsDoc.class
-        ));
-
-        queryBuilder.withSourceFilter(new FetchSourceFilter(
-                new String[]{"title", "tags"}, null
-        ));
-
-        // 4. 执行搜索
-        SearchHits<PostEsDoc> searchHits = esOperations.search(queryBuilder.build(), PostEsDoc.class);
-
-        // 5. 解析结果
-        // 使用 LinkedHashSet 保证插入顺序：先插的在前面
-        Set<String> suggestions = new LinkedHashSet<>();
-
-        // 修复之前的笔误
-        suggestions.add("<em>" + keyword + "</em>");
-
-        for (org.springframework.data.elasticsearch.core.SearchHit<PostEsDoc> hit : searchHits.getSearchHits()) {
-            // A. 尝试获取标题高亮
-            List<String> hlTitle = hit.getHighlightField("title");
-            List<String> hlTitlePy = hit.getHighlightField("title.pinyin");
-
-            if (CollUtil.isNotEmpty(hlTitle)) {
-                suggestions.add(hlTitle.get(0));
-            } else if (CollUtil.isNotEmpty(hlTitlePy)) {
-                suggestions.add(hlTitlePy.get(0));
-            }
-
-            // B. 尝试获取标签高亮
-            List<String> hlTags = hit.getHighlightField("tags");
-            List<String> hlTagsPy = hit.getHighlightField("tags.pinyin");
-
-            if (CollUtil.isNotEmpty(hlTags)) {
-                suggestions.add(hlTags.get(0));
-            } else if (CollUtil.isNotEmpty(hlTagsPy)) {
-                suggestions.add(hlTagsPy.get(0));
-            }
-        }
-
-        // 6. 返回结果
-        // 限制总数 (包含 keyword 在内最多返回 10 条)
-        return suggestions.stream().limit(10).collect(Collectors.toList());
     }
 
+    /**
+     * 获取搜索历史 - 转发给 Go
+     */
     @Override
     public List<String> getSearchHistory(Long userId) {
-        // 按时间倒序，取前 10 条
-        Pageable pageable = PageRequest.of(0, 10, Sort.by(Sort.Direction.DESC, "updatedAt"));
-        Page<SearchHistoryDoc> page = searchHistoryRepository.findByUserId(userId, pageable);
+        if (userId == null) return new ArrayList<>();
 
-        // 提取关键词
-        return page.getContent().stream()
-                .map(SearchHistoryDoc::getKeyword)
-                .collect(Collectors.toList());
+        Search.HistoryRequest request = Search.HistoryRequest.newBuilder().setUserId(userId).build();
+        try {
+            return searchStub.getHistory(request).getKeywordsList();
+        } catch (Exception e) {
+            return new ArrayList<>();
+        }
     }
 
+    /**
+     * 清空搜索历史 - 转发给 Go
+     */
     @Override
     public void clearSearchHistory(Long userId) {
-        searchHistoryRepository.deleteByUserId(userId);
+        if (userId == null) return;
+        Search.ClearHistoryRequest request = Search.ClearHistoryRequest.newBuilder().setUserId(userId).build();
+        searchStub.deleteHistory(request);
     }
 
-    // 实现删除单条历史
+    /**
+     * 删除单条历史 - 转发给 Go
+     */
     @Override
     public void deleteSearchHistoryItem(Long userId, String keyword) {
-        // 直接调用 Repository 的衍生查询方法即可
-        // 这里的操作是原子的，且 SearchHistoryDoc 没有冗余的用户昵称/头像，
-        // 所以不需要发布类似 UserUpdateEvent 的事件来维护一致性。
-        if (userId != null && StrUtil.isNotBlank(keyword)) {
-            searchHistoryRepository.deleteByUserIdAndKeyword(userId, keyword);
-        }
+        if (userId == null || StrUtil.isBlank(keyword)) return;
+        Search.ClearHistoryRequest request = Search.ClearHistoryRequest.newBuilder()
+                .setUserId(userId)
+                .setKeyword(keyword)
+                .build();
+        searchStub.deleteHistory(request);
     }
 
     @Override

@@ -108,3 +108,14 @@ management:
   health:
     mail:
       enabled: false
+
+grpc:
+  client:
+    interaction-service:
+      # 宿主机访问 Docker 映射出来的端口
+      address: 'static://127.0.0.1:8081'
+      negotiation-type: plaintext
+    # 2. 搜索服务
+    search-service:
+      address: 'static://127.0.0.1:8082'
+      negotiation-type: plaintext

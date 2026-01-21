@@ -1,0 +1,86 @@
+syntax = "proto3";
+
+package search;
+option go_package = "./search";
+
+// =======================
+// 1. 核心搜索接口
+// =======================
+message SearchRequest {
+  string keyword = 1;     // 关键词
+  string tag = 2;         // 标签筛选
+  int32 page = 3;         // 页码 (从1开始)
+  int32 page_size = 4;    // 每页大小
+  string sort = 5;        // 排序策略 (hot, new, etc.)
+  int64 user_id = 6;      // 当前用户ID (用于记录搜索历史)
+}
+
+// 搜索返回的单条帖子摘要
+message SearchPostVO {
+  string id = 1;
+  string title = 2;
+  string content = 3;     // 摘要
+  string cover = 4;
+  int32 type = 5;
+  int32 like_count = 6;
+  UserVO author = 7;      // 嵌套结构
+  repeated string tags = 8;
+  int32 cover_width = 9;
+  int32 cover_height = 10;
+  bool is_liked = 11;     // Go 端如果不方便查，可以留空，Java 补全
+}
+
+message UserVO {
+  string user_id = 1;
+  string nickname = 2;
+  string avatar = 3;
+}
+
+message SearchResponse {
+  repeated SearchPostVO items = 1;
+  int64 total = 2;
+}
+
+// =======================
+// 2. 搜索辅助接口 (补全、历史、热搜)
+// =======================
+
+message SuggestRequest {
+  string keyword = 1;
+}
+
+message SuggestResponse {
+  repeated string suggestions = 1;
+}
+
+message HistoryRequest {
+  int64 user_id = 1;
+}
+
+message HistoryResponse {
+  repeated string keywords = 1;
+}
+
+message ClearHistoryRequest {
+  int64 user_id = 1;
+  string keyword = 2; // 如果为空则全删
+}
+
+message Empty {}
+
+// =======================
+// Service 定义
+// =======================
+service SearchService {
+  // 核心搜索 (对应 Java: searchPosts)
+  rpc Search(SearchRequest) returns (SearchResponse);
+
+  // 搜索补全 (对应 Java: getSearchSuggestions)
+  rpc Suggest(SuggestRequest) returns (SuggestResponse);
+
+  // 获取搜索历史 (对应 Java: getSearchHistory)
+  rpc GetHistory(HistoryRequest) returns (HistoryResponse);
+
+  // 删除搜索历史 (对应 Java: clearSearchHistory / deleteSearchHistoryItem)
+  rpc DeleteHistory(ClearHistoryRequest) returns (Empty);
+}

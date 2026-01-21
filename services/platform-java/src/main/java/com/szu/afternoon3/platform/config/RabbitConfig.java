@@ -24,7 +24,7 @@ public class RabbitConfig {
     // 业务队列
     public static final String QUEUE_INTERACTION = "platform.interaction.queue";
     public static final String QUEUE_USER = "platform.user.queue";
-    public static final String QUEUE_SEARCH = "platform.search.queue";
+//    public static final String QUEUE_SEARCH = "platform.search.queue";
     public static final String QUEUE_POST = "platform.post.queue";
     public static final String QUEUE_COMMENT = "platform.comment.queue";
     public static final String QUEUE_LOG = "platform.log.queue";
@@ -73,8 +73,8 @@ public class RabbitConfig {
     @Bean
     public Queue userQueue() { return createQueueWithDlq(QUEUE_USER); }
 
-    @Bean
-    public Queue searchQueue() { return createQueueWithDlq(QUEUE_SEARCH); }
+//    @Bean
+//    public Queue searchQueue() { return createQueueWithDlq(QUEUE_SEARCH); }
 
     @Bean
     public Queue postQueue() { return createQueueWithDlq(QUEUE_POST); }
@@ -111,10 +111,10 @@ public class RabbitConfig {
         return BindingBuilder.bind(userQueue()).to(platformExchange()).with("user.#");
     }
 
-    @Bean
-    public Binding bindingSearch() {
-        return BindingBuilder.bind(searchQueue()).to(platformExchange()).with("search.#");
-    }
+//    @Bean
+//    public Binding bindingSearch() {
+//        return BindingBuilder.bind(searchQueue()).to(platformExchange()).with("search.#");
+//    }
 
     @Bean
     public Binding bindingPost() {

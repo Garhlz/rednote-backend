@@ -1,0 +1,18 @@
+Name: search.rpc
+ListenOn: 0.0.0.0:8080
+Etcd:
+  Hosts:
+    - etcd-local-dev:2379
+  Key: search.rpc
+
+# Elasticsearch 配置
+Elasticsearch:
+  Addresses:
+    - "http://es-local-dev:9200"
+  Username: "" # 开发环境留空
+  Password: ""
+
+# MongoDB 配置
+MongoDB:
+  Url: "mongodb://mongo-local-dev:27017"
+  Database: "rednote"

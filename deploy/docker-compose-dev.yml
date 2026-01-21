@@ -11,13 +11,19 @@ services:
     container_name: etcd-local-dev
     command:
       - /usr/local/bin/etcd
-      - --advertise-client-urls=http://0.0.0.0:2379
-      - --listen-client-urls=http://0.0.0.0:2379
+      - --name=s1
+      - --data-dir=/etcd-data
+      - --advertise-client-urls=http://etcd-local-dev:2379  # 关键修改：原来是 0.0.0.0，改成容器名
+      - --listen-client-urls=http://0.0.0.0:2379            # 监听所有网卡
+      - --initial-advertise-peer-urls=http://etcd-local-dev:2380 # 修改
+      - --listen-peer-urls=http://0.0.0.0:2380
+      - --initial-cluster=s1=http://etcd-local-dev:2380     # 修改
+      - --initial-cluster-state=new
     environment:
       - ALLOW_NONE_AUTHENTICATION=yes
-      - ETCD_ADVERTISE_CLIENT_URLS=http://etcd-dev:2379
     ports:
       - "2379:2379"
+      - "2380:2380"
     networks:
       - dev-net
 
@@ -38,7 +44,7 @@ services:
     volumes:
       - pg_local_data:/var/lib/postgresql/data
       # Docker 容器首次启动（且数据卷为空）时，会自动执行这个目录下的 .sql 文件
-      - ../scripts/init-mongodb.sql:/docker-entrypoint-initdb.d/restore.sql
+      - ../scripts/init-users.sql:/docker-entrypoint-initdb.d/restore.sql
     networks:
       - dev-net
     healthcheck:
@@ -200,16 +206,51 @@ services:
     networks:
       - dev-net
 
-  # --- 这里预留给你即将生成的 Interaction 微服务 ---
-  # interaction-rpc:
-  #   build:
-  #     context: ../services/interaction-rpc
-  #     dockerfile: Dockerfile
-  #   container_name: interaction-rpc-dev
-  #   environment:
-  #     - ETCD_HOST=etcd-dev:2379
-  #   depends_on:
-  #     - etcd-dev
+  interaction-rpc:
+    build:
+      context: ../services/interaction-rpc
+      dockerfile: Dockerfile
+    container_name: interaction-rpc-dev
+    ports:
+      - "8081:8080" # 映射到宿主机 8081 (避免和 Java 的 8080 冲突，虽然 Java 也可以关掉)
+    environment:
+      - TZ=Asia/Shanghai
+    depends_on:
+      etcd-dev:
+        condition: service_started
+      redis-dev:
+        condition: service_started
+      rabbitmq-dev:
+        condition: service_healthy
+    networks:
+      - dev-net
+
+  search-rpc:
+    build:
+      context: ../services/search-rpc
+      dockerfile: Dockerfile
+    container_name: search-rpc-dev
+    ports:
+      - "8082:8080"
+    environment:
+      - TZ=Asia/Shanghai
+      - HTTP_PROXY=
+      - HTTPS_PROXY=
+      - http_proxy=
+      - https_proxy=
+      - NO_PROXY=es-local-dev,etcd-local-dev,mongo-local-dev,mq-local-dev,localhost,127.0.0.1
+    depends_on:
+      etcd-dev:
+        condition: service_started
+      redis-dev:
+        condition: service_started
+      rabbitmq-dev:
+        condition: service_healthy
+      # ⚠️ 确保依赖了 ES
+      elasticsearch-dev:
+        condition: service_healthy
+    networks:
+      - dev-net
 
 volumes:
   pg_local_data:

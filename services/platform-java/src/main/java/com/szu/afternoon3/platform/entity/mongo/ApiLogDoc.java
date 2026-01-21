@@ -44,6 +44,6 @@ public class ApiLogDoc {
     private Long timeCost;
 
     // 90天 * 24小时 * 60分钟 * 60秒 = 7776000
-    @Indexed(expireAfterSeconds = 7776000)
+    @Indexed(expireAfterSeconds = 2592000)
     private LocalDateTime createdAt;
 }
