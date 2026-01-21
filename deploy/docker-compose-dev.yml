@@ -252,6 +252,27 @@ services:
     networks:
       - dev-net
 
+  user-rpc:
+    build:
+      context: ../services/user-rpc
+      dockerfile: Dockerfile
+    container_name: user-rpc-dev
+    ports:
+      - "8083:8080"
+    env_file:
+      - ../services/user-rpc/.env
+    environment:
+      - TZ=Asia/Shanghai
+    depends_on:
+      etcd-dev:
+        condition: service_started
+      postgres-dev:
+        condition: service_healthy
+      redis-dev:
+        condition: service_started
+    networks:
+      - dev-net
+
 volumes:
   pg_local_data:
   mongo_local_data:

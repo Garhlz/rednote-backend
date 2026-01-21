@@ -1,0 +1,26 @@
+Name: user.rpc
+ListenOn: 0.0.0.0:8080
+Etcd:
+  Hosts:
+  - etcd-local-dev:2379
+  Key: user.rpc
+Postgres:
+  DataSource: postgres://postgres:postgres@postgres-local-dev:5432/platform_db?sslmode=disable
+Redis:
+  Host: redis-local-dev:6379
+  Type: node
+  Pass: ""
+Mail:
+  Host: ${MAIL_HOST}
+  Port: ${MAIL_PORT:465}
+  User: ${MAIL_USER}
+  Pass: ${MAIL_PASS}
+  From: ${MAIL_FROM}
+  UseSSL: ${MAIL_SSL:true}
+Jwt:
+  Secret: ${JWT_SECRET:defaultSecretForDevOnly123456}
+  AccessExpireSeconds: ${JWT_ACCESS_EXPIRE_SECONDS:604800}
+  RefreshExpireSeconds: ${JWT_REFRESH_EXPIRE_SECONDS:2592000}
+  Issuer: ${JWT_ISSUER:rednote-user}
+User:
+  DefaultAvatar: ${USER_DEFAULT_AVATAR:https://afternoon3-rednote.oss-cn-shenzhen.aliyuncs.com/default_avatar.jpg}

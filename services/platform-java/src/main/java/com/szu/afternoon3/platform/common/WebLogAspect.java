@@ -132,7 +132,7 @@ public class WebLogAspect {
             logDoc.setStatus(200);
         }
 
-        // 4. 【新增】在发送 MQ 之前，直接在 Web 层打印详细日志 (Controller 层日志)
+        // 4. 在发送 MQ 之前，直接在 Web 层打印详细日志 (Controller 层日志)
         // 这样即使 MQ 挂了，你也能在控制台看到有请求进来
         log.info("Request: [{} {}] IP:{} | User:{} | Cost:{}ms | Desc:{} | Args:{}",
                 request.getMethod(),

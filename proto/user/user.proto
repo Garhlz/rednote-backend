@@ -1,0 +1,189 @@
+syntax = "proto3";
+
+package user;
+
+// Go code will be generated into ./user
+option go_package = "./user";
+
+// =======================
+// Common messages
+// =======================
+
+message Empty {}
+
+message TokenPair {
+  string access_token = 1;
+  string refresh_token = 2;
+  string token_type = 3; // Bearer
+  int64 access_expire = 4;  // unix seconds
+  int64 refresh_expire = 5; // unix seconds
+}
+
+message UserSummary {
+  int64 user_id = 1;
+  string nickname = 2;
+  string avatar = 3;
+  string role = 4;   // USER, ADMIN
+  int32 status = 5;  // 1 normal, 0 disabled, etc.
+}
+
+message UserProfile {
+  int64 user_id = 1;
+  string email = 2;
+  string nickname = 3;
+  string avatar = 4;
+  string bio = 5;
+  int32 gender = 6;   // 0 unknown, 1 male, 2 female
+  string birthday = 7; // yyyy-MM-dd
+  string region = 8;
+  string role = 9;
+  int32 status = 10;
+  bool has_password = 11;
+}
+
+message PublicUserProfile {
+  int64 user_id = 1;
+  string nickname = 2;
+  string avatar = 3;
+  string bio = 4;
+  int32 gender = 5;
+  string region = 6;
+}
+
+message AuthResponse {
+  TokenPair tokens = 1;
+  UserSummary user = 2;
+  bool is_new_user = 3;
+  bool has_password = 4;
+}
+
+// =======================
+// Auth / Account
+// =======================
+
+message SendEmailCodeRequest {
+  string email = 1;
+}
+
+message SendEmailCodeResponse {
+  int32 next_retry_seconds = 1;
+}
+
+message VerifyEmailCodeRequest {
+  string email = 1;
+  string code = 2;
+}
+
+message VerifyEmailCodeResponse {
+  bool valid = 1;
+}
+
+message RegisterRequest {
+  string email = 1;
+  string code = 2;
+  string password = 3;
+  string nickname = 4;
+}
+
+message LoginRequest {
+  string email = 1;
+  string password = 2;
+}
+
+message RefreshTokenRequest {
+  string refresh_token = 1;
+}
+
+message LogoutRequest {
+  int64 user_id = 1;
+  string access_token = 2;
+  string refresh_token = 3;
+}
+
+message ResetPasswordRequest {
+  string email = 1;
+  string code = 2;
+  string new_password = 3;
+}
+
+message ChangePasswordRequest {
+  int64 user_id = 1;
+  string old_password = 2;
+  string new_password = 3;
+}
+
+message BindEmailRequest {
+  int64 user_id = 1;
+  string email = 2;
+  string code = 3;
+}
+
+// =======================
+// Profile
+// =======================
+
+message GetMyProfileRequest {
+  int64 user_id = 1;
+}
+
+message GetPublicProfileRequest {
+  int64 user_id = 1;
+}
+
+message UpdateProfileRequest {
+  int64 user_id = 1;
+  optional string nickname = 2;
+  optional string avatar = 3;
+  optional string bio = 4;
+  optional int32 gender = 5;
+  optional string birthday = 6; // yyyy-MM-dd
+  optional string region = 7;
+}
+
+message UpdateUserStatusRequest {
+  int64 user_id = 1;
+  int32 status = 2;
+}
+
+// =======================
+// Cross-service queries
+// =======================
+
+message GetUserSummaryRequest {
+  int64 user_id = 1;
+}
+
+message BatchGetUsersRequest {
+  repeated int64 user_ids = 1;
+}
+
+message BatchGetUsersResponse {
+  map<int64, UserSummary> user_map = 1;
+}
+
+// =======================
+// Service definition
+// =======================
+
+service UserService {
+  // Auth / Account
+  rpc SendEmailCode(SendEmailCodeRequest) returns (SendEmailCodeResponse);
+  rpc VerifyEmailCode(VerifyEmailCodeRequest) returns (VerifyEmailCodeResponse);
+  rpc Register(RegisterRequest) returns (AuthResponse);
+  rpc Login(LoginRequest) returns (AuthResponse);
+  rpc RefreshToken(RefreshTokenRequest) returns (AuthResponse);
+  rpc Logout(LogoutRequest) returns (Empty);
+  rpc ResetPassword(ResetPasswordRequest) returns (Empty);
+  rpc ChangePassword(ChangePasswordRequest) returns (Empty);
+  rpc BindEmail(BindEmailRequest) returns (Empty);
+
+  // Profile
+  rpc GetMyProfile(GetMyProfileRequest) returns (UserProfile);
+  rpc GetPublicProfile(GetPublicProfileRequest) returns (PublicUserProfile);
+  rpc UpdateProfile(UpdateProfileRequest) returns (UserProfile);
+  rpc UpdateUserStatus(UpdateUserStatusRequest) returns (Empty);
+
+  // Cross-service
+  rpc GetUserSummary(GetUserSummaryRequest) returns (UserSummary);
+  rpc BatchGetUsers(BatchGetUsersRequest) returns (BatchGetUsersResponse);
+}

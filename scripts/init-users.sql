@@ -165,6 +165,27 @@ CREATE INDEX idx_users_email ON public.users USING btree (email);
 
 CREATE INDEX idx_users_openid ON public.users USING btree (openid);
 
+--
+-- Web-only user service migration (one service, one DB)
+-- NOTE: This drops openid and enforces email/password login.
+--
+
+ALTER TABLE ONLY public.users
+    DROP CONSTRAINT IF EXISTS users_openid_key;
+
+DROP INDEX IF EXISTS idx_users_openid;
+
+ALTER TABLE ONLY public.users
+    DROP COLUMN IF EXISTS openid;
+
+ALTER TABLE ONLY public.users
+    ALTER COLUMN email SET NOT NULL,
+    ALTER COLUMN password SET NOT NULL;
+
+ALTER TABLE ONLY public.users
+    ADD COLUMN token_version integer DEFAULT 0 NOT NULL,
+    ADD COLUMN password_changed_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL;
+
 
 --
 -- PostgreSQL database dump complete
