@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.6.0
 // - protoc             v6.33.1
-// source: proto/user/user.proto
+// source: user/user.proto
 
 package user
 
@@ -32,6 +32,8 @@ const (
 	UserService_GetPublicProfile_FullMethodName = "/user.UserService/GetPublicProfile"
 	UserService_UpdateProfile_FullMethodName    = "/user.UserService/UpdateProfile"
 	UserService_UpdateUserStatus_FullMethodName = "/user.UserService/UpdateUserStatus"
+	UserService_DeleteUser_FullMethodName       = "/user.UserService/DeleteUser"
+	UserService_AdminDeleteUser_FullMethodName  = "/user.UserService/AdminDeleteUser"
 	UserService_GetUserSummary_FullMethodName   = "/user.UserService/GetUserSummary"
 	UserService_BatchGetUsers_FullMethodName    = "/user.UserService/BatchGetUsers"
 )
@@ -55,6 +57,8 @@ type UserServiceClient interface {
 	GetPublicProfile(ctx context.Context, in *GetPublicProfileRequest, opts ...grpc.CallOption) (*PublicUserProfile, error)
 	UpdateProfile(ctx context.Context, in *UpdateProfileRequest, opts ...grpc.CallOption) (*UserProfile, error)
 	UpdateUserStatus(ctx context.Context, in *UpdateUserStatusRequest, opts ...grpc.CallOption) (*Empty, error)
+	DeleteUser(ctx context.Context, in *DeleteUserRequest, opts ...grpc.CallOption) (*Empty, error)
+	AdminDeleteUser(ctx context.Context, in *AdminDeleteUserRequest, opts ...grpc.CallOption) (*Empty, error)
 	// Cross-service
 	GetUserSummary(ctx context.Context, in *GetUserSummaryRequest, opts ...grpc.CallOption) (*UserSummary, error)
 	BatchGetUsers(ctx context.Context, in *BatchGetUsersRequest, opts ...grpc.CallOption) (*BatchGetUsersResponse, error)
@@ -198,6 +202,26 @@ func (c *userServiceClient) UpdateUserStatus(ctx context.Context, in *UpdateUser
 	return out, nil
 }
 
+func (c *userServiceClient) DeleteUser(ctx context.Context, in *DeleteUserRequest, opts ...grpc.CallOption) (*Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Empty)
+	err := c.cc.Invoke(ctx, UserService_DeleteUser_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *userServiceClient) AdminDeleteUser(ctx context.Context, in *AdminDeleteUserRequest, opts ...grpc.CallOption) (*Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Empty)
+	err := c.cc.Invoke(ctx, UserService_AdminDeleteUser_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *userServiceClient) GetUserSummary(ctx context.Context, in *GetUserSummaryRequest, opts ...grpc.CallOption) (*UserSummary, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(UserSummary)
@@ -237,6 +261,8 @@ type UserServiceServer interface {
 	GetPublicProfile(context.Context, *GetPublicProfileRequest) (*PublicUserProfile, error)
 	UpdateProfile(context.Context, *UpdateProfileRequest) (*UserProfile, error)
 	UpdateUserStatus(context.Context, *UpdateUserStatusRequest) (*Empty, error)
+	DeleteUser(context.Context, *DeleteUserRequest) (*Empty, error)
+	AdminDeleteUser(context.Context, *AdminDeleteUserRequest) (*Empty, error)
 	// Cross-service
 	GetUserSummary(context.Context, *GetUserSummaryRequest) (*UserSummary, error)
 	BatchGetUsers(context.Context, *BatchGetUsersRequest) (*BatchGetUsersResponse, error)
@@ -288,6 +314,12 @@ func (UnimplementedUserServiceServer) UpdateProfile(context.Context, *UpdateProf
 }
 func (UnimplementedUserServiceServer) UpdateUserStatus(context.Context, *UpdateUserStatusRequest) (*Empty, error) {
 	return nil, status.Error(codes.Unimplemented, "method UpdateUserStatus not implemented")
+}
+func (UnimplementedUserServiceServer) DeleteUser(context.Context, *DeleteUserRequest) (*Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteUser not implemented")
+}
+func (UnimplementedUserServiceServer) AdminDeleteUser(context.Context, *AdminDeleteUserRequest) (*Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method AdminDeleteUser not implemented")
 }
 func (UnimplementedUserServiceServer) GetUserSummary(context.Context, *GetUserSummaryRequest) (*UserSummary, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetUserSummary not implemented")
@@ -550,6 +582,42 @@ func _UserService_UpdateUserStatus_Handler(srv interface{}, ctx context.Context,
 	return interceptor(ctx, in, info, handler)
 }
 
+func _UserService_DeleteUser_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteUserRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServiceServer).DeleteUser(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: UserService_DeleteUser_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServiceServer).DeleteUser(ctx, req.(*DeleteUserRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _UserService_AdminDeleteUser_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AdminDeleteUserRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServiceServer).AdminDeleteUser(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: UserService_AdminDeleteUser_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServiceServer).AdminDeleteUser(ctx, req.(*AdminDeleteUserRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _UserService_GetUserSummary_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GetUserSummaryRequest)
 	if err := dec(in); err != nil {
@@ -646,6 +714,14 @@ var UserService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _UserService_UpdateUserStatus_Handler,
 		},
 		{
+			MethodName: "DeleteUser",
+			Handler:    _UserService_DeleteUser_Handler,
+		},
+		{
+			MethodName: "AdminDeleteUser",
+			Handler:    _UserService_AdminDeleteUser_Handler,
+		},
+		{
 			MethodName: "GetUserSummary",
 			Handler:    _UserService_GetUserSummary_Handler,
 		},
@@ -655,5 +731,5 @@ var UserService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "proto/user/user.proto",
+	Metadata: "user/user.proto",
 }

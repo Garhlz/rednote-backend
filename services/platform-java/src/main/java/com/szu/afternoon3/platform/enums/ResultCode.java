@@ -40,8 +40,8 @@ public enum ResultCode {
     SYSTEM_ERROR(50001, "服务器开小差了"),
     MAIL_SEND_ERROR(50002, "邮件服务异常"),
     OSS_UPLOAD_ERROR(50003, "OSS服务上传异常"),
-    ELASTIC_SEARCH_ERROR(50004,"搜索服务异常");
-
+    ELASTIC_SEARCH_ERROR(50004,"搜索服务异常"),
+    SERVER_ERROR(50005,"服务器错误");
     private final int code;
     private final String message;
 

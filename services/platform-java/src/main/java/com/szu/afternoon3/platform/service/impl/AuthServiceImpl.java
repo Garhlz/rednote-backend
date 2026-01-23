@@ -59,35 +59,7 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public LoginVO wechatLogin(String code) {
-        // 1. 调用微信接口换取 OpenID (若失败，WeChatUtil 会抛出异常)
-        String openid = weChatUtil.getOpenId(code);
-
-        // 2. 查询数据库是否存在该 OpenID
-        User user = userMapper.selectOne(new LambdaQueryWrapper<User>()
-                .eq(User::getOpenid, openid));
-
-        boolean isNewUser = false;
-
-        // 3. 如果用户不存在，进行静默注册
-        if (user == null) {
-            user = new User();
-            user.setOpenid(openid);
-            user.setNickname("微信用户");
-            user.setAvatar(defaultAvatar);
-            user.setRole("USER");
-            user.setStatus(1); // 1:正常
-
-            userMapper.insert(user);
-            isNewUser = true;
-            log.info("微信新用户注册: id={}", user.getId());
-        }
-
-        // 4. 账号状态检查 (防御性编程，防止微信老用户被封禁后尝试登录)
-        if (user.getStatus() == 0) {
-            throw new AppException(ResultCode.ACCOUNT_BANNED);
-        }
-
-        return buildLoginVO(user, isNewUser);
+        throw new AppException(ResultCode.PARAM_ERROR, "wechat login is disabled");
     }
 
     @Override
@@ -266,9 +238,6 @@ public class AuthServiceImpl implements AuthService {
         user.setAvatar(defaultAvatar);
         user.setRole("USER");
         user.setStatus(1);
-
-        // 为了测试方便，随便给个 openid，防止唯一索引冲突
-        user.setOpenid("test_openid_" + System.currentTimeMillis());
 
         userMapper.insert(user);
         return user.getId();

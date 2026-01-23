@@ -14,3 +14,7 @@ BizRedis:
 # RabbitMQ 配置
 RabbitMQ:
   DataSource: "amqp://admin:admin@mq-local-dev:5672/" # 改为 mq 容器名
+
+Mongo:
+  Uri: "mongodb://mongodb-dev:27017"
+  Database: "rednote"

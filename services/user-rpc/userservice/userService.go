@@ -19,6 +19,8 @@ type (
 	BatchGetUsersResponse   = user.BatchGetUsersResponse
 	BindEmailRequest        = user.BindEmailRequest
 	ChangePasswordRequest   = user.ChangePasswordRequest
+	AdminDeleteUserRequest  = user.AdminDeleteUserRequest
+	DeleteUserRequest       = user.DeleteUserRequest
 	Empty                   = user.Empty
 	GetMyProfileRequest     = user.GetMyProfileRequest
 	GetPublicProfileRequest = user.GetPublicProfileRequest
@@ -55,6 +57,8 @@ type (
 		GetPublicProfile(ctx context.Context, in *GetPublicProfileRequest, opts ...grpc.CallOption) (*PublicUserProfile, error)
 		UpdateProfile(ctx context.Context, in *UpdateProfileRequest, opts ...grpc.CallOption) (*UserProfile, error)
 		UpdateUserStatus(ctx context.Context, in *UpdateUserStatusRequest, opts ...grpc.CallOption) (*Empty, error)
+		DeleteUser(ctx context.Context, in *DeleteUserRequest, opts ...grpc.CallOption) (*Empty, error)
+		AdminDeleteUser(ctx context.Context, in *AdminDeleteUserRequest, opts ...grpc.CallOption) (*Empty, error)
 		// Cross-service
 		GetUserSummary(ctx context.Context, in *GetUserSummaryRequest, opts ...grpc.CallOption) (*UserSummary, error)
 		BatchGetUsers(ctx context.Context, in *BatchGetUsersRequest, opts ...grpc.CallOption) (*BatchGetUsersResponse, error)
@@ -136,6 +140,16 @@ func (m *defaultUserService) UpdateProfile(ctx context.Context, in *UpdateProfil
 func (m *defaultUserService) UpdateUserStatus(ctx context.Context, in *UpdateUserStatusRequest, opts ...grpc.CallOption) (*Empty, error) {
 	client := user.NewUserServiceClient(m.cli.Conn())
 	return client.UpdateUserStatus(ctx, in, opts...)
+}
+
+func (m *defaultUserService) DeleteUser(ctx context.Context, in *DeleteUserRequest, opts ...grpc.CallOption) (*Empty, error) {
+	client := user.NewUserServiceClient(m.cli.Conn())
+	return client.DeleteUser(ctx, in, opts...)
+}
+
+func (m *defaultUserService) AdminDeleteUser(ctx context.Context, in *AdminDeleteUserRequest, opts ...grpc.CallOption) (*Empty, error) {
+	client := user.NewUserServiceClient(m.cli.Conn())
+	return client.AdminDeleteUser(ctx, in, opts...)
 }
 
 // Cross-service

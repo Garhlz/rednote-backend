@@ -10,24 +10,26 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.szu.afternoon3.platform.common.UserContext;
-import com.szu.afternoon3.platform.config.RabbitConfig;
 import com.szu.afternoon3.platform.dto.*;
 import com.szu.afternoon3.platform.entity.User;
 import com.szu.afternoon3.platform.entity.mongo.*;
 import com.szu.afternoon3.platform.event.PostAuditEvent;
 import com.szu.afternoon3.platform.event.PostAuditPassEvent;
-import com.szu.afternoon3.platform.event.UserDeleteEvent;
 import com.szu.afternoon3.platform.exception.AppException;
 import com.szu.afternoon3.platform.enums.ResultCode;
 import com.szu.afternoon3.platform.mapper.UserMapper;
+import com.szu.afternoon3.platform.config.RabbitConfig;
 import com.szu.afternoon3.platform.repository.PostRepository;
 import com.szu.afternoon3.platform.repository.UserFollowRepository;
 import com.szu.afternoon3.platform.service.AdminService;
 import com.szu.afternoon3.platform.util.JwtUtil;
 import com.szu.afternoon3.platform.util.TencentImUtil;
 import com.szu.afternoon3.platform.vo.*;
+import io.grpc.Status;
+import io.grpc.StatusRuntimeException;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
+import net.devh.boot.grpc.client.inject.GrpcClient;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -52,6 +54,7 @@ import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
+import user.UserServiceGrpc;
 
 @Service
 @Slf4j
@@ -74,6 +77,9 @@ public class AdminServiceImpl implements AdminService {
     private MongoTemplate mongoTemplate;
     @Autowired
     private RabbitTemplate rabbitTemplate; // 注入
+
+    @GrpcClient("user-service")
+    private UserServiceGrpc.UserServiceBlockingStub userStub;
 
     @Override
     public LoginVO login(String account, String password) {
@@ -271,44 +277,18 @@ public class AdminServiceImpl implements AdminService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void deleteUser(Long userId, String reason) {
-        // 1. 检查用户
-        User user = userMapper.selectById(userId);
-        if (user == null) {
-            return; // 或者抛异常
-        }
-
-        // 2. 【核心步骤】修改唯一性字段 (脱敏/释放占用)
-        // 使用时间戳作为后缀，确保唯一且留痕
-        String delSuffix = "_del_" + System.currentTimeMillis();
-
-        // 释放 Email
-        if (StrUtil.isNotBlank(user.getEmail())) {
-            String newEmail = user.getEmail() + delSuffix;
-            // 防止超长 (假设数据库字段是 varchar(128))
-            if (newEmail.length() > 120) {
-                newEmail = newEmail.substring(0, 100) + delSuffix;
+        user.User.AdminDeleteUserRequest request = user.User.AdminDeleteUserRequest.newBuilder()
+                .setUserId(userId)
+                .setReason(reason == null ? "" : reason)
+                .build();
+        try {
+            userStub.adminDeleteUser(request);
+        } catch (StatusRuntimeException ex) {
+            if (ex.getStatus().getCode() == Status.Code.NOT_FOUND) {
+                throw new AppException(ResultCode.USER_NOT_FOUND);
             }
-            user.setEmail(newEmail);
+            throw new AppException(ResultCode.SERVER_ERROR);
         }
-
-        // 释放 OpenID (微信登录关键)
-        if (StrUtil.isNotBlank(user.getOpenid())) {
-            user.setOpenid(user.getOpenid() + delSuffix);
-        }
-
-        // 修改昵称 (Postgres侧也可以改一下，保持一致)
-        user.setNickname("用户已注销");
-        user.setAvatar("https://afternoon3-rednote.oss-cn-shenzhen.aliyuncs.com/deleted_user.png");
-
-        // 3. 执行更新 (这一步释放了 PostgreSQL 的唯一索引)
-        userMapper.updateById(user);
-
-        // 4. 执行逻辑删除 (MyBatis-Plus 会将 is_deleted 置为 1)
-        userMapper.deleteById(userId);
-
-        // 5. 【RabbitMQ】发送事件给 Go Sidecar
-        rabbitTemplate.convertAndSend(RabbitConfig.PLATFORM_EXCHANGE, "user.delete",
-                new UserDeleteEvent(userId));
 
         log.info("用户注销/删除成功: userId={}, reason={}", userId, reason);
     }
@@ -675,9 +655,6 @@ public class AdminServiceImpl implements AdminService {
         user.setAvatar(defaultAvatar);
         user.setRole("ADMIN");
         user.setStatus(1);
-
-        // 为了测试方便，随便给个 openid，防止唯一索引冲突
-        user.setOpenid("test_openid_" + System.currentTimeMillis());
 
         userMapper.insert(user);
         return user.getId();

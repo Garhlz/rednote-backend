@@ -1,17 +1,21 @@
 package logic
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/tls"
 	"database/sql"
+	"encoding/hex"
 	"fmt"
 	"math/big"
 	"net/smtp"
+	"strconv"
 	"strings"
 	"time"
 
 	"user-rpc/internal/config"
 	"user-rpc/internal/model"
+	"user-rpc/internal/svc"
 	"user-rpc/user"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -22,6 +26,8 @@ const (
 	emailCodeKeyPrefix  = "verify:code:"
 	emailLimitKeyPrefix = "verify:limit:"
 	tokenBlockPrefix    = "auth:token:block:"
+	refreshTokenPrefix  = "auth:refresh:"
+	tokenVersionPrefix  = "auth:token:version:"
 )
 
 type tokenClaims struct {
@@ -45,16 +51,15 @@ func buildUserSummary(u *model.Users) *user.UserSummary {
 
 func buildUserProfile(u *model.Users) *user.UserProfile {
 	profile := &user.UserProfile{
-		UserId:      u.Id,
-		Email:       u.Email,
-		Nickname:    u.Nickname,
-		Avatar:      u.Avatar,
-		Bio:         u.Bio,
-		Gender:      int32(u.Gender),
-		Region:      u.Region.String,
-		Role:        u.Role,
-		Status:      int32(u.Status),
-		HasPassword: u.Password != "",
+		UserId:   u.Id,
+		Email:    u.Email,
+		Nickname: u.Nickname,
+		Avatar:   u.Avatar,
+		Bio:      u.Bio,
+		Gender:   int32(u.Gender),
+		Region:   u.Region.String,
+		Role:     u.Role,
+		Status:   int32(u.Status),
 	}
 	if u.Birthday.Valid {
 		profile.Birthday = u.Birthday.Time.Format("2006-01-02")
@@ -95,10 +100,14 @@ func checkPassword(hashed, password string) bool {
 	return bcrypt.CompareHashAndPassword([]byte(hashed), []byte(password)) == nil
 }
 
-func buildTokenPair(cfg config.Config, u *model.Users) (*user.TokenPair, error) {
+func buildTokenPair(cfg config.Config, u *model.Users) (*user.TokenPair, string, error) {
 	now := time.Now()
 	accessExp := now.Add(time.Duration(cfg.Jwt.AccessExpireSeconds) * time.Second)
 	refreshExp := now.Add(time.Duration(cfg.Jwt.RefreshExpireSeconds) * time.Second)
+	refreshJti, err := newTokenJti()
+	if err != nil {
+		return nil, "", err
+	}
 
 	accessClaims := tokenClaims{
 		UserId:       u.Id,
@@ -119,6 +128,7 @@ func buildTokenPair(cfg config.Config, u *model.Users) (*user.TokenPair, error) 
 		TokenVersion: u.TokenVersion,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    cfg.Jwt.Issuer,
+			ID:        refreshJti,
 			ExpiresAt: jwt.NewNumericDate(refreshExp),
 			IssuedAt:  jwt.NewNumericDate(now),
 		},
@@ -126,12 +136,12 @@ func buildTokenPair(cfg config.Config, u *model.Users) (*user.TokenPair, error) 
 
 	accessToken, err := jwt.NewWithClaims(jwt.SigningMethodHS256, accessClaims).SignedString([]byte(cfg.Jwt.Secret))
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
 	refreshToken, err := jwt.NewWithClaims(jwt.SigningMethodHS256, refreshClaims).SignedString([]byte(cfg.Jwt.Secret))
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
 	return &user.TokenPair{
@@ -140,7 +150,7 @@ func buildTokenPair(cfg config.Config, u *model.Users) (*user.TokenPair, error) 
 		TokenType:     "Bearer",
 		AccessExpire:  accessExp.Unix(),
 		RefreshExpire: refreshExp.Unix(),
-	}, nil
+	}, refreshJti, nil
 }
 
 func parseToken(cfg config.Config, token string) (*tokenClaims, error) {
@@ -163,6 +173,26 @@ func parseBirthday(value string) (sql.NullTime, error) {
 		return sql.NullTime{}, err
 	}
 	return sql.NullTime{Time: parsed, Valid: true}, nil
+}
+
+func newTokenJti() (string, error) {
+	buf := make([]byte, 16)
+	if _, err := rand.Read(buf); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(buf), nil
+}
+
+func refreshTokenKey(userId int64, jti string) string {
+	return fmt.Sprintf("%s%d:%s", refreshTokenPrefix, userId, jti)
+}
+
+func tokenVersionKey(userId int64) string {
+	return fmt.Sprintf("%s%d", tokenVersionPrefix, userId)
+}
+
+func setTokenVersion(ctx context.Context, svcCtx *svc.ServiceContext, userId int64, version int64) error {
+	return svcCtx.Redis.SetCtx(ctx, tokenVersionKey(userId), strconv.FormatInt(version, 10))
 }
 
 func randCode() (string, error) {

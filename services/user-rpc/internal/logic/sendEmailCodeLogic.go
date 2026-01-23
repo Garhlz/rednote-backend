@@ -51,8 +51,9 @@ func (l *SendEmailCodeLogic) SendEmailCode(in *user.SendEmailCodeRequest) (*user
 	subject := "【映记】验证码"
 	body := "您的验证码是：" + code + "。有效期为5分钟，请勿泄露给他人。"
 	if err := sendEmail(l.svcCtx.Config, email, subject, body); err != nil {
+		l.Logger.Errorf("send email failed: %s", err)
 		_, _ = l.svcCtx.Redis.Del(limitKey)
-		return nil, status.Error(codes.Internal, "send email failed")
+		return nil, status.Errorf(codes.Internal, "mail send failed: %s", err)
 	}
 
 	codeKey := emailCodeKeyPrefix + email

@@ -16,4 +16,9 @@ type Config struct {
 	RabbitMQ struct {
 		DataSource string
 	}
+
+	Mongo struct {
+		Uri      string
+		Database string
+	}
 }

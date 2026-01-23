@@ -1,21 +1,26 @@
+# syntax=docker/dockerfile:1.5
 # 阶段 1: 构建 (Builder)
 FROM golang:1.25-alpine AS builder
 
 # 开启 Go Modules 代理 (国内加速，也可配 GOPROXY 环境变量)
-ENV GOPROXY=https://goproxy.cn,direct
+ARG GOPROXY=https://goproxy.cn,direct
+ENV GOPROXY=${GOPROXY}
 
 WORKDIR /app
 
 # 先复制依赖文件，利用 Docker 缓存
 COPY go.mod go.sum ./
-RUN go mod download
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    go mod download
 
 # 复制源码
 COPY . .
 COPY etc ./etc
 
 # 编译 (CGO_ENABLED=0 生成静态二进制文件)
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o search-rpc search.go
+RUN --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o search-rpc search.go
 
 # 阶段 2: 运行 (Runner)
 FROM alpine:latest

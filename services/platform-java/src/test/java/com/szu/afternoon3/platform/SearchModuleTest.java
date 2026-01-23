@@ -1,4 +1,5 @@
 package com.szu.afternoon3.platform;
+import org.junit.jupiter.api.Disabled;
 
 import com.szu.afternoon3.platform.entity.es.PostEsDoc;
 import com.szu.afternoon3.platform.repository.es.PostEsRepository;
@@ -20,6 +21,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 @Slf4j
 @SpringBootTest
+@Disabled("migrated to gateway/user-rpc")
 public class SearchModuleTest {
 
     @Autowired

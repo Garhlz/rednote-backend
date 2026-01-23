@@ -48,15 +48,23 @@ func (l *LoginLogic) Login(in *user.LoginRequest) (*user.AuthResponse, error) {
 		return nil, status.Error(codes.Unauthenticated, "invalid password")
 	}
 
-	tokens, err := buildTokenPair(l.svcCtx.Config, u)
+	tokens, refreshJti, err := buildTokenPair(l.svcCtx.Config, u)
 	if err != nil {
 		return nil, status.Error(codes.Internal, "create token failed")
 	}
+	if err := l.svcCtx.Redis.Setex(
+		refreshTokenKey(u.Id, refreshJti),
+		"1",
+		int(l.svcCtx.Config.Jwt.RefreshExpireSeconds),
+	); err != nil {
+		return nil, status.Error(codes.Internal, "store refresh token failed")
+	}
+	if err := setTokenVersion(l.ctx, l.svcCtx, u.Id, u.TokenVersion); err != nil {
+		return nil, status.Error(codes.Internal, "store token version failed")
+	}
 
 	return &user.AuthResponse{
-		Tokens:      tokens,
-		User:        buildUserSummary(u),
-		IsNewUser:   false,
-		HasPassword: u.Password != "",
+		Tokens: tokens,
+		User:   buildUserSummary(u),
 	}, nil
 }

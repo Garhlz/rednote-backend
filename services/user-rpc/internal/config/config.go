@@ -10,8 +10,15 @@ type Config struct {
 	Postgres struct {
 		DataSource string
 	}
-	Redis redis.RedisConf
-	Mail  struct {
+	BizRedis redis.RedisConf
+	RabbitMQ struct {
+		Enabled              string
+		Url                  string
+		Exchange             string
+		UserUpdateRoutingKey string
+		UserDeleteRoutingKey string
+	}
+	Mail struct {
 		Host   string
 		Port   int
 		User   string

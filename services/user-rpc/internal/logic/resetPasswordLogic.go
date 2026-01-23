@@ -68,6 +68,9 @@ func (l *ResetPasswordLogic) ResetPassword(in *user.ResetPasswordRequest) (*user
 	if err := l.svcCtx.Users.Update(l.ctx, u); err != nil {
 		return nil, status.Error(codes.Internal, "update user failed")
 	}
+	if err := setTokenVersion(l.ctx, l.svcCtx, u.Id, u.TokenVersion); err != nil {
+		return nil, status.Error(codes.Internal, "store token version failed")
+	}
 
 	_, _ = l.svcCtx.Redis.Del(emailCodeKeyPrefix + email)
 	return &user.Empty{}, nil

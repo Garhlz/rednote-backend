@@ -33,7 +33,6 @@ import com.szu.afternoon3.platform.entity.mongo.SearchHistoryDoc;
 import com.szu.afternoon3.platform.repository.SearchHistoryRepository;
 import lombok.extern.slf4j.Slf4j;
 import lombok.extern.slf4j.XSlf4j;
-import net.devh.boot.grpc.client.inject.GrpcClient;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -46,32 +45,23 @@ import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.aggregation.Aggregation;
 import org.springframework.data.mongodb.core.aggregation.AggregationResults;
 import org.springframework.data.mongodb.core.query.Criteria;
-import org.springframework.data.mongodb.core.query.TextCriteria;
-import org.springframework.data.mongodb.core.query.TextQuery;
+import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
 import com.szu.afternoon3.platform.entity.es.PostEsDoc;
 // 注意引入正确的 Spring Data ES 依赖
-import org.springframework.data.elasticsearch.client.elc.NativeQuery;
-import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
-import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
-import org.springframework.data.elasticsearch.core.SearchHit;
-import org.springframework.data.elasticsearch.core.SearchHits;
-import org.springframework.data.elasticsearch.core.query.HighlightQuery;
-import org.springframework.data.elasticsearch.core.query.highlight.Highlight;
-import org.springframework.data.elasticsearch.core.query.highlight.HighlightField;
+import org.springframework.data.domain.PageImpl;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+import java.util.regex.Pattern;
 import com.szu.afternoon3.platform.vo.PageResult;
 
 // 引入 gRPC 生成的代码
-import search.Search;
-import search.SearchServiceGrpc;
 
 @Slf4j
 @Service
@@ -101,19 +91,7 @@ public class PostServiceImpl implements PostService {
     private RabbitTemplate rabbitTemplate;
 
     @Autowired
-    private ElasticsearchOperations esOperations; // 注入 ES 操作模板
-
-    @Autowired
     private SensitiveWordFilter sensitiveWordFilter;
-
-    // --- 注入 Go 搜索微服务的 Stub ---
-    // 构造器注入，确保依赖不为空
-    private final SearchServiceGrpc.SearchServiceBlockingStub searchStub;
-
-    public PostServiceImpl(@GrpcClient("search-service") SearchServiceGrpc.SearchServiceBlockingStub searchStub) {
-        this.searchStub = searchStub;
-        log.info(">>>>>> gRPC Stub Initialized: {}", searchStub);
-    }
 
     // 提取为成员变量，避免重复创建 (DateTimeFormatter 是线程安全的)
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
@@ -131,113 +109,40 @@ public class PostServiceImpl implements PostService {
             return queryFollowStreamFromMongo(page, size);
         }
 
-        // 2. 其他场景 (推荐/搜索/标签) - 走 Go 微服务
-        return searchPosts(null, tag, page, size, sort);
+        // 2. 其他场景 (推荐/标签) - 走 ES
+        return queryRecommendFromMongo(tag, page, size, sort);
     }
 
     /**
-     * 核心搜索与列表查询方法 (Elasticsearch) - 转发给 Go
-     * 支持：关键词搜索、标签精确过滤、多种排序策略
+     * 核心搜索与列表查询方法 (Mongo 简化版)
+     * 支持：关键词搜索、标签过滤、排序
      */
     @Override
     public PageResult<PostVO> searchPosts(String keyword, String tag, Integer page, Integer size, String sort) {
-        Long currentUserId = UserContext.getUserId();
+        int pageNum = (page == null || page < 1) ? 0 : page - 1;
+        int pageSize = (size == null || size < 1) ? 20 : size;
 
-        // 1. 构建 gRPC 请求
-        Search.SearchRequest.Builder builder = Search.SearchRequest.newBuilder()
-                .setKeyword(keyword == null ? "" : keyword)
-                .setTag(tag == null ? "" : tag)
-                .setPage(page == null ? 1 : page)
-                .setPageSize(size == null ? 20 : size)
-                .setSort(sort == null ? "" : sort);
+        Sort sortBy = buildSort(sort);
+        Pageable pageable = PageRequest.of(pageNum, pageSize, sortBy);
 
-        if (currentUserId != null) {
-            builder.setUserId(currentUserId);
+        Criteria criteria = Criteria.where("isDeleted").is(0).and("status").is(1);
+        if (StrUtil.isNotBlank(keyword)) {
+            String pattern = ".*" + Pattern.quote(keyword.trim()) + ".*";
+            Criteria keywordCriteria = new Criteria().orOperator(
+                    Criteria.where("title").regex(pattern, "i"),
+                    Criteria.where("content").regex(pattern, "i")
+            );
+            criteria = new Criteria().andOperator(criteria, keywordCriteria);
+        }
+        if (StrUtil.isNotBlank(tag)) {
+            criteria = new Criteria().andOperator(criteria, Criteria.where("tags").in(tag));
         }
 
-        // 2. 调用 Go 微服务
-        Search.SearchResponse response;
-        try {
-            response = searchStub.search(builder.build());
-        } catch (Exception e) {
-            log.error("调用搜索微服务失败: ", e);
-            throw new AppException(ResultCode.SYSTEM_ERROR, "搜索服务暂时不可用");
-        }
-
-        // 3. 处理空结果
-        if (response.getItemsCount() == 0) {
-            return PageResult.empty(page == null ? 1 : page, size == null ? 20 : size);
-        }
-
-        // 4. 【关键】批量查询交互状态 (IsLiked, IsCollected, IsFollowed)
-        // Go 只返回了帖子基础数据，Java 负责把"当前用户是否点过赞"这些个性化状态填进去
-        List<PostVO> postVOs = enrichInteractionStatus(response.getItemsList(), currentUserId);
-
-        return PageResult.of(postVOs, response.getTotal(), page == null ? 1 : page, size == null ? 20 : size);
-    }
-
-    /**
-     * 辅助方法：将 Go 返回的 Proto 对象转为 Java VO，并填充交互状态
-     */
-    private List<PostVO> enrichInteractionStatus(List<Search.SearchPostVO> items, Long currentUserId) {
-        // 1. 提取 ID 列表
-        List<String> postIds = items.stream().map(Search.SearchPostVO::getId).collect(Collectors.toList());
-        List<Long> authorIds = items.stream()
-                .map(item -> Long.parseLong(item.getAuthor().getUserId()))
-                .distinct()
-                .collect(Collectors.toList());
-
-        // 2. 批量查库 (仅当用户登录时)
-        Set<String> likedSet = new HashSet<>();
-        Set<String> collectedSet = new HashSet<>();
-        Set<Long> followedSet = new HashSet<>();
-
-        if (currentUserId != null) {
-            // 查点赞
-            List<PostLikeDoc> likes = postLikeRepository.findByUserIdAndPostIdIn(currentUserId, postIds);
-            likedSet = likes.stream().map(PostLikeDoc::getPostId).collect(Collectors.toSet());
-            // 查收藏
-            List<PostCollectDoc> collects = postCollectRepository.findByUserIdAndPostIdIn(currentUserId, postIds);
-            collectedSet = collects.stream().map(PostCollectDoc::getPostId).collect(Collectors.toSet());
-            // 查关注
-            List<UserFollowDoc> follows = userFollowRepository.findByUserIdAndTargetUserIdIn(currentUserId, authorIds);
-            followedSet = follows.stream().map(UserFollowDoc::getTargetUserId).collect(Collectors.toSet());
-        }
-
-        // 3. 转换并填充
-        List<PostVO> result = new ArrayList<>();
-        for (Search.SearchPostVO item : items) {
-            PostVO vo = new PostVO();
-            vo.setId(item.getId());
-            vo.setTitle(item.getTitle());
-            vo.setContent(item.getContent()); // Go 已经截取了摘要
-            vo.setCover(item.getCover());
-            vo.setType(item.getType());
-            vo.setLikeCount(item.getLikeCount());
-            vo.setTags(item.getTagsList());
-            vo.setCoverWidth(item.getCoverWidth());
-            vo.setCoverHeight(item.getCoverHeight());
-
-            // 作者信息
-            UserInfo author = new UserInfo();
-            author.setUserId(item.getAuthor().getUserId());
-            author.setNickname(item.getAuthor().getNickname());
-            author.setAvatar(item.getAuthor().getAvatar());
-            vo.setAuthor(author);
-
-            // 状态填充
-            vo.setIsLiked(likedSet.contains(item.getId()));
-            vo.setIsCollected(collectedSet.contains(item.getId()));
-            if (StrUtil.isNotBlank(item.getAuthor().getUserId())) {
-                vo.setIsFollowed(followedSet.contains(Long.parseLong(item.getAuthor().getUserId())));
-            }
-
-            // 列表页通常不需要详细资源列表
-            vo.setImages(Collections.emptyList());
-
-            result.add(vo);
-        }
-        return result;
+        Query query = new Query(criteria).with(pageable);
+        List<PostDoc> docs = mongoTemplate.find(query, PostDoc.class);
+        long total = mongoTemplate.count(Query.of(query).limit(-1).skip(-1), PostDoc.class);
+        Page<PostDoc> pageData = new PageImpl<>(docs, pageable, total);
+        return buildResultMap(pageData);
     }
 
     /**
@@ -266,57 +171,55 @@ public class PostServiceImpl implements PostService {
     }
 
     /**
-     * 搜索补全 - 转发给 Go
+     * 搜索补全 (简化)
      */
     @Override
     public List<String> getSearchSuggestions(String keyword) {
-        if (StrUtil.isBlank(keyword)) return new ArrayList<>();
-
-        Search.SuggestRequest request = Search.SuggestRequest.newBuilder().setKeyword(keyword).build();
-        try {
-            return searchStub.suggest(request).getSuggestionsList();
-        } catch (Exception e) {
-            log.error("调用搜索建议失败", e);
-            return new ArrayList<>(); // 降级处理：返回空列表
-        }
+        return new ArrayList<>();
     }
 
     /**
-     * 获取搜索历史 - 转发给 Go
+     * 获取搜索历史 (简化)
      */
     @Override
     public List<String> getSearchHistory(Long userId) {
-        if (userId == null) return new ArrayList<>();
-
-        Search.HistoryRequest request = Search.HistoryRequest.newBuilder().setUserId(userId).build();
-        try {
-            return searchStub.getHistory(request).getKeywordsList();
-        } catch (Exception e) {
-            return new ArrayList<>();
-        }
+        return new ArrayList<>();
     }
 
     /**
-     * 清空搜索历史 - 转发给 Go
+     * 清空搜索历史 (简化)
      */
     @Override
     public void clearSearchHistory(Long userId) {
-        if (userId == null) return;
-        Search.ClearHistoryRequest request = Search.ClearHistoryRequest.newBuilder().setUserId(userId).build();
-        searchStub.deleteHistory(request);
     }
 
     /**
-     * 删除单条历史 - 转发给 Go
+     * 删除单条历史 (简化)
      */
     @Override
     public void deleteSearchHistoryItem(Long userId, String keyword) {
-        if (userId == null || StrUtil.isBlank(keyword)) return;
-        Search.ClearHistoryRequest request = Search.ClearHistoryRequest.newBuilder()
-                .setUserId(userId)
-                .setKeyword(keyword)
-                .build();
-        searchStub.deleteHistory(request);
+    }
+
+    private PageResult<PostVO> queryRecommendFromMongo(String tag, Integer page, Integer size, String sort) {
+        int pageNum = (page == null || page < 1) ? 0 : page - 1;
+        int pageSize = (size == null || size < 1) ? 20 : size;
+        Sort sortBy = buildSort(sort);
+        Pageable pageable = PageRequest.of(pageNum, pageSize, sortBy);
+
+        Page<PostDoc> postDocPage;
+        if (StrUtil.isNotBlank(tag)) {
+            postDocPage = postRepository.findByTagsContainingAndIsDeleted(tag, 0, pageable);
+        } else {
+            postDocPage = postRepository.findByStatusAndIsDeleted(1, 0, pageable);
+        }
+        return buildResultMap(postDocPage);
+    }
+
+    private Sort buildSort(String sort) {
+        if ("hot".equalsIgnoreCase(sort) || "likes".equalsIgnoreCase(sort)) {
+            return Sort.by(Sort.Direction.DESC, "likeCount", "createdAt");
+        }
+        return Sort.by(Sort.Direction.DESC, "createdAt");
     }
 
     @Override

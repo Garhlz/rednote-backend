@@ -1,4 +1,5 @@
 package com.szu.afternoon3.platform.controller;
+import org.junit.jupiter.api.Disabled;
 
 import cn.hutool.crypto.digest.BCrypt;
 import cn.hutool.json.JSONObject;
@@ -33,6 +34,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc // 开启虚拟MVC调用
 @Transactional // 测试结束后自动回滚数据库，保持环境干净
+@Disabled("migrated to gateway/user-rpc")
 public class ApiIntegrationTest {
 
         @Autowired

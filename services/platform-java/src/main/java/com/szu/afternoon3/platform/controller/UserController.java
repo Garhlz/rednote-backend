@@ -1,23 +1,31 @@
 package com.szu.afternoon3.platform.controller;
 
-import cn.hutool.core.util.StrUtil;
 import com.szu.afternoon3.platform.annotation.OperationLog;
 import com.szu.afternoon3.platform.common.Result;
-import com.szu.afternoon3.platform.dto.*;
-import com.szu.afternoon3.platform.enums.ResultCode;
+import com.szu.afternoon3.platform.dto.FriendSearchDTO;
+import com.szu.afternoon3.platform.dto.UserIdDTO;
 import com.szu.afternoon3.platform.service.UserService;
-import com.szu.afternoon3.platform.vo.*;
+import com.szu.afternoon3.platform.vo.MyCommentVO;
+import com.szu.afternoon3.platform.vo.PageResult;
+import com.szu.afternoon3.platform.vo.PostVO;
+import com.szu.afternoon3.platform.vo.SimpleUserVO;
+import com.szu.afternoon3.platform.vo.UserSearchVO;
 import jakarta.validation.Valid;
-import org.apache.ibatis.javassist.Loader;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
-import java.util.Map;
 
 /**
  * 用户控制器
- * 处理个人资料、关注粉丝、我的收藏等业务
+ * 仅保留仍由 Java 服务负责的用户相关业务
  */
 @RestController
 @RequestMapping("/api/user")
@@ -25,66 +33,6 @@ public class UserController {
 
     @Autowired
     private UserService userService;
-
-    /**
-     * 获取我的个人资料
-     */
-    @GetMapping("/profile")
-    @OperationLog(module = "用户模块", description = "获取个人资料")
-    public Result<UserProfileVO> getProfile() {
-        UserProfileVO vo = userService.getUserProfile();
-        return Result.success(vo);
-    }
-
-    /**
-     * 获取他人公开主页信息
-     * @param userId 目标用户ID
-     */
-    @GetMapping("/{userId}/profile")
-    @OperationLog(module = "用户模块", description = "获取他人主页信息")
-    public Result<PublicUserProfileVO> getOtherUserProfile(@PathVariable Long userId) {
-        return Result.success(userService.getPublicUserProfile(userId));
-    }
-
-    /**
-     * 修改个人资料
-     */
-    @PutMapping("/profile")
-    @OperationLog(module = "用户模块", description = "修改个人资料")
-    public Result<Void> updateProfile(@RequestBody @Valid UserProfileUpdateDTO dto) {
-        userService.updateProfile(dto);
-        return Result.success(null);
-    }
-
-    /**
-     * 绑定邮箱
-     */
-    @PostMapping("/bind-email")
-    @OperationLog(module = "用户模块", description = "绑定邮箱", bizId = "#dto.email")
-    public Result<UserEmailVO> bindEmail(@RequestBody @Valid UserBindEmailDTO dto) {
-        UserEmailVO result = userService.bindEmail(dto);
-        return Result.success(result);
-    }
-
-    /**
-     * 首次设置密码
-     */
-    @PostMapping("/password/set")
-    @OperationLog(module = "用户模块", description = "设置密码")
-    public Result<Void> setPasswordWithCode(@RequestBody @Valid UserPasswordSetDTO dto) {
-        userService.setPasswordWithCode(dto);
-        return Result.success(null);
-    }
-
-    /**
-     * 修改密码
-     */
-    @PostMapping("/password/change")
-    @OperationLog(module = "用户模块", description = "修改密码")
-    public Result<Void> changePassword(@RequestBody @Valid UserPasswordChangeDTO dto) {
-        userService.changePassword(dto);
-        return Result.success(null);
-    }
 
     /**
      * 获取我的关注列表
@@ -116,7 +64,6 @@ public class UserController {
 
     /**
      * 关注用户
-     * 入参改为 @Valid UserIdDTO
      */
     @PostMapping("/follow")
     @OperationLog(module = "用户模块", description = "关注用户", bizId = "#dto.targetUserId")
@@ -127,7 +74,6 @@ public class UserController {
 
     /**
      * 取消关注
-     * 入参改为 @Valid UserIdDTO
      */
     @PostMapping("/unfollow")
     @OperationLog(module = "用户模块", description = "取消关注", bizId = "#dto.targetUserId")
@@ -143,8 +89,6 @@ public class UserController {
     @GetMapping("/friends")
     @OperationLog(module = "用户模块", description = "获取好友列表")
     public Result<PageResult<SimpleUserVO>> getFriends(@ModelAttribute FriendSearchDTO dto) {
-        // 现在这里返回的是 Result<PageResult<UserInfo>>
-        // 结构清晰：code, msg, data: { records: [], total: 100 ... }
         return Result.success(userService.getFriendList(dto));
     }
 

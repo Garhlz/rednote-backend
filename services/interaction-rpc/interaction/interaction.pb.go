@@ -4,7 +4,7 @@
 // versions:
 // 	protoc-gen-go v1.36.11
 // 	protoc        v6.33.1
-// source: proto/interaction/interaction.proto
+// source: interaction/interaction.proto
 
 // 定义包名，类似于 Java 的 package com.szu...
 
@@ -35,7 +35,7 @@ type Empty struct {
 
 func (x *Empty) Reset() {
 	*x = Empty{}
-	mi := &file_proto_interaction_interaction_proto_msgTypes[0]
+	mi := &file_interaction_interaction_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -47,7 +47,7 @@ func (x *Empty) String() string {
 func (*Empty) ProtoMessage() {}
 
 func (x *Empty) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_interaction_interaction_proto_msgTypes[0]
+	mi := &file_interaction_interaction_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -60,7 +60,7 @@ func (x *Empty) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Empty.ProtoReflect.Descriptor instead.
 func (*Empty) Descriptor() ([]byte, []int) {
-	return file_proto_interaction_interaction_proto_rawDescGZIP(), []int{0}
+	return file_interaction_interaction_proto_rawDescGZIP(), []int{0}
 }
 
 // 针对“目标”的互动请求
@@ -76,7 +76,7 @@ type InteractionRequest struct {
 
 func (x *InteractionRequest) Reset() {
 	*x = InteractionRequest{}
-	mi := &file_proto_interaction_interaction_proto_msgTypes[1]
+	mi := &file_interaction_interaction_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -88,7 +88,7 @@ func (x *InteractionRequest) String() string {
 func (*InteractionRequest) ProtoMessage() {}
 
 func (x *InteractionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_interaction_interaction_proto_msgTypes[1]
+	mi := &file_interaction_interaction_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -101,7 +101,7 @@ func (x *InteractionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InteractionRequest.ProtoReflect.Descriptor instead.
 func (*InteractionRequest) Descriptor() ([]byte, []int) {
-	return file_proto_interaction_interaction_proto_rawDescGZIP(), []int{1}
+	return file_interaction_interaction_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *InteractionRequest) GetUserId() int64 {
@@ -131,7 +131,7 @@ type RateRequest struct {
 
 func (x *RateRequest) Reset() {
 	*x = RateRequest{}
-	mi := &file_proto_interaction_interaction_proto_msgTypes[2]
+	mi := &file_interaction_interaction_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -143,7 +143,7 @@ func (x *RateRequest) String() string {
 func (*RateRequest) ProtoMessage() {}
 
 func (x *RateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_interaction_interaction_proto_msgTypes[2]
+	mi := &file_interaction_interaction_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -156,7 +156,7 @@ func (x *RateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RateRequest.ProtoReflect.Descriptor instead.
 func (*RateRequest) Descriptor() ([]byte, []int) {
-	return file_proto_interaction_interaction_proto_rawDescGZIP(), []int{2}
+	return file_interaction_interaction_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *RateRequest) GetUserId() int64 {
@@ -180,11 +180,313 @@ func (x *RateRequest) GetScore() float64 {
 	return 0
 }
 
-var File_proto_interaction_interaction_proto protoreflect.FileDescriptor
+// 批量查询帖子互动状态
+type BatchPostStatsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UserId        int64                  `protobuf:"varint,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	PostIds       []string               `protobuf:"bytes,2,rep,name=post_ids,json=postIds,proto3" json:"post_ids,omitempty"`
+	PostAuthorMap map[string]int64       `protobuf:"bytes,3,rep,name=post_author_map,json=postAuthorMap,proto3" json:"post_author_map,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
 
-const file_proto_interaction_interaction_proto_rawDesc = "" +
+func (x *BatchPostStatsRequest) Reset() {
+	*x = BatchPostStatsRequest{}
+	mi := &file_interaction_interaction_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BatchPostStatsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BatchPostStatsRequest) ProtoMessage() {}
+
+func (x *BatchPostStatsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_interaction_interaction_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BatchPostStatsRequest.ProtoReflect.Descriptor instead.
+func (*BatchPostStatsRequest) Descriptor() ([]byte, []int) {
+	return file_interaction_interaction_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *BatchPostStatsRequest) GetUserId() int64 {
+	if x != nil {
+		return x.UserId
+	}
+	return 0
+}
+
+func (x *BatchPostStatsRequest) GetPostIds() []string {
+	if x != nil {
+		return x.PostIds
+	}
+	return nil
+}
+
+func (x *BatchPostStatsRequest) GetPostAuthorMap() map[string]int64 {
+	if x != nil {
+		return x.PostAuthorMap
+	}
+	return nil
+}
+
+type PostStats struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	IsLiked       bool                   `protobuf:"varint,1,opt,name=is_liked,json=isLiked,proto3" json:"is_liked,omitempty"`
+	IsCollected   bool                   `protobuf:"varint,2,opt,name=is_collected,json=isCollected,proto3" json:"is_collected,omitempty"`
+	IsFollowed    bool                   `protobuf:"varint,3,opt,name=is_followed,json=isFollowed,proto3" json:"is_followed,omitempty"`
+	CollectCount  int32                  `protobuf:"varint,4,opt,name=collect_count,json=collectCount,proto3" json:"collect_count,omitempty"`
+	CommentCount  int32                  `protobuf:"varint,5,opt,name=comment_count,json=commentCount,proto3" json:"comment_count,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PostStats) Reset() {
+	*x = PostStats{}
+	mi := &file_interaction_interaction_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PostStats) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PostStats) ProtoMessage() {}
+
+func (x *PostStats) ProtoReflect() protoreflect.Message {
+	mi := &file_interaction_interaction_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PostStats.ProtoReflect.Descriptor instead.
+func (*PostStats) Descriptor() ([]byte, []int) {
+	return file_interaction_interaction_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *PostStats) GetIsLiked() bool {
+	if x != nil {
+		return x.IsLiked
+	}
+	return false
+}
+
+func (x *PostStats) GetIsCollected() bool {
+	if x != nil {
+		return x.IsCollected
+	}
+	return false
+}
+
+func (x *PostStats) GetIsFollowed() bool {
+	if x != nil {
+		return x.IsFollowed
+	}
+	return false
+}
+
+func (x *PostStats) GetCollectCount() int32 {
+	if x != nil {
+		return x.CollectCount
+	}
+	return 0
+}
+
+func (x *PostStats) GetCommentCount() int32 {
+	if x != nil {
+		return x.CommentCount
+	}
+	return 0
+}
+
+type BatchPostStatsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Stats         map[string]*PostStats  `protobuf:"bytes,1,rep,name=stats,proto3" json:"stats,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BatchPostStatsResponse) Reset() {
+	*x = BatchPostStatsResponse{}
+	mi := &file_interaction_interaction_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BatchPostStatsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BatchPostStatsResponse) ProtoMessage() {}
+
+func (x *BatchPostStatsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_interaction_interaction_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BatchPostStatsResponse.ProtoReflect.Descriptor instead.
+func (*BatchPostStatsResponse) Descriptor() ([]byte, []int) {
+	return file_interaction_interaction_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *BatchPostStatsResponse) GetStats() map[string]*PostStats {
+	if x != nil {
+		return x.Stats
+	}
+	return nil
+}
+
+// 用户主页聚合数据
+type UserStatsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UserId        int64                  `protobuf:"varint,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`       // 目标用户
+	ViewerId      int64                  `protobuf:"varint,2,opt,name=viewer_id,json=viewerId,proto3" json:"viewer_id,omitempty"` // 当前登录用户(可选)
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UserStatsRequest) Reset() {
+	*x = UserStatsRequest{}
+	mi := &file_interaction_interaction_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UserStatsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UserStatsRequest) ProtoMessage() {}
+
+func (x *UserStatsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_interaction_interaction_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UserStatsRequest.ProtoReflect.Descriptor instead.
+func (*UserStatsRequest) Descriptor() ([]byte, []int) {
+	return file_interaction_interaction_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *UserStatsRequest) GetUserId() int64 {
+	if x != nil {
+		return x.UserId
+	}
+	return 0
+}
+
+func (x *UserStatsRequest) GetViewerId() int64 {
+	if x != nil {
+		return x.ViewerId
+	}
+	return 0
+}
+
+type UserStatsResponse struct {
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	FollowCount       int64                  `protobuf:"varint,1,opt,name=follow_count,json=followCount,proto3" json:"follow_count,omitempty"`
+	FanCount          int64                  `protobuf:"varint,2,opt,name=fan_count,json=fanCount,proto3" json:"fan_count,omitempty"`
+	ReceivedLikeCount int64                  `protobuf:"varint,3,opt,name=received_like_count,json=receivedLikeCount,proto3" json:"received_like_count,omitempty"`
+	IsFollowed        bool                   `protobuf:"varint,4,opt,name=is_followed,json=isFollowed,proto3" json:"is_followed,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *UserStatsResponse) Reset() {
+	*x = UserStatsResponse{}
+	mi := &file_interaction_interaction_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UserStatsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UserStatsResponse) ProtoMessage() {}
+
+func (x *UserStatsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_interaction_interaction_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UserStatsResponse.ProtoReflect.Descriptor instead.
+func (*UserStatsResponse) Descriptor() ([]byte, []int) {
+	return file_interaction_interaction_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *UserStatsResponse) GetFollowCount() int64 {
+	if x != nil {
+		return x.FollowCount
+	}
+	return 0
+}
+
+func (x *UserStatsResponse) GetFanCount() int64 {
+	if x != nil {
+		return x.FanCount
+	}
+	return 0
+}
+
+func (x *UserStatsResponse) GetReceivedLikeCount() int64 {
+	if x != nil {
+		return x.ReceivedLikeCount
+	}
+	return 0
+}
+
+func (x *UserStatsResponse) GetIsFollowed() bool {
+	if x != nil {
+		return x.IsFollowed
+	}
+	return false
+}
+
+var File_interaction_interaction_proto protoreflect.FileDescriptor
+
+const file_interaction_interaction_proto_rawDesc = "" +
 	"\n" +
-	"#proto/interaction/interaction.proto\x12\vinteraction\"\a\n" +
+	"\x1dinteraction/interaction.proto\x12\vinteraction\"\a\n" +
 	"\x05Empty\"J\n" +
 	"\x12InteractionRequest\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\x03R\x06userId\x12\x1b\n" +
@@ -192,7 +494,36 @@ const file_proto_interaction_interaction_proto_rawDesc = "" +
 	"\vRateRequest\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\x03R\x06userId\x12\x1b\n" +
 	"\ttarget_id\x18\x02 \x01(\tR\btargetId\x12\x14\n" +
-	"\x05score\x18\x03 \x01(\x01R\x05score2\xe6\x03\n" +
+	"\x05score\x18\x03 \x01(\x01R\x05score\"\xec\x01\n" +
+	"\x15BatchPostStatsRequest\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\x03R\x06userId\x12\x19\n" +
+	"\bpost_ids\x18\x02 \x03(\tR\apostIds\x12]\n" +
+	"\x0fpost_author_map\x18\x03 \x03(\v25.interaction.BatchPostStatsRequest.PostAuthorMapEntryR\rpostAuthorMap\x1a@\n" +
+	"\x12PostAuthorMapEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\x03R\x05value:\x028\x01\"\xb4\x01\n" +
+	"\tPostStats\x12\x19\n" +
+	"\bis_liked\x18\x01 \x01(\bR\aisLiked\x12!\n" +
+	"\fis_collected\x18\x02 \x01(\bR\visCollected\x12\x1f\n" +
+	"\vis_followed\x18\x03 \x01(\bR\n" +
+	"isFollowed\x12#\n" +
+	"\rcollect_count\x18\x04 \x01(\x05R\fcollectCount\x12#\n" +
+	"\rcomment_count\x18\x05 \x01(\x05R\fcommentCount\"\xb0\x01\n" +
+	"\x16BatchPostStatsResponse\x12D\n" +
+	"\x05stats\x18\x01 \x03(\v2..interaction.BatchPostStatsResponse.StatsEntryR\x05stats\x1aP\n" +
+	"\n" +
+	"StatsEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12,\n" +
+	"\x05value\x18\x02 \x01(\v2\x16.interaction.PostStatsR\x05value:\x028\x01\"H\n" +
+	"\x10UserStatsRequest\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\x03R\x06userId\x12\x1b\n" +
+	"\tviewer_id\x18\x02 \x01(\x03R\bviewerId\"\xa4\x01\n" +
+	"\x11UserStatsResponse\x12!\n" +
+	"\ffollow_count\x18\x01 \x01(\x03R\vfollowCount\x12\x1b\n" +
+	"\tfan_count\x18\x02 \x01(\x03R\bfanCount\x12.\n" +
+	"\x13received_like_count\x18\x03 \x01(\x03R\x11receivedLikeCount\x12\x1f\n" +
+	"\vis_followed\x18\x04 \x01(\bR\n" +
+	"isFollowed2\x90\x05\n" +
 	"\x12InteractionService\x12?\n" +
 	"\bLikePost\x12\x1f.interaction.InteractionRequest\x1a\x12.interaction.Empty\x12A\n" +
 	"\n" +
@@ -201,68 +532,84 @@ const file_proto_interaction_interaction_proto_rawDesc = "" +
 	"\rUncollectPost\x12\x1f.interaction.InteractionRequest\x1a\x12.interaction.Empty\x128\n" +
 	"\bRatePost\x12\x18.interaction.RateRequest\x1a\x12.interaction.Empty\x12B\n" +
 	"\vLikeComment\x12\x1f.interaction.InteractionRequest\x1a\x12.interaction.Empty\x12D\n" +
-	"\rUnlikeComment\x12\x1f.interaction.InteractionRequest\x1a\x12.interaction.EmptyB\x0fZ\r./interactionb\x06proto3"
+	"\rUnlikeComment\x12\x1f.interaction.InteractionRequest\x1a\x12.interaction.Empty\x12Y\n" +
+	"\x0eBatchPostStats\x12\".interaction.BatchPostStatsRequest\x1a#.interaction.BatchPostStatsResponse\x12M\n" +
+	"\fGetUserStats\x12\x1d.interaction.UserStatsRequest\x1a\x1e.interaction.UserStatsResponseB\x0fZ\r./interactionb\x06proto3"
 
 var (
-	file_proto_interaction_interaction_proto_rawDescOnce sync.Once
-	file_proto_interaction_interaction_proto_rawDescData []byte
+	file_interaction_interaction_proto_rawDescOnce sync.Once
+	file_interaction_interaction_proto_rawDescData []byte
 )
 
-func file_proto_interaction_interaction_proto_rawDescGZIP() []byte {
-	file_proto_interaction_interaction_proto_rawDescOnce.Do(func() {
-		file_proto_interaction_interaction_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_proto_interaction_interaction_proto_rawDesc), len(file_proto_interaction_interaction_proto_rawDesc)))
+func file_interaction_interaction_proto_rawDescGZIP() []byte {
+	file_interaction_interaction_proto_rawDescOnce.Do(func() {
+		file_interaction_interaction_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_interaction_interaction_proto_rawDesc), len(file_interaction_interaction_proto_rawDesc)))
 	})
-	return file_proto_interaction_interaction_proto_rawDescData
+	return file_interaction_interaction_proto_rawDescData
 }
 
-var file_proto_interaction_interaction_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
-var file_proto_interaction_interaction_proto_goTypes = []any{
-	(*Empty)(nil),              // 0: interaction.Empty
-	(*InteractionRequest)(nil), // 1: interaction.InteractionRequest
-	(*RateRequest)(nil),        // 2: interaction.RateRequest
+var file_interaction_interaction_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
+var file_interaction_interaction_proto_goTypes = []any{
+	(*Empty)(nil),                  // 0: interaction.Empty
+	(*InteractionRequest)(nil),     // 1: interaction.InteractionRequest
+	(*RateRequest)(nil),            // 2: interaction.RateRequest
+	(*BatchPostStatsRequest)(nil),  // 3: interaction.BatchPostStatsRequest
+	(*PostStats)(nil),              // 4: interaction.PostStats
+	(*BatchPostStatsResponse)(nil), // 5: interaction.BatchPostStatsResponse
+	(*UserStatsRequest)(nil),       // 6: interaction.UserStatsRequest
+	(*UserStatsResponse)(nil),      // 7: interaction.UserStatsResponse
+	nil,                            // 8: interaction.BatchPostStatsRequest.PostAuthorMapEntry
+	nil,                            // 9: interaction.BatchPostStatsResponse.StatsEntry
 }
-var file_proto_interaction_interaction_proto_depIdxs = []int32{
-	1, // 0: interaction.InteractionService.LikePost:input_type -> interaction.InteractionRequest
-	1, // 1: interaction.InteractionService.UnlikePost:input_type -> interaction.InteractionRequest
-	1, // 2: interaction.InteractionService.CollectPost:input_type -> interaction.InteractionRequest
-	1, // 3: interaction.InteractionService.UncollectPost:input_type -> interaction.InteractionRequest
-	2, // 4: interaction.InteractionService.RatePost:input_type -> interaction.RateRequest
-	1, // 5: interaction.InteractionService.LikeComment:input_type -> interaction.InteractionRequest
-	1, // 6: interaction.InteractionService.UnlikeComment:input_type -> interaction.InteractionRequest
-	0, // 7: interaction.InteractionService.LikePost:output_type -> interaction.Empty
-	0, // 8: interaction.InteractionService.UnlikePost:output_type -> interaction.Empty
-	0, // 9: interaction.InteractionService.CollectPost:output_type -> interaction.Empty
-	0, // 10: interaction.InteractionService.UncollectPost:output_type -> interaction.Empty
-	0, // 11: interaction.InteractionService.RatePost:output_type -> interaction.Empty
-	0, // 12: interaction.InteractionService.LikeComment:output_type -> interaction.Empty
-	0, // 13: interaction.InteractionService.UnlikeComment:output_type -> interaction.Empty
-	7, // [7:14] is the sub-list for method output_type
-	0, // [0:7] is the sub-list for method input_type
-	0, // [0:0] is the sub-list for extension type_name
-	0, // [0:0] is the sub-list for extension extendee
-	0, // [0:0] is the sub-list for field type_name
+var file_interaction_interaction_proto_depIdxs = []int32{
+	8,  // 0: interaction.BatchPostStatsRequest.post_author_map:type_name -> interaction.BatchPostStatsRequest.PostAuthorMapEntry
+	9,  // 1: interaction.BatchPostStatsResponse.stats:type_name -> interaction.BatchPostStatsResponse.StatsEntry
+	4,  // 2: interaction.BatchPostStatsResponse.StatsEntry.value:type_name -> interaction.PostStats
+	1,  // 3: interaction.InteractionService.LikePost:input_type -> interaction.InteractionRequest
+	1,  // 4: interaction.InteractionService.UnlikePost:input_type -> interaction.InteractionRequest
+	1,  // 5: interaction.InteractionService.CollectPost:input_type -> interaction.InteractionRequest
+	1,  // 6: interaction.InteractionService.UncollectPost:input_type -> interaction.InteractionRequest
+	2,  // 7: interaction.InteractionService.RatePost:input_type -> interaction.RateRequest
+	1,  // 8: interaction.InteractionService.LikeComment:input_type -> interaction.InteractionRequest
+	1,  // 9: interaction.InteractionService.UnlikeComment:input_type -> interaction.InteractionRequest
+	3,  // 10: interaction.InteractionService.BatchPostStats:input_type -> interaction.BatchPostStatsRequest
+	6,  // 11: interaction.InteractionService.GetUserStats:input_type -> interaction.UserStatsRequest
+	0,  // 12: interaction.InteractionService.LikePost:output_type -> interaction.Empty
+	0,  // 13: interaction.InteractionService.UnlikePost:output_type -> interaction.Empty
+	0,  // 14: interaction.InteractionService.CollectPost:output_type -> interaction.Empty
+	0,  // 15: interaction.InteractionService.UncollectPost:output_type -> interaction.Empty
+	0,  // 16: interaction.InteractionService.RatePost:output_type -> interaction.Empty
+	0,  // 17: interaction.InteractionService.LikeComment:output_type -> interaction.Empty
+	0,  // 18: interaction.InteractionService.UnlikeComment:output_type -> interaction.Empty
+	5,  // 19: interaction.InteractionService.BatchPostStats:output_type -> interaction.BatchPostStatsResponse
+	7,  // 20: interaction.InteractionService.GetUserStats:output_type -> interaction.UserStatsResponse
+	12, // [12:21] is the sub-list for method output_type
+	3,  // [3:12] is the sub-list for method input_type
+	3,  // [3:3] is the sub-list for extension type_name
+	3,  // [3:3] is the sub-list for extension extendee
+	0,  // [0:3] is the sub-list for field type_name
 }
 
-func init() { file_proto_interaction_interaction_proto_init() }
-func file_proto_interaction_interaction_proto_init() {
-	if File_proto_interaction_interaction_proto != nil {
+func init() { file_interaction_interaction_proto_init() }
+func file_interaction_interaction_proto_init() {
+	if File_interaction_interaction_proto != nil {
 		return
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_interaction_interaction_proto_rawDesc), len(file_proto_interaction_interaction_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_interaction_interaction_proto_rawDesc), len(file_interaction_interaction_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   3,
+			NumMessages:   10,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
-		GoTypes:           file_proto_interaction_interaction_proto_goTypes,
-		DependencyIndexes: file_proto_interaction_interaction_proto_depIdxs,
-		MessageInfos:      file_proto_interaction_interaction_proto_msgTypes,
+		GoTypes:           file_interaction_interaction_proto_goTypes,
+		DependencyIndexes: file_interaction_interaction_proto_depIdxs,
+		MessageInfos:      file_interaction_interaction_proto_msgTypes,
 	}.Build()
-	File_proto_interaction_interaction_proto = out.File
-	file_proto_interaction_interaction_proto_goTypes = nil
-	file_proto_interaction_interaction_proto_depIdxs = nil
+	File_interaction_interaction_proto = out.File
+	file_interaction_interaction_proto_goTypes = nil
+	file_interaction_interaction_proto_depIdxs = nil
 }

@@ -7,7 +7,8 @@ WORKDIR /app
 # 1. 预先下载依赖
 COPY go.mod go.sum ./
 # 配置国内代理
-ENV GOPROXY=https://goproxy.cn,direct
+ARG GOPROXY=https://goproxy.cn,direct
+ENV GOPROXY=${GOPROXY}
 RUN go mod download
 
 # 安装时区 (Alpine 使用 apk)

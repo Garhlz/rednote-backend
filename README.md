@@ -1,8 +1,6 @@
-# 📱 社交平台小程序"映记" - 后端服务 (Afternoon_3 Group)
+# 📱 分享派 Sharely - 后端服务
 
-软件工程课程大作业 - 下午第三组
-
-这是一个基于 Spring Boot 和微服务架构思想构建的后端系统，为我们的“类小红书”微信小程序及 Web 管理后台提供 API 支持。
+这是一个基于 Spring Boot 和微服务架构思想构建的后端系统，为“类小红书”的内容社区及 Web 管理后台提供 API 支持。
 
 - [业务代码规范](./business_codes.md)
 - [apifox接口(openapi)](./openapi.json)
@@ -11,7 +9,7 @@
 
 本项目采用现代化的 Java 后端技术栈，容器化部署。
 
-    开发语言: Java 17 (LTS)
+    开发语言: Java 17 (LTS) + Go 1.21
 
     核心框架: Spring Boot 3.x
 
@@ -21,7 +19,7 @@
 
     缓存: Redis 7 (用于 Session 管理、验证码、高频计数)
 
-    服务器：Aliyun
+    网关/API: Go-Zero (gateway-api)
 
     对象存储: Aliyun OSS (存储图片、视频资源)
 
@@ -39,41 +37,49 @@
 
     AI 能力: Qwen-VL (Spring AI 集成，支持多模态理解)
 
-    即时通讯: Tencent Cloud IM (集成用户签名生成 UserSig)
+    即时通讯: Tencent Cloud IM (预留)
 
 ## 🏗 系统架构 (Architecture)
 ```
 graph TD
-    User[小程序/Web端] --> Nginx[Nginx 网关 (80/443)]
-    Nginx -->|/api| Boot[Spring Boot 后端 (8080)]
-    
-    Boot --> PostgreSQL[(PostgreSQL: 仅存储 User)]
-    Boot --> MongoDB[(MongoDB: 存储 Post/Comment/交互数据)]
-    Boot --> Redis[(Redis: 缓存/计数/Session)]
-    Boot --> OSS[阿里云 OSS: 图片/视频]
-    
-    Boot --> MQ[RabbitMQ]
-    MQ -->|异步削峰/解耦| Boot
-    
+    User[Web/移动端] --> Nginx[Nginx 网关 (80/443)]
+    Nginx -->|/api| Gateway[Go 网关 gateway-api (8090)]
+
+    Gateway -->|zRPC| UserRPC[user-rpc]
+    Gateway -->|zRPC| InteractionRPC[interaction-rpc]
+    Gateway -->|zRPC| SearchRPC[search-rpc]
+    Gateway -->|HTTP 代理| Java[Spring Boot 平台服务 (8080)]
+
+    UserRPC --> PostgreSQL[(PostgreSQL: 用户/账号)]
+    Java --> MongoDB[(MongoDB: 帖子/评论/互动冗余)]
+    Java --> Redis[(Redis: 计数/验证码/缓存)]
+    Java --> OSS[阿里云 OSS: 图片/视频]
+    Java --> MQ[RabbitMQ]
+
     subgraph "异步同步层 (Sidecar Pattern)"
-        MQ -->|订阅变更事件| GoSidecar[Go Sidecar (轻量级消费者)]
-        GoSidecar -->|1. 回查数据| MongoDB
-        GoSidecar -->|2. 写入/更新| ES[(Elasticsearch: 全文检索)]
+        MQ -->|订阅变更事件| GoSidecar[Go Sidecar (同步消费者)]
+        GoSidecar -->|回查数据| MongoDB
+        GoSidecar -->|写入/更新| ES[(Elasticsearch: 搜索索引)]
     end
-    
-    Boot --> ES[(Elasticsearch: 全文检索/Tag聚合)]
-    
-    Boot -->|HTTP 请求| AI[大模型 API (QwenVL: 内容理解/生成)]
+
+    SearchRPC --> ES
+    Java -->|HTTP 请求| AI[大模型 API (QwenVL: 内容理解/生成)]
 ```
 
 ## 核心架构设计亮点
-1. **混合存储策略 (Polyglot Persistence)**
+1. **微服务迁移与边界收敛 (Microservice Migration)**
+
+- 网关统一入口：gateway-api 负责鉴权、聚合与请求路由，Java 仅保留业务域能力。
+- user-rpc 作为账号与鉴权事实来源，统一 Token/JWT 签发与吊销策略。
+- interaction-rpc/search-rpc 提供独立的交互与搜索能力，网关负责聚合返回字段。
+
+2. **混合存储策略 (Polyglot Persistence)**
 
 - PostgreSQL: 作为 Source of Truth，存储核心用户账号、关系型强事务数据。
 
 - MongoDB: 存储帖子(Post)、评论(Comment)及海量交互数据。利用其 Schema-free 特性冗余用户信息(Nickname/Avatar)，避免 N+1 查询问题。
 
-2. **异步事件驱动与最终一致性 (Event-Driven Architecture)**
+3. **异步事件驱动与最终一致性 (Event-Driven Architecture)**
 
 - 消息总线 (Message Bus): 引入 RabbitMQ (Topic Exchange) 作为全链路事件总线，实现核心业务的深度解耦。
     
@@ -85,7 +91,7 @@ graph TD
 
     - AI 异步介入: 也就是在发帖成功后，异步投递消息触发 AI 摘要生成与自动评论，不阻塞主线程，提升用户体验。
 
-3. **多级缓存与高并发支撑 (Redis Strategy)**
+4. **多级缓存与高并发支撑 (Redis Strategy)**
 
 - 写缓冲 (Write-Behind Pattern):
     - 高频互动: 点赞、收藏等操作直接写入 Redis Set (去重) 与 Hash (计数)，通过定时任务或阈值触发异步落库 MongoDB，削峰填谷，保护数据库。
@@ -104,7 +110,7 @@ graph TD
 
     - 通用缓存: 使用 @Cacheable 对配置信息、用户信息等读多写少的数据进行缓存。
 
-4. **高可用搜索架构 (Advanced Search)**
+5. **高可用搜索架构 (Advanced Search)**
 
 - Elasticsearch 8: 替代了原有的 MongoDB 正则搜索，性能提升显著。
 
@@ -112,7 +118,7 @@ graph TD
 
 - 混合排序算法: 实现了基于 Function Score 的综合热度排序（结合了 BM25 相关度 + 点赞数对数加权 + 高斯函数时间衰减）。
 
-5. **AI Native 内容生态**
+6. **AI Native 内容生态**
 
 - 全链路 AI 介入: 帖子发布后自动触发 AI 管道。
 
@@ -122,12 +128,12 @@ graph TD
 
 - 安全风控: 内容发布前经过 AI 敏感词与合规性校验。
 
-6. **Sidecar 异构微服务模式 (Polyglot Sidecar)**
+7. **Sidecar 异构微服务模式 (Polyglot Sidecar)**
 - **架构决策**: 为了在低内存服务器（4GB）上维持高性能运行，我们将资源密集型的“数据同步消费者”从 Java 主进程中剥离。
 - **Go Sidecar**: 使用 Go 语言编写独立的 Sidecar 容器，内存占用仅约 10MB。它专门负责监听 RabbitMQ 的业务变更消息（PostCreate/Update/Delete），并负责将数据从 MongoDB 同步至 Elasticsearch。
 - **优势**: 实现了 **主应用（业务逻辑）** 与 **辅助应用（数据管道）** 的语言级解耦，既保留了 Java 生态的开发效率，又利用了 Go 在高并发和低内存下的运行时优势。
 
-7. **低资源环境下的 CI/CD 最佳实践**
+8. **低资源环境下的 CI/CD 最佳实践**
 - **挑战**: 生产环境网络受限（无法流畅访问 Docker Hub/Github）且内存不足，导致直接在服务器上进行 `docker build` 或 `mvn package` 经常失败或 OOM。
 - **解决方案**: 设计了 "Local Build, Remote Load" 的部署流水线。
     - **Java**: 本地编译 JAR 包 -> 增量传输 -> 服务器复用基础镜像运行。
@@ -136,33 +142,63 @@ graph TD
 
 ## 核心模块划分
 
-Auth 模块: 
-- 处理微信一键登录、账号注册、邮件验证码、JWT 签发。
+Gateway API (Go-Zero):
+- 统一鉴权入口、错误码规范、公共头透传与用户上下文注入。
+- 网关聚合：补齐用户/交互/搜索等聚合字段，输出一致的前端响应结构。
 
-User 模块: 
-- 用户信息管理、邮箱绑定、个人资料修改。
+user-rpc:
+- 邮箱注册/登录/刷新/登出/改密/绑定邮箱。
+- 用户资料 CRUD、Token 签发/吊销与版本控制。
 
-Post 模块:
-- 支持图文/视频混合发布流。
-- **搜索升级**: 基于 Elasticsearch 实现的综合热度排序（Function Score：结合时间衰减与互动权重）。
+interaction-rpc:
+- 点赞/收藏/评分等交互行为。
+- 批量状态与用户统计接口，为网关聚合提供基础数据。
 
-Interaction 模块:
-- 实现了 点赞/收藏/评分(Rating) 的全套逻辑。
-- 基于 Redis Set/Hash 实现去重与快速计数，保障高并发下的数据准确性。
+search-rpc:
+- 搜索建议、历史、全文检索与排序策略。
+- ES 索引查询与建议能力。
 
-Admin 模块 (后台管理):
-- 用户治理: 支持用户列表查询、详情查看及账号封禁/解封操作。
-- 内容审计:
-    - 帖子管理：查询全站帖子、强制下架/删除违规内容。
-    - 审核流：配合 AI 预审结果，对状态为“审核中”的帖子进行人工复核（通过/驳回）。
-- 运维工具:
-    - 操作日志 (Audit Log): 基于 Spring AOP 切面记录关键操作（如删除、封禁），持久化至 MongoDB 供审计查询。
-    - 系统监控: 集成 Prometheus + Grafana 监控 JVM/系统指标，RabbitMQ 控制台监控队列积压，Kibana 可视化 ES 数据。
+platform-java (业务域):
+- 帖子/评论/通知/后台管理等业务域。
+- Mongo + MQ + ES 同步处理、AI 相关能力。
 
-AI 模块:
-- Content Service: 封装 LLM 调用，实现标签生成、摘要提取。
-- Audit Service: 文本与图像的自动化审核。
-- Agent Service: 模拟虚拟用户（如“课代表”）进行自动评论互动。
+sync-sidecar (Go):
+- 订阅 MQ 变更事件，回查 Mongo 并写入 ES。
+
+## 网关模块细分 (gateway-api)
+
+auth:
+- 登录/注册/刷新/登出/验证码发送与统一响应结构。
+
+user:
+- 获取/更新个人资料、公开资料与用户相关查询。
+
+post:
+- 列表/详情/搜索/推荐等请求聚合，必要时转发至 Java。
+
+interaction:
+- 交互操作与批量状态获取（RPC）。
+
+comment:
+- 评论相关接口（Java 代理或聚合）。
+
+search:
+- 搜索历史、建议、结果聚合（RPC）。
+
+message:
+- 通知/未读数接口（Java 代理）。
+
+tag:
+- 热门标签等聚合接口（Java 代理或 ES 查询）。
+
+common:
+- 上传、通用能力与辅助接口。
+
+admin:
+- 管理后台接口（优先透传 Java）。
+
+javaproxy:
+- 统一 HTTP 反向代理，负责超时、头透传白名单与错误包装。
 
 ## 项目结构
 ```

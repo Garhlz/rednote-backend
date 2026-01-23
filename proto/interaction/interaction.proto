@@ -32,6 +32,38 @@ message RateRequest {
   double score = 3;       // 分数 (Java Double 对应 proto double)
 }
 
+// 批量查询帖子互动状态
+message BatchPostStatsRequest {
+  int64 user_id = 1;
+  repeated string post_ids = 2;
+  map<string, int64> post_author_map = 3;
+}
+
+message PostStats {
+  bool is_liked = 1;
+  bool is_collected = 2;
+  bool is_followed = 3;
+  int32 collect_count = 4;
+  int32 comment_count = 5;
+}
+
+message BatchPostStatsResponse {
+  map<string, PostStats> stats = 1;
+}
+
+// 用户主页聚合数据
+message UserStatsRequest {
+  int64 user_id = 1;      // 目标用户
+  int64 viewer_id = 2;    // 当前登录用户(可选)
+}
+
+message UserStatsResponse {
+  int64 follow_count = 1;
+  int64 fan_count = 2;
+  int64 received_like_count = 3;
+  bool is_followed = 4;
+}
+
 // ==========================================
 // 2. 服务接口定义 (Service Definitions)
 // ==========================================
@@ -72,4 +104,10 @@ service InteractionService {
   // 取消点赞评论
   // 对应 Java: unlikeComment(CommentIdDTO)
   rpc UnlikeComment(InteractionRequest) returns (Empty);
+
+  // 批量查询帖子互动状态
+  rpc BatchPostStats(BatchPostStatsRequest) returns (BatchPostStatsResponse);
+
+  // 用户主页聚合数据
+  rpc GetUserStats(UserStatsRequest) returns (UserStatsResponse);
 }

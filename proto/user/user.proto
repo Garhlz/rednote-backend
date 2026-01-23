@@ -38,7 +38,6 @@ message UserProfile {
   string region = 8;
   string role = 9;
   int32 status = 10;
-  bool has_password = 11;
 }
 
 message PublicUserProfile {
@@ -53,8 +52,6 @@ message PublicUserProfile {
 message AuthResponse {
   TokenPair tokens = 1;
   UserSummary user = 2;
-  bool is_new_user = 3;
-  bool has_password = 4;
 }
 
 // =======================
@@ -145,6 +142,17 @@ message UpdateUserStatusRequest {
   int32 status = 2;
 }
 
+// Admin-only / Self delete
+message DeleteUserRequest {
+  int64 user_id = 1;
+  string reason = 2;
+}
+
+message AdminDeleteUserRequest {
+  int64 user_id = 1;
+  string reason = 2;
+}
+
 // =======================
 // Cross-service queries
 // =======================
@@ -182,6 +190,8 @@ service UserService {
   rpc GetPublicProfile(GetPublicProfileRequest) returns (PublicUserProfile);
   rpc UpdateProfile(UpdateProfileRequest) returns (UserProfile);
   rpc UpdateUserStatus(UpdateUserStatusRequest) returns (Empty);
+  rpc DeleteUser(DeleteUserRequest) returns (Empty);
+  rpc AdminDeleteUser(AdminDeleteUserRequest) returns (Empty);
 
   // Cross-service
   rpc GetUserSummary(GetUserSummaryRequest) returns (UserSummary);

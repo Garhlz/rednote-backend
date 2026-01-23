@@ -83,25 +83,31 @@ func (l *RegisterLogic) Register(in *user.RegisterRequest) (*user.AuthResponse, 
 		CreatedAt:         now,
 	}
 
-	result, err := l.svcCtx.Users.Insert(l.ctx, userData)
+	id, err := l.svcCtx.Users.Insert(l.ctx, userData)
 	if err != nil {
 		return nil, status.Error(codes.Internal, "create user failed")
 	}
-	if id, err := result.LastInsertId(); err == nil {
-		userData.Id = id
-	}
+	userData.Id = id
 
-	tokens, err := buildTokenPair(l.svcCtx.Config, userData)
+	tokens, refreshJti, err := buildTokenPair(l.svcCtx.Config, userData)
 	if err != nil {
 		return nil, status.Error(codes.Internal, "create token failed")
+	}
+	if err := l.svcCtx.Redis.Setex(
+		refreshTokenKey(userData.Id, refreshJti),
+		"1",
+		int(l.svcCtx.Config.Jwt.RefreshExpireSeconds),
+	); err != nil {
+		return nil, status.Error(codes.Internal, "store refresh token failed")
+	}
+	if err := setTokenVersion(l.ctx, l.svcCtx, userData.Id, userData.TokenVersion); err != nil {
+		return nil, status.Error(codes.Internal, "store token version failed")
 	}
 
 	_, _ = l.svcCtx.Redis.Del(emailCodeKeyPrefix + email)
 
 	return &user.AuthResponse{
-		Tokens:      tokens,
-		User:        buildUserSummary(userData),
-		IsNewUser:   true,
-		HasPassword: true,
+		Tokens: tokens,
+		User:   buildUserSummary(userData),
 	}, nil
 }

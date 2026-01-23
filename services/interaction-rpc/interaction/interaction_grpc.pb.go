@@ -4,7 +4,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.6.0
 // - protoc             v6.33.1
-// source: proto/interaction/interaction.proto
+// source: interaction/interaction.proto
 
 // 定义包名，类似于 Java 的 package com.szu...
 
@@ -23,13 +23,15 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	InteractionService_LikePost_FullMethodName      = "/interaction.InteractionService/LikePost"
-	InteractionService_UnlikePost_FullMethodName    = "/interaction.InteractionService/UnlikePost"
-	InteractionService_CollectPost_FullMethodName   = "/interaction.InteractionService/CollectPost"
-	InteractionService_UncollectPost_FullMethodName = "/interaction.InteractionService/UncollectPost"
-	InteractionService_RatePost_FullMethodName      = "/interaction.InteractionService/RatePost"
-	InteractionService_LikeComment_FullMethodName   = "/interaction.InteractionService/LikeComment"
-	InteractionService_UnlikeComment_FullMethodName = "/interaction.InteractionService/UnlikeComment"
+	InteractionService_LikePost_FullMethodName       = "/interaction.InteractionService/LikePost"
+	InteractionService_UnlikePost_FullMethodName     = "/interaction.InteractionService/UnlikePost"
+	InteractionService_CollectPost_FullMethodName    = "/interaction.InteractionService/CollectPost"
+	InteractionService_UncollectPost_FullMethodName  = "/interaction.InteractionService/UncollectPost"
+	InteractionService_RatePost_FullMethodName       = "/interaction.InteractionService/RatePost"
+	InteractionService_LikeComment_FullMethodName    = "/interaction.InteractionService/LikeComment"
+	InteractionService_UnlikeComment_FullMethodName  = "/interaction.InteractionService/UnlikeComment"
+	InteractionService_BatchPostStats_FullMethodName = "/interaction.InteractionService/BatchPostStats"
+	InteractionService_GetUserStats_FullMethodName   = "/interaction.InteractionService/GetUserStats"
 )
 
 // InteractionServiceClient is the client API for InteractionService service.
@@ -57,6 +59,10 @@ type InteractionServiceClient interface {
 	// 取消点赞评论
 	// 对应 Java: unlikeComment(CommentIdDTO)
 	UnlikeComment(ctx context.Context, in *InteractionRequest, opts ...grpc.CallOption) (*Empty, error)
+	// 批量查询帖子互动状态
+	BatchPostStats(ctx context.Context, in *BatchPostStatsRequest, opts ...grpc.CallOption) (*BatchPostStatsResponse, error)
+	// 用户主页聚合数据
+	GetUserStats(ctx context.Context, in *UserStatsRequest, opts ...grpc.CallOption) (*UserStatsResponse, error)
 }
 
 type interactionServiceClient struct {
@@ -137,6 +143,26 @@ func (c *interactionServiceClient) UnlikeComment(ctx context.Context, in *Intera
 	return out, nil
 }
 
+func (c *interactionServiceClient) BatchPostStats(ctx context.Context, in *BatchPostStatsRequest, opts ...grpc.CallOption) (*BatchPostStatsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(BatchPostStatsResponse)
+	err := c.cc.Invoke(ctx, InteractionService_BatchPostStats_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *interactionServiceClient) GetUserStats(ctx context.Context, in *UserStatsRequest, opts ...grpc.CallOption) (*UserStatsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UserStatsResponse)
+	err := c.cc.Invoke(ctx, InteractionService_GetUserStats_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // InteractionServiceServer is the server API for InteractionService service.
 // All implementations must embed UnimplementedInteractionServiceServer
 // for forward compatibility.
@@ -162,6 +188,10 @@ type InteractionServiceServer interface {
 	// 取消点赞评论
 	// 对应 Java: unlikeComment(CommentIdDTO)
 	UnlikeComment(context.Context, *InteractionRequest) (*Empty, error)
+	// 批量查询帖子互动状态
+	BatchPostStats(context.Context, *BatchPostStatsRequest) (*BatchPostStatsResponse, error)
+	// 用户主页聚合数据
+	GetUserStats(context.Context, *UserStatsRequest) (*UserStatsResponse, error)
 	mustEmbedUnimplementedInteractionServiceServer()
 }
 
@@ -192,6 +222,12 @@ func (UnimplementedInteractionServiceServer) LikeComment(context.Context, *Inter
 }
 func (UnimplementedInteractionServiceServer) UnlikeComment(context.Context, *InteractionRequest) (*Empty, error) {
 	return nil, status.Error(codes.Unimplemented, "method UnlikeComment not implemented")
+}
+func (UnimplementedInteractionServiceServer) BatchPostStats(context.Context, *BatchPostStatsRequest) (*BatchPostStatsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method BatchPostStats not implemented")
+}
+func (UnimplementedInteractionServiceServer) GetUserStats(context.Context, *UserStatsRequest) (*UserStatsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetUserStats not implemented")
 }
 func (UnimplementedInteractionServiceServer) mustEmbedUnimplementedInteractionServiceServer() {}
 func (UnimplementedInteractionServiceServer) testEmbeddedByValue()                            {}
@@ -340,6 +376,42 @@ func _InteractionService_UnlikeComment_Handler(srv interface{}, ctx context.Cont
 	return interceptor(ctx, in, info, handler)
 }
 
+func _InteractionService_BatchPostStats_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BatchPostStatsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(InteractionServiceServer).BatchPostStats(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: InteractionService_BatchPostStats_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(InteractionServiceServer).BatchPostStats(ctx, req.(*BatchPostStatsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _InteractionService_GetUserStats_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UserStatsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(InteractionServiceServer).GetUserStats(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: InteractionService_GetUserStats_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(InteractionServiceServer).GetUserStats(ctx, req.(*UserStatsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // InteractionService_ServiceDesc is the grpc.ServiceDesc for InteractionService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -375,7 +447,15 @@ var InteractionService_ServiceDesc = grpc.ServiceDesc{
 			MethodName: "UnlikeComment",
 			Handler:    _InteractionService_UnlikeComment_Handler,
 		},
+		{
+			MethodName: "BatchPostStats",
+			Handler:    _InteractionService_BatchPostStats_Handler,
+		},
+		{
+			MethodName: "GetUserStats",
+			Handler:    _InteractionService_GetUserStats_Handler,
+		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "proto/interaction/interaction.proto",
+	Metadata: "interaction/interaction.proto",
 }

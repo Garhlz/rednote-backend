@@ -1,0 +1,493 @@
+info (
+	title:   "rednote gateway"
+	desc:    "gateway api for web"
+	author:  "codex"
+	version: "0.1.0"
+)
+
+type Empty {}
+
+type IdPath {
+	id int64 `path:"id"`
+}
+
+type UserIdPath {
+	userId int64 `path:"userId"`
+}
+
+type PostIdPath {
+	postId string `path:"postId"`
+}
+
+type AuthLoginReq {
+	email    string `json:"email"`
+	password string `json:"password"`
+}
+
+type AuthSendCodeReq {
+	email string `json:"email"`
+}
+
+type SendEmailCodeResp {
+	nextRetrySeconds int32 `json:"nextRetrySeconds"`
+}
+
+type AuthRegisterReq {
+	email    string `json:"email"`
+	code     string `json:"code"`
+	password string `json:"password"`
+	nickname string `json:"nickname"`
+}
+
+type AuthRefreshReq {
+	refreshToken string `json:"refreshToken"`
+}
+
+type TokenPair {
+	accessToken   string `json:"accessToken"`
+	refreshToken  string `json:"refreshToken"`
+	tokenType     string `json:"tokenType"`
+	accessExpire  int64  `json:"accessExpire"`
+	refreshExpire int64  `json:"refreshExpire"`
+}
+
+type UserSummary {
+	userId   int64  `json:"userId"`
+	nickname string `json:"nickname"`
+	avatar   string `json:"avatar"`
+	role     string `json:"role"`
+	status   int32  `json:"status"`
+}
+
+type AuthResponse {
+	tokens      TokenPair   `json:"tokens"`
+	user        UserSummary `json:"user"`
+}
+
+type AuthResetPwdReq {
+	email       string `json:"email"`
+	code        string `json:"code"`
+	newPassword string `json:"newPassword"`
+}
+
+type AuthChangePwdReq {
+	oldPassword string `json:"oldPassword"`
+	newPassword string `json:"newPassword"`
+}
+
+type BindEmailReq {
+	email string `json:"email"`
+	code  string `json:"code"`
+}
+
+type UpdateProfileReq {
+	nickname string `json:"nickname,optional"`
+	avatar   string `json:"avatar,optional"`
+	bio      string `json:"bio,optional"`
+	gender   int32  `json:"gender,optional"`
+	birthday string `json:"birthday,optional"`
+	region   string `json:"region,optional"`
+}
+
+type UserProfile {
+	userId      int64  `json:"userId"`
+	email       string `json:"email"`
+	nickname    string `json:"nickname"`
+	avatar      string `json:"avatar"`
+	bio         string `json:"bio"`
+	gender      int32  `json:"gender"`
+	birthday    string `json:"birthday"`
+	region      string `json:"region"`
+	role        string `json:"role"`
+	status      int32  `json:"status"`
+	followCount int64 `json:"followCount"`
+	fanCount int64 `json:"fanCount"`
+	receivedLikeCount int64 `json:"receivedLikeCount"`
+}
+
+type PublicUserProfile {
+	userId   int64  `json:"userId"`
+	nickname string `json:"nickname"`
+	avatar   string `json:"avatar"`
+	bio      string `json:"bio"`
+	gender   int32  `json:"gender"`
+	region   string `json:"region"`
+	followCount int64 `json:"followCount"`
+	fanCount int64 `json:"fanCount"`
+	receivedLikeCount int64 `json:"receivedLikeCount"`
+	isFollowed bool `json:"isFollowed"`
+}
+
+type InteractionReq {
+	targetId string `json:"targetId"`
+}
+
+type RatePostReq {
+	targetId string  `json:"targetId"`
+	score    float64 `json:"score"`
+}
+
+type SearchReq {
+	keyword  string `form:"keyword,optional"`
+	tag      string `form:"tag,optional"`
+	page     int32  `form:"page,optional"`
+	pageSize int32  `form:"pageSize,optional"`
+	sort     string `form:"sort,optional"`
+}
+
+type SuggestReq {
+	keyword string `form:"keyword"`
+}
+
+type HistoryReq {
+	keyword string `form:"keyword,optional"`
+}
+
+type UploadReq {
+	file string `form:"file"`
+}
+
+type PostAuthor {
+	userId   string `json:"userId"`
+	nickname string `json:"nickname"`
+	avatar   string `json:"avatar"`
+}
+
+type PostVO {
+	id            string     `json:"id"`
+	author        PostAuthor `json:"author"`
+	title         string     `json:"title"`
+	content       string     `json:"content"`
+	type          int32      `json:"type"`
+	cover         string     `json:"cover"`
+	images        []string   `json:"images"`
+	video         string     `json:"video"`
+	likeCount     int32      `json:"likeCount"`
+	collectCount  int32      `json:"collectCount"`
+	commentCount  int32      `json:"commentCount"`
+	isLiked       bool       `json:"isLiked"`
+	isCollected   bool       `json:"isCollected"`
+	isFollowed    bool       `json:"isFollowed"`
+	ratingAverage float64    `json:"ratingAverage"`
+	ratingCount   int32      `json:"ratingCount"`
+	myScore       float64    `json:"myScore"`
+	createdAt     string     `json:"createdAt"`
+	tags          []string   `json:"tags"`
+	coverWidth    int32      `json:"coverWidth"`
+	coverHeight   int32      `json:"coverHeight"`
+}
+
+type PageResultPost {
+	records []PostVO `json:"records"`
+	total   int64    `json:"total"`
+	current int32    `json:"current"`
+	size    int32    `json:"size"`
+}
+
+type SearchSuggestResp {
+	suggestions []string `json:"suggestions"`
+}
+
+type SearchHistoryResp {
+	keywords []string `json:"keywords"`
+}
+
+@server (
+	prefix: /api/auth
+	group:  auth
+)
+service gateway {
+	@handler SendEmailCode
+	post /send-code (AuthSendCodeReq) returns (SendEmailCodeResp)
+
+	@handler Register
+	post /register (AuthRegisterReq) returns (AuthResponse)
+
+	@handler Login
+	post /login (AuthLoginReq) returns (AuthResponse)
+
+	@handler RefreshToken
+	post /refresh (AuthRefreshReq) returns (AuthResponse)
+
+	@handler Logout
+	post /logout returns (Empty)
+
+	@handler ResetPassword
+	post /password/reset (AuthResetPwdReq) returns (Empty)
+}
+
+@server (
+	prefix: /api/user
+	group:  user
+)
+service gateway {
+	@handler GetProfile
+	get /profile returns (UserProfile)
+
+	@handler GetPublicProfile
+	get /:userId/profile (UserIdPath) returns (PublicUserProfile)
+
+	@handler UpdateProfile
+	put /profile (UpdateProfileReq) returns (UserProfile)
+
+	@handler BindEmail
+	post /bind-email (BindEmailReq) returns (Empty)
+
+	@handler ChangePassword
+	post /password/change (AuthChangePwdReq) returns (Empty)
+
+	@handler GetFollows
+	get /follows/:userId (UserIdPath) returns (Empty)
+
+	@handler GetFans
+	get /fans/:userId (UserIdPath) returns (Empty)
+
+	@handler FollowUser
+	post /follow (InteractionReq) returns (Empty)
+
+	@handler UnfollowUser
+	post /unfollow (InteractionReq) returns (Empty)
+
+	@handler GetFriends
+	get /friends returns (Empty)
+
+	@handler SearchUsers
+	get /search returns (Empty)
+
+	@handler GetMyLikes
+	get /likes returns (Empty)
+
+	@handler GetMyCollects
+	get /collects returns (Empty)
+
+	@handler GetMyRatings
+	get /ratings returns (Empty)
+
+	@handler GetMyPosts
+	get /posts returns (Empty)
+
+	@handler GetMyHistory
+	get /history returns (Empty)
+
+	@handler GetMyComments
+	get /comments returns (Empty)
+}
+
+@server (
+	prefix: /api/interaction
+	group:  interaction
+)
+service gateway {
+	@handler LikePost
+	post /like/post (InteractionReq) returns (Empty)
+
+	@handler UnlikePost
+	post /unlike/post (InteractionReq) returns (Empty)
+
+	@handler CollectPost
+	post /collect/post (InteractionReq) returns (Empty)
+
+	@handler UncollectPost
+	post /uncollect/post (InteractionReq) returns (Empty)
+
+	@handler LikeComment
+	post /like/comment (InteractionReq) returns (Empty)
+
+	@handler UnlikeComment
+	post /unlike/comment (InteractionReq) returns (Empty)
+
+	@handler RatePost
+	post /rate/post (RatePostReq) returns (Empty)
+}
+
+@server (
+	prefix: /api/search
+	group:  search
+)
+service gateway {
+	@handler GetHistory
+	get /history returns (SearchHistoryResp)
+
+	@handler ClearHistory
+	delete /history returns (Empty)
+
+	@handler DeleteHistoryItem
+	delete /history/item (HistoryReq) returns (Empty)
+}
+
+@server (
+	prefix: /api/post
+	group:  post
+)
+service gateway {
+	@handler ListPosts
+	get /list returns (Empty)
+
+	@handler SearchPosts
+	get /search (SearchReq) returns (PageResultPost)
+
+	@handler GetUserPosts
+	get /user/:userId (UserIdPath) returns (Empty)
+
+	@handler GetPostDetail
+	get /:postId (PostIdPath) returns (Empty)
+
+	@handler Suggest
+	get /search/suggest (SuggestReq) returns (SearchSuggestResp)
+
+	@handler CreatePost
+	post / (Empty) returns (Empty)
+
+	@handler DeletePost
+	delete /:id (IdPath) returns (Empty)
+
+	@handler UpdatePost
+	put /:id (IdPath) returns (Empty)
+}
+
+@server (
+	prefix: /api/comment
+	group:  comment
+)
+service gateway {
+	@handler CreateComment
+	post / (Empty) returns (Empty)
+
+	@handler DeleteComment
+	delete /:id (IdPath) returns (Empty)
+
+	@handler ListComments
+	get /list returns (Empty)
+
+	@handler SubListComments
+	get /sub-list returns (Empty)
+}
+
+@server (
+	prefix: /api/tag
+	group:  tag
+)
+service gateway {
+	@handler HotTags
+	get /hot returns (Empty)
+
+	@handler AiGenerateTags
+	post /ai-generate (Empty) returns (Empty)
+}
+
+@server (
+	prefix: /api/message
+	group:  message
+)
+service gateway {
+	@handler UnreadCount
+	get /unread-count returns (Empty)
+
+	@handler Notifications
+	get /notifications returns (Empty)
+
+	@handler ReadNotification
+	post /read (Empty) returns (Empty)
+
+	@handler BatchReadNotification
+	put /read (Empty) returns (Empty)
+}
+
+@server (
+	prefix: /api/common
+	group:  common
+)
+service gateway {
+	@handler Upload
+	post /upload (UploadReq) returns (Empty)
+}
+
+@server (
+	prefix: /api/dev
+	group:  dev
+)
+service gateway {
+	@handler SeedData
+	post /seed returns (Empty)
+
+	@handler CleanNotifications
+	post /clean-notifications returns (Empty)
+}
+
+@server (
+	prefix: /admin
+	group:  admin
+)
+service gateway {
+	@handler AdminLogin
+	post /auth/login (Empty) returns (Empty)
+
+	@handler AdminSendCode
+	post /auth/send-code (Empty) returns (Empty)
+
+	@handler AdminResetPassword
+	post /auth/reset-password (Empty) returns (Empty)
+
+	@handler AdminLogout
+	post /auth/logout returns (Empty)
+
+	@handler AdminRefresh
+	post /auth/refresh (AuthRefreshReq) returns (Empty)
+
+	@handler AdminProfileInfo
+	get /profile/info returns (Empty)
+
+	@handler AdminProfilePassword
+	post /profile/password (AuthChangePwdReq) returns (Empty)
+
+	@handler AdminUserList
+	post /user/list returns (Empty)
+
+	@handler AdminUserDetail
+	get /user/:id (IdPath) returns (Empty)
+
+	@handler AdminUpdateUser
+	post /user/:id (IdPath) returns (Empty)
+
+	@handler AdminAuditList
+	post /post/audit-list returns (Empty)
+
+	@handler AdminPostDetail
+	get /post/:id (IdPath) returns (Empty)
+
+	@handler AdminPostAudit
+	post /post/:id/audit (IdPath) returns (Empty)
+
+	@handler AdminPostAuditHistory
+	get /post/:postId/audit-history (PostIdPath) returns (Empty)
+
+	@handler AdminDeletePost
+	delete /post/:postId (PostIdPath) returns (Empty)
+
+	@handler AdminLogAdmin
+	post /log/admin returns (Empty)
+
+	@handler AdminLogUser
+	post /log/user returns (Empty)
+
+	@handler AdminLogExport
+	get /log/export returns (Empty)
+
+	@handler AdminAiAudit
+	post /post/:postId/audit/ai (PostIdPath) returns (Empty)
+
+	@handler AdminTopViews
+	get /stats/top-views returns (Empty)
+
+	@handler AdminStats
+	get /stats returns (Empty)
+}
+
+@server (
+	prefix: /admin/sync
+	group:  sync
+)
+service gateway {
+	@handler SyncMongoToEs
+	post /mongo-to-es returns (Empty)
+}

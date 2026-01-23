@@ -186,6 +186,8 @@ services:
       # ⚠️ 关键修改：因为 docker-compose 在 deploy/ 下，所以要往上一级找 services
       context: ../services/sync-sidecar
       dockerfile: Dockerfile.dev
+      args:
+        GOPROXY: https://goproxy.cn,direct
     container_name: sidecar-local-dev
     environment:
       - ES_ADDRESS=http://elasticsearch-dev:9200
@@ -210,6 +212,8 @@ services:
     build:
       context: ../services/interaction-rpc
       dockerfile: Dockerfile
+      args:
+        GOPROXY: https://goproxy.cn,direct
     container_name: interaction-rpc-dev
     ports:
       - "8081:8080" # 映射到宿主机 8081 (避免和 Java 的 8080 冲突，虽然 Java 也可以关掉)
@@ -229,6 +233,8 @@ services:
     build:
       context: ../services/search-rpc
       dockerfile: Dockerfile
+      args:
+        GOPROXY: https://goproxy.cn,direct
     container_name: search-rpc-dev
     ports:
       - "8082:8080"
@@ -256,6 +262,8 @@ services:
     build:
       context: ../services/user-rpc
       dockerfile: Dockerfile
+      args:
+        GOPROXY: https://goproxy.cn,direct
     container_name: user-rpc-dev
     ports:
       - "8083:8080"
@@ -269,6 +277,38 @@ services:
       postgres-dev:
         condition: service_healthy
       redis-dev:
+        condition: service_started
+    networks:
+      - dev-net
+
+  gateway-api:
+    build:
+      context: ..
+      dockerfile: services/gateway-api/Dockerfile
+      args:
+        GOPROXY: https://goproxy.cn,direct
+    container_name: gateway-api-dev
+    ports:
+      - "8090:8090"
+    environment:
+      - TZ=Asia/Shanghai
+      - JAVA_API_BASE_URL=http://host.docker.internal:8080
+      - HTTP_PROXY=
+      - HTTPS_PROXY=
+      - NO_PROXY=host.docker.internal,localhost,127.0.0.1
+      - http_proxy=
+      - https_proxy=
+      - no_proxy=host.docker.internal,localhost,127.0.0.1
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      etcd-dev:
+        condition: service_started
+      user-rpc:
+        condition: service_started
+      interaction-rpc:
+        condition: service_started
+      search-rpc:
         condition: service_started
     networks:
       - dev-net

@@ -149,6 +149,8 @@ public class InteractionEventListener {
         try {
             elasticsearchOperations.update(updateQuery, IndexCoordinates.of("post_index"));
             log.debug("✅ ES Count Updated: postId={}, field={}, delta={}", postId, fieldName, delta);
+        } catch (org.springframework.data.elasticsearch.ResourceNotFoundException e) {
+            log.warn("ES doc missing, skip count update: postId={}, field={}, delta={}", postId, fieldName, delta);
         } catch (Exception e) {
             log.error("❌ Failed to update post count in ES for postId: {}", postId, e);
         }
@@ -401,4 +403,3 @@ public class InteractionEventListener {
         notificationService.save(doc);
     }
 }
-

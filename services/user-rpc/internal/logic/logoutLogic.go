@@ -47,6 +47,13 @@ func (l *LogoutLogic) Logout(in *user.LogoutRequest) (*user.Empty, error) {
 	blockToken(in.GetAccessToken())
 	blockToken(in.GetRefreshToken())
 
+	if in.GetRefreshToken() != "" {
+		claims, err := parseToken(l.svcCtx.Config, in.GetRefreshToken())
+		if err == nil && claims.Type == "refresh" && claims.ID != "" {
+			_, _ = l.svcCtx.Redis.DelCtx(l.ctx, refreshTokenKey(claims.UserId, claims.ID))
+		}
+	}
+
 	if in.GetUserId() > 0 {
 		u, err := l.svcCtx.Users.FindOne(l.ctx, in.GetUserId())
 		if err != nil && err != model.ErrNotFound {
@@ -57,6 +64,9 @@ func (l *LogoutLogic) Logout(in *user.LogoutRequest) (*user.Empty, error) {
 			u.UpdatedAt = time.Now()
 			if err := l.svcCtx.Users.Update(l.ctx, u); err != nil {
 				return nil, status.Error(codes.Internal, "update user failed")
+			}
+			if err := setTokenVersion(l.ctx, l.svcCtx, u.Id, u.TokenVersion); err != nil {
+				return nil, status.Error(codes.Internal, "store token version failed")
 			}
 		}
 	}

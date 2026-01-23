@@ -1,13 +1,9 @@
 package com.szu.afternoon3.platform.controller;
 
-import cn.hutool.core.util.StrUtil;
 import com.szu.afternoon3.platform.annotation.OperationLog;
 import com.szu.afternoon3.platform.common.Result;
-import com.szu.afternoon3.platform.dto.PostTagSuggestDTO;
 import com.szu.afternoon3.platform.dto.PostUpdateDTO;
-import com.szu.afternoon3.platform.enums.ResultCode;
 import com.szu.afternoon3.platform.service.PostService;
-import com.szu.afternoon3.platform.service.impl.AiServiceImpl;
 import com.szu.afternoon3.platform.vo.IdVO;
 import com.szu.afternoon3.platform.vo.PageResult;
 import com.szu.afternoon3.platform.vo.PostVO;
@@ -19,11 +15,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 
 /**
  * 帖子控制器
@@ -52,23 +43,6 @@ public class PostController {
     }
 
     /**
-     * 搜索帖子
-     * @param keyword 关键词
-     */
-    @GetMapping("/search")
-    @OperationLog(module = "帖子模块", description = "搜索帖子", bizId = "#keyword")
-    public Result<PageResult<PostVO>> searchPosts(
-            @RequestParam String keyword,
-            @RequestParam(required = false, defaultValue = "1") Integer page,
-            @RequestParam(required = false, defaultValue = "20") Integer size,
-            @RequestParam(required = false) String tag,
-            @RequestParam(required = false, defaultValue = "hot") String sort
-    ) {
-        PageResult<PostVO> data = postService.searchPosts(keyword, tag, page, size, sort);
-        return Result.success(data);
-    }
-
-    /**
      * 获取某用户的帖子列表
      * @param userId 目标用户ID
      */
@@ -91,19 +65,6 @@ public class PostController {
     public Result<PostVO> getPostDetail(@PathVariable String postId) {
         PostVO vo = postService.getPostDetail(postId);
         return Result.success(vo);
-    }
-
-    /**
-     * 获取搜索联想词
-     */
-    @GetMapping("/search/suggest")
-    // @OperationLog(module = "帖子模块", description = "搜索联想") // 联想词高频，可不记
-    public Result<List<String>> suggestKeywords(@RequestParam String keyword) {
-        if (StrUtil.isBlank(keyword)) {
-            return Result.success(Collections.emptyList());
-        }
-        List<String> list = postService.getSearchSuggestions(keyword);
-        return Result.success(list);
     }
 
     /**

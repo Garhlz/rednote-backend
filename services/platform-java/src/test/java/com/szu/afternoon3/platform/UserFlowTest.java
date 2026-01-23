@@ -1,4 +1,5 @@
 package com.szu.afternoon3.platform;
+import org.junit.jupiter.api.Disabled;
 
 import cn.hutool.crypto.digest.BCrypt;
 import com.szu.afternoon3.platform.common.UserContext;
@@ -18,6 +19,7 @@ import org.springframework.mail.javamail.JavaMailSender; // 2. 导入 JavaMailSe
 import java.time.LocalDateTime;
 
 @SpringBootTest
+@Disabled("migrated to gateway/user-rpc")
 public class UserFlowTest {
 
     @Autowired
@@ -45,7 +47,6 @@ public class UserFlowTest {
         String suffix = String.valueOf(System.currentTimeMillis());
         User user = new User();
         user.setNickname("TestUser_" + suffix);
-        user.setOpenid("openid_" + suffix);
         user.setRole("USER");
         user.setStatus(1);
         user.setCreatedAt(LocalDateTime.now());

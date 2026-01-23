@@ -25,7 +25,7 @@ var (
 
 type (
 	usersModel interface {
-		Insert(ctx context.Context, data *Users) (sql.Result, error)
+		Insert(ctx context.Context, data *Users) (int64, error)
 		FindOne(ctx context.Context, id int64) (*Users, error)
 		FindOneByEmail(ctx context.Context, email string) (*Users, error)
 		Update(ctx context.Context, data *Users) error
@@ -98,10 +98,11 @@ func (m *defaultUsersModel) FindOneByEmail(ctx context.Context, email string) (*
 	}
 }
 
-func (m *defaultUsersModel) Insert(ctx context.Context, data *Users) (sql.Result, error) {
-	query := fmt.Sprintf("insert into %s (%s) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)", m.table, usersRowsExpectAutoSet)
-	ret, err := m.conn.ExecCtx(ctx, query, data.Email, data.Password, data.Nickname, data.Avatar, data.Gender, data.Birthday, data.Region, data.Bio, data.Role, data.Status, data.IsDeleted, data.TokenVersion, data.PasswordChangedAt)
-	return ret, err
+func (m *defaultUsersModel) Insert(ctx context.Context, data *Users) (int64, error) {
+	query := fmt.Sprintf("insert into %s (%s) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) returning id", m.table, usersRowsExpectAutoSet)
+	var id int64
+	err := m.conn.QueryRowCtx(ctx, &id, query, data.Email, data.Password, data.Nickname, data.Avatar, data.Gender, data.Birthday, data.Region, data.Bio, data.Role, data.Status, data.IsDeleted, data.TokenVersion, data.PasswordChangedAt)
+	return id, err
 }
 
 func (m *defaultUsersModel) Update(ctx context.Context, newData *Users) error {

@@ -14,9 +14,14 @@ import (
 )
 
 type (
-	Empty              = interaction.Empty
-	InteractionRequest = interaction.InteractionRequest
-	RateRequest        = interaction.RateRequest
+	Empty                  = interaction.Empty
+	InteractionRequest     = interaction.InteractionRequest
+	RateRequest            = interaction.RateRequest
+	BatchPostStatsRequest  = interaction.BatchPostStatsRequest
+	BatchPostStatsResponse = interaction.BatchPostStatsResponse
+	PostStats              = interaction.PostStats
+	UserStatsRequest       = interaction.UserStatsRequest
+	UserStatsResponse      = interaction.UserStatsResponse
 
 	InteractionService interface {
 		// 点赞帖子
@@ -33,6 +38,10 @@ type (
 		LikeComment(ctx context.Context, in *InteractionRequest, opts ...grpc.CallOption) (*Empty, error)
 		// 取消点赞评论
 		UnlikeComment(ctx context.Context, in *InteractionRequest, opts ...grpc.CallOption) (*Empty, error)
+		// 批量查询帖子互动状态
+		BatchPostStats(ctx context.Context, in *BatchPostStatsRequest, opts ...grpc.CallOption) (*BatchPostStatsResponse, error)
+		// 用户主页聚合数据
+		GetUserStats(ctx context.Context, in *UserStatsRequest, opts ...grpc.CallOption) (*UserStatsResponse, error)
 	}
 
 	defaultInteractionService struct {
@@ -86,4 +95,16 @@ func (m *defaultInteractionService) LikeComment(ctx context.Context, in *Interac
 func (m *defaultInteractionService) UnlikeComment(ctx context.Context, in *InteractionRequest, opts ...grpc.CallOption) (*Empty, error) {
 	client := interaction.NewInteractionServiceClient(m.cli.Conn())
 	return client.UnlikeComment(ctx, in, opts...)
+}
+
+// 批量查询帖子互动状态
+func (m *defaultInteractionService) BatchPostStats(ctx context.Context, in *BatchPostStatsRequest, opts ...grpc.CallOption) (*BatchPostStatsResponse, error) {
+	client := interaction.NewInteractionServiceClient(m.cli.Conn())
+	return client.BatchPostStats(ctx, in, opts...)
+}
+
+// 用户主页聚合数据
+func (m *defaultInteractionService) GetUserStats(ctx context.Context, in *UserStatsRequest, opts ...grpc.CallOption) (*UserStatsResponse, error) {
+	client := interaction.NewInteractionServiceClient(m.cli.Conn())
+	return client.GetUserStats(ctx, in, opts...)
 }

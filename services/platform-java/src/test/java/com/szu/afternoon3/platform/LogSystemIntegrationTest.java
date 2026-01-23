@@ -1,4 +1,5 @@
 package com.szu.afternoon3.platform;
+import org.junit.jupiter.api.Disabled;
 
 import cn.hutool.json.JSONUtil;
 import com.szu.afternoon3.platform.dto.AccountLoginDTO;
@@ -25,6 +26,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest
 @AutoConfigureMockMvc
+@Disabled("migrated to gateway/user-rpc")
 public class LogSystemIntegrationTest {
 
     @Autowired

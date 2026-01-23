@@ -64,3 +64,15 @@ func (s *InteractionServiceServer) UnlikeComment(ctx context.Context, in *intera
 	l := logic.NewUnlikeCommentLogic(ctx, s.svcCtx)
 	return l.UnlikeComment(in)
 }
+
+// 批量查询帖子互动状态
+func (s *InteractionServiceServer) BatchPostStats(ctx context.Context, in *interaction.BatchPostStatsRequest) (*interaction.BatchPostStatsResponse, error) {
+	l := logic.NewBatchPostStatsLogic(ctx, s.svcCtx)
+	return l.BatchPostStats(in)
+}
+
+// 用户主页聚合数据
+func (s *InteractionServiceServer) GetUserStats(ctx context.Context, in *interaction.UserStatsRequest) (*interaction.UserStatsResponse, error) {
+	l := logic.NewGetUserStatsLogic(ctx, s.svcCtx)
+	return l.GetUserStats(in)
+}

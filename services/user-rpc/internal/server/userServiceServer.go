@@ -90,6 +90,16 @@ func (s *UserServiceServer) UpdateUserStatus(ctx context.Context, in *user.Updat
 	return l.UpdateUserStatus(in)
 }
 
+func (s *UserServiceServer) DeleteUser(ctx context.Context, in *user.DeleteUserRequest) (*user.Empty, error) {
+	l := logic.NewDeleteUserLogic(ctx, s.svcCtx)
+	return l.DeleteUser(in)
+}
+
+func (s *UserServiceServer) AdminDeleteUser(ctx context.Context, in *user.AdminDeleteUserRequest) (*user.Empty, error) {
+	l := logic.NewAdminDeleteUserLogic(ctx, s.svcCtx)
+	return l.AdminDeleteUser(in)
+}
+
 // Cross-service
 func (s *UserServiceServer) GetUserSummary(ctx context.Context, in *user.GetUserSummaryRequest) (*user.UserSummary, error) {
 	l := logic.NewGetUserSummaryLogic(ctx, s.svcCtx)

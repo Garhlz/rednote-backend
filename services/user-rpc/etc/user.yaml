@@ -6,21 +6,27 @@ Etcd:
   Key: user.rpc
 Postgres:
   DataSource: postgres://postgres:postgres@postgres-local-dev:5432/platform_db?sslmode=disable
-Redis:
+BizRedis:
   Host: redis-local-dev:6379
   Type: node
   Pass: ""
+RabbitMQ:
+  Enabled: "true"
+  Url: amqp://admin:admin@mq-local-dev:5672/
+  Exchange: platform.topic.exchange
+  UserUpdateRoutingKey: user.update
+  UserDeleteRoutingKey: user.delete
 Mail:
   Host: ${MAIL_HOST}
-  Port: ${MAIL_PORT:465}
-  User: ${MAIL_USER}
-  Pass: ${MAIL_PASS}
+  Port: 465
+  User: ${MAIL_USERNAME}
+  Pass: ${MAIL_PASSWORD}
   From: ${MAIL_FROM}
-  UseSSL: ${MAIL_SSL:true}
+  UseSSL: true
 Jwt:
-  Secret: ${JWT_SECRET:defaultSecretForDevOnly123456}
-  AccessExpireSeconds: ${JWT_ACCESS_EXPIRE_SECONDS:604800}
-  RefreshExpireSeconds: ${JWT_REFRESH_EXPIRE_SECONDS:2592000}
-  Issuer: ${JWT_ISSUER:rednote-user}
+  Secret: ${JWT_SECRET}
+  AccessExpireSeconds: 604800
+  RefreshExpireSeconds: 2592000
+  Issuer: ${JWT_ISSUER}
 User:
-  DefaultAvatar: ${USER_DEFAULT_AVATAR:https://afternoon3-rednote.oss-cn-shenzhen.aliyuncs.com/default_avatar.jpg}
+  DefaultAvatar: ${USER_DEFAULT_AVATAR}

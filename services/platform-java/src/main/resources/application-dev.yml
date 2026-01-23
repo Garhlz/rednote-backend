@@ -119,3 +119,6 @@ grpc:
     search-service:
       address: 'static://127.0.0.1:8082'
       negotiation-type: plaintext
+    user-service:
+      address: 'static://127.0.0.1:8083'
+      negotiation-type: plaintext

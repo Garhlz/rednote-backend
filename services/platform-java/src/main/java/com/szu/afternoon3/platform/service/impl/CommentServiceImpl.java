@@ -18,6 +18,7 @@ import com.szu.afternoon3.platform.repository.CommentLikeRepository;
 import com.szu.afternoon3.platform.repository.CommentRepository;
 import com.szu.afternoon3.platform.repository.PostRepository;
 import com.szu.afternoon3.platform.service.CommentService;
+import com.szu.afternoon3.platform.vo.CommentCreateVO;
 import com.szu.afternoon3.platform.vo.CommentVO;
 import com.szu.afternoon3.platform.vo.PageResult;
 import com.szu.afternoon3.platform.vo.SimpleUserVO;
@@ -57,7 +58,7 @@ public class CommentServiceImpl implements CommentService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void createComment(CommentCreateDTO dto) {
+    public CommentCreateVO createComment(CommentCreateDTO dto) {
         Long currentUserId = UserContext.getUserId();
         User user = userMapper.selectById(currentUserId);
 
@@ -126,6 +127,10 @@ public class CommentServiceImpl implements CommentService {
         event.setParentId(doc.getParentId());
 
         rabbitTemplate.convertAndSend(RabbitConfig.PLATFORM_EXCHANGE, "comment.create", event);
+
+        CommentCreateVO resp = new CommentCreateVO();
+        resp.setCommentId(doc.getId());
+        return resp;
     }
 
     @Override

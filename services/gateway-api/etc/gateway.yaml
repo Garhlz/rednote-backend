@@ -1,0 +1,43 @@
+Name: gateway-api
+Host: 0.0.0.0
+Port: 8090
+Timeout: 60000
+
+UserRpc:
+  Etcd:
+    Hosts:
+      - etcd-local-dev:2379
+    Key: user.rpc
+
+SearchRpc:
+  Etcd:
+    Hosts:
+      - etcd-local-dev:2379
+    Key: search.rpc
+
+InteractionRpc:
+  Etcd:
+    Hosts:
+      - etcd-local-dev:2379
+    Key: interaction.rpc
+
+Redis:
+  Host: redis-local-dev:6379
+  Pass: ""
+  Type: node
+
+JavaApi:
+  BaseUrl: http://host.docker.internal:8080
+  TimeoutMs: 30000
+Jwt:
+  Secret: defaultSecretForDevOnly123456
+  CheckTokenVersion: true
+  IgnorePatterns:
+    - /api/auth/*
+    - /api/post/list
+    - /api/post/search
+    - /api/post/search/suggest
+    - /api/tag/hot
+    - /api/comment/list
+    - /api/comment/sub-list
+    - /api/user/*/profile

@@ -1,11 +1,14 @@
 package svc
 
 import (
+	"context"
 	"interaction-rpc/internal/config"
 
 	"github.com/rabbitmq/amqp091-go"         // RabbitMQ 官方驱动
 	"github.com/zeromicro/go-zero/core/logx" // 用于打印日志
 	"github.com/zeromicro/go-zero/core/stores/redis"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type ServiceContext struct {
@@ -19,6 +22,8 @@ type ServiceContext struct {
 	// 生产环境通常需要封装一个断线重连的 Wrapper。
 	MqConn    *amqp091.Connection
 	MqChannel *amqp091.Channel
+
+	Mongo *mongo.Database
 }
 
 func NewServiceContext(c config.Config) *ServiceContext {
@@ -40,12 +45,26 @@ func NewServiceContext(c config.Config) *ServiceContext {
 		panic("Failed to open a RabbitMQ channel: " + err.Error())
 	}
 
-	logx.Info("RabbitMQ & BizRedis initialized successfully!")
+	var mongoDb *mongo.Database
+	if c.Mongo.Uri != "" {
+		client, err := mongo.Connect(context.Background(), options.Client().ApplyURI(c.Mongo.Uri))
+		if err != nil {
+			panic("Failed to connect MongoDB: " + err.Error())
+		}
+		dbName := c.Mongo.Database
+		if dbName == "" {
+			dbName = "rednote"
+		}
+		mongoDb = client.Database(dbName)
+	}
+
+	logx.Info("RabbitMQ, BizRedis, Mongo initialized successfully!")
 
 	return &ServiceContext{
 		Config:    c,
 		Redis:     redisClient,
 		MqConn:    conn,
 		MqChannel: ch,
+		Mongo:     mongoDb,
 	}
 }

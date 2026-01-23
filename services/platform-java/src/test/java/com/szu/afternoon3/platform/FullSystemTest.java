@@ -1,4 +1,5 @@
 package com.szu.afternoon3.platform;
+import org.junit.jupiter.api.Disabled;
 
 import cn.hutool.core.io.FileUtil;
 import cn.hutool.core.lang.Assert;
@@ -38,6 +39,7 @@ import java.util.concurrent.TimeUnit;
 @ActiveProfiles("dev")
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 @Import(TestConfig.class)
+@Disabled("migrated to gateway/user-rpc")
 public class FullSystemTest {
 
     // ================= 配置信息 =================

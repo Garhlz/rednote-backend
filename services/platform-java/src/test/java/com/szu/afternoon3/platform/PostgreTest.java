@@ -24,9 +24,8 @@ public class PostgreTest {
         // 1. 创建一个新用户对象
         User user = new User();
         user.setNickname("测试组员_" + randomSuffix.substring(8)); // 取时间戳后几位
-        // 保证 email 和 openid 每次运行都不一样
+        // 保证 email 每次运行都不一样
         user.setEmail("user_" + randomSuffix + "@szu.edu.cn");
-        user.setOpenid("openid_" + randomSuffix);
 
         user.setPassword("123456");
         user.setRole("USER");

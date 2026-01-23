@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"time"
 
+	"user-rpc/internal/event"
 	"user-rpc/internal/model"
 	"user-rpc/internal/svc"
 	"user-rpc/user"
@@ -42,13 +43,16 @@ func (l *UpdateProfileLogic) UpdateProfile(in *user.UpdateProfileRequest) (*user
 	}
 
 	changed := false
+	needSync := false
 	if in.Nickname != nil {
 		u.Nickname = in.GetNickname()
 		changed = true
+		needSync = true
 	}
 	if in.Avatar != nil {
 		u.Avatar = in.GetAvatar()
 		changed = true
+		needSync = true
 	}
 	if in.Bio != nil {
 		u.Bio = in.GetBio()
@@ -75,6 +79,22 @@ func (l *UpdateProfileLogic) UpdateProfile(in *user.UpdateProfileRequest) (*user
 		u.UpdatedAt = time.Now()
 		if err := l.svcCtx.Users.Update(l.ctx, u); err != nil {
 			return nil, status.Error(codes.Internal, "update user failed")
+		}
+	}
+
+	if needSync && l.svcCtx.Publisher != nil {
+		payload := event.UserUpdateEvent{
+			UserId:      u.Id,
+			NewNickname: u.Nickname,
+			NewAvatar:   u.Avatar,
+		}
+		if err := l.svcCtx.Publisher.Publish(
+			l.ctx,
+			l.svcCtx.Config.RabbitMQ.UserUpdateRoutingKey,
+			"com.szu.afternoon3.platform.event.UserUpdateEvent",
+			payload,
+		); err != nil {
+			l.Logger.Errorf("publish user update event failed: %v", err)
 		}
 	}
 

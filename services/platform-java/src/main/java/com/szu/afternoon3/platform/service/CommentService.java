@@ -1,6 +1,7 @@
 package com.szu.afternoon3.platform.service;
 
 import com.szu.afternoon3.platform.dto.CommentCreateDTO;
+import com.szu.afternoon3.platform.vo.CommentCreateVO;
 import com.szu.afternoon3.platform.vo.CommentVO;
 import com.szu.afternoon3.platform.vo.PageResult;
 
@@ -8,7 +9,7 @@ import java.util.Map;
 
 public interface CommentService {
     // 发表评论
-    void createComment(CommentCreateDTO dto);
+    CommentCreateVO createComment(CommentCreateDTO dto);
     
     // 删除评论
     void deleteComment(String commentId);

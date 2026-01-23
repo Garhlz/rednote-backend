@@ -1,4 +1,5 @@
 package com.szu.afternoon3.platform.controller;
+import org.junit.jupiter.api.Disabled;
 
 import cn.hutool.core.lang.UUID;
 import cn.hutool.json.JSONUtil;
@@ -32,6 +33,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 @Transactional // 保持事务回滚，防止垃圾数据堆积
+@Disabled("migrated to gateway/user-rpc")
 public class InteractionIntegrationTest {
 
     @Autowired

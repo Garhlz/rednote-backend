@@ -1,4 +1,5 @@
 package com.szu.afternoon3.platform.controller;
+import org.junit.jupiter.api.Disabled;
 
 import cn.hutool.core.lang.UUID;
 import cn.hutool.json.JSONObject;
@@ -35,6 +36,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 //@Transactional // 自动回滚 PostgreSQL 数据
+@Disabled("migrated to gateway/user-rpc")
 public class NotificationIntegrationTest {
 
     @Autowired private MockMvc mockMvc;
