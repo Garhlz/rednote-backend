@@ -4,7 +4,7 @@ import com.szu.afternoon3.platform.annotation.OperationLog;
 import com.szu.afternoon3.platform.common.Result;
 import com.szu.afternoon3.platform.dto.CommentCreateDTO;
 import com.szu.afternoon3.platform.service.CommentService;
-import com.szu.afternoon3.platform.vo.CommentCreateVO;
+import com.szu.afternoon3.platform.vo.CommentVO;
 import com.szu.afternoon3.platform.vo.CommentVO;
 import com.szu.afternoon3.platform.vo.PageResult;
 import jakarta.validation.Valid;
@@ -30,7 +30,7 @@ public class CommentController {
      */
     @PostMapping
     @OperationLog(module = "评论模块", description = "发布评论", bizId = "#dto.postId")
-    public Result<CommentCreateVO> createComment(@RequestBody @Valid CommentCreateDTO dto) {
+    public Result<CommentVO> createComment(@RequestBody @Valid CommentCreateDTO dto) {
         return Result.success(commentService.createComment(dto));
     }
 

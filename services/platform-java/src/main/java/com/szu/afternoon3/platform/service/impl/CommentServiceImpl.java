@@ -18,7 +18,6 @@ import com.szu.afternoon3.platform.repository.CommentLikeRepository;
 import com.szu.afternoon3.platform.repository.CommentRepository;
 import com.szu.afternoon3.platform.repository.PostRepository;
 import com.szu.afternoon3.platform.service.CommentService;
-import com.szu.afternoon3.platform.vo.CommentCreateVO;
 import com.szu.afternoon3.platform.vo.CommentVO;
 import com.szu.afternoon3.platform.vo.PageResult;
 import com.szu.afternoon3.platform.vo.SimpleUserVO;
@@ -58,7 +57,7 @@ public class CommentServiceImpl implements CommentService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public CommentCreateVO createComment(CommentCreateDTO dto) {
+    public CommentVO createComment(CommentCreateDTO dto) {
         Long currentUserId = UserContext.getUserId();
         User user = userMapper.selectById(currentUserId);
 
@@ -128,9 +127,7 @@ public class CommentServiceImpl implements CommentService {
 
         rabbitTemplate.convertAndSend(RabbitConfig.PLATFORM_EXCHANGE, "comment.create", event);
 
-        CommentCreateVO resp = new CommentCreateVO();
-        resp.setCommentId(doc.getId());
-        return resp;
+        return convertToVO(doc, Collections.emptySet());
     }
 
     @Override
@@ -256,10 +253,17 @@ public class CommentServiceImpl implements CommentService {
             throw new AppException(ResultCode.PERMISSION_DENIED, "无权删除该评论");
         }
 
-        // 3. 物理删除
+        // 3. 软删除一级评论：保留楼层，子评论仍可展示
+        if (doc.getParentId() == null) {
+            doc.setContent("该评论已删除");
+            commentRepository.save(doc);
+            return;
+        }
+
+        // 4. 物理删除二级评论
         commentRepository.deleteById(commentId);
 
-        // 4. 【RabbitMQ】发送删除事件 (用于异步更新计数)
+        // 5. 【RabbitMQ】发送删除事件 (用于异步更新计数)
         CommentEvent event = new CommentEvent();
         event.setType("DELETE");
         event.setPostId(doc.getPostId());

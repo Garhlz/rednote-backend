@@ -80,6 +80,35 @@ type BindEmailReq {
 	code  string `json:"code"`
 }
 
+type CommentCreateReq {
+	postId   string `json:"postId"`
+	content  string `json:"content"`
+	parentId string `json:"parentId,optional"`
+}
+
+type SimpleUserVO {
+	userId   string `json:"userId"`
+	nickname string `json:"nickname"`
+	avatar   string `json:"avatar"`
+}
+
+type ReplyUserInfo {
+	userId   string `json:"userId"`
+	nickname string `json:"nickname"`
+}
+
+type CommentVO {
+	id            string       `json:"id"`
+	content       string       `json:"content"`
+	createdAt     string       `json:"createdAt"`
+	author        SimpleUserVO `json:"author"`
+	likeCount     int32        `json:"likeCount"`
+	isLiked       bool         `json:"isLiked"`
+	replyToUser   ReplyUserInfo `json:"replyToUser"`
+	replyCount    int32        `json:"replyCount"`
+	childComments []CommentVO  `json:"childComments"`
+}
+
 type UpdateProfileReq {
 	nickname string `json:"nickname,optional"`
 	avatar   string `json:"avatar,optional"`
@@ -321,7 +350,7 @@ service gateway {
 )
 service gateway {
 	@handler ListPosts
-	get /list returns (Empty)
+	get /list (SearchReq) returns (PageResultPost)
 
 	@handler SearchPosts
 	get /search (SearchReq) returns (PageResultPost)
@@ -351,7 +380,7 @@ service gateway {
 )
 service gateway {
 	@handler CreateComment
-	post / (Empty) returns (Empty)
+	post / (CommentCreateReq) returns (CommentVO)
 
 	@handler DeleteComment
 	delete /:id (IdPath) returns (Empty)

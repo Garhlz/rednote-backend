@@ -44,6 +44,35 @@ type BindEmailReq struct {
 	Code  string `json:"code"`
 }
 
+type CommentCreateReq struct {
+	PostId   string `json:"postId"`
+	Content  string `json:"content"`
+	ParentId string `json:"parentId,optional"`
+}
+
+type SimpleUserVO struct {
+	UserId   string `json:"userId"`
+	Nickname string `json:"nickname"`
+	Avatar   string `json:"avatar"`
+}
+
+type ReplyUserInfo struct {
+	UserId   string `json:"userId"`
+	Nickname string `json:"nickname"`
+}
+
+type CommentVO struct {
+	Id            string       `json:"id"`
+	Content       string       `json:"content"`
+	CreatedAt     string       `json:"createdAt"`
+	Author        SimpleUserVO `json:"author"`
+	LikeCount     int32        `json:"likeCount"`
+	IsLiked       bool         `json:"isLiked"`
+	ReplyToUser   ReplyUserInfo `json:"replyToUser"`
+	ReplyCount    int32        `json:"replyCount"`
+	ChildComments []CommentVO  `json:"childComments"`
+}
+
 type Empty struct {
 }
 

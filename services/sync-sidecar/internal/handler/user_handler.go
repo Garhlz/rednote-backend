@@ -102,6 +102,18 @@ func (h *UserHandler) handleUserUpdate(e event.UserUpdateEvent) error {
 		)
 	}
 
+	// 4. 更新通知里的发送者昵称/头像
+	updateNotify := bson.M{}
+	if e.NewNickname != "" {
+		updateNotify["senderNickname"] = e.NewNickname
+	}
+	if e.NewAvatar != "" {
+		updateNotify["senderAvatar"] = e.NewAvatar
+	}
+	if len(updateNotify) > 0 {
+		h.updateManySafe(ctx, db.Collection("notifications"), bson.M{"senderId": e.UserId}, bson.M{"$set": updateNotify})
+	}
+
 	return nil
 }
 

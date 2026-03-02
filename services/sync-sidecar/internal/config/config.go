@@ -35,7 +35,7 @@ func LoadConfig() *AppConfig {
 		RabbitMQURL:  getEnv("RABBITMQ_URL", "amqp://admin:admin@rabbitmq:5672/"),
 		MongoURI:     getEnv("MONGO_URI", "mongodb://mongo:27017"),
 		ESAddress:    getEnv("ES_ADDRESS", "http://elasticsearch:9200"),
-		IndexName:    "post_index",
+		IndexName:    "posts",
 		AuditEnable:  getEnv("POST_AUDIT_ENABLE", "false") == "true",
 		WorkerCount:  20,
 		TimeLocation: loc,

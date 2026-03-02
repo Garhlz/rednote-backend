@@ -195,6 +195,12 @@ services:
       - MONGO_URI=mongodb://mongodb-dev:27017
       - TZ=Asia/Shanghai
       - POST_AUDIT_ENABLE=false
+      - HTTP_PROXY=
+      - HTTPS_PROXY=
+      - http_proxy=
+      - https_proxy=
+      - NO_PROXY=elasticsearch-dev,localhost,127.0.0.1
+
     volumes:
       # ⚠️ 关键修改：挂载本地源码也要用相对路径，确保热重载生效
       - ../services/sync-sidecar:/app

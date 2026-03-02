@@ -232,7 +232,7 @@ public class UserServiceImpl implements UserService {
         // 3. 查询 MongoDB
         Page<UserFollowDoc> docPage = userFollowRepository.findByUserId(userId, pageable);
 
-        // 4. 转换数据格式，映射为 SimpleUserVO
+        // 4. 转换数据格式，映射为 SimpleUserVO（关注的人）
         List<SimpleUserVO> records = docPage.getContent().stream().map(doc -> {
             SimpleUserVO vo = new SimpleUserVO();
             vo.setUserId(String.valueOf(doc.getTargetUserId()));
@@ -267,12 +267,12 @@ public class UserServiceImpl implements UserService {
         // 3. 查询 MongoDB (查找 targetUserId 为当前用户ID 的记录)
         Page<UserFollowDoc> docPage = userFollowRepository.findByTargetUserId(userId, pageable);
 
-        // 4. 转换数据格式，映射为 SimpleUserVO
+        // 4. 转换数据格式，映射为 SimpleUserVO（粉丝）
         List<SimpleUserVO> records = docPage.getContent().stream().map(doc -> {
             SimpleUserVO vo = new SimpleUserVO();
-            vo.setUserId(String.valueOf(doc.getTargetUserId()));
-            vo.setNickname(doc.getTargetUserNickname());
-            vo.setAvatar(doc.getTargetUserAvatar());
+            vo.setUserId(String.valueOf(doc.getUserId()));
+            vo.setNickname(doc.getUserNickname());
+            vo.setAvatar(doc.getUserAvatar());
             return vo;
         }).collect(Collectors.toList());
 
