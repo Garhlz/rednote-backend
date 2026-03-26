@@ -30,6 +30,11 @@ func (l *CollectPostLogic) CollectPost(in *interaction.InteractionRequest) (*int
 	key := KeyPostCollectSet + in.TargetId
 	userIdStr := strconv.FormatInt(in.UserId, 10)
 
+	if err := EnsurePostCollectCache(l.ctx, l.svcCtx, in.TargetId); err != nil {
+		l.Logger.Errorf("ensure post collect cache error: %v", err)
+		return nil, err
+	}
+
 	// 2. BizRedis SADD 操作
 	// Saddle 会返回成功添加的数量 (1表示新加，0表示已存在)
 	added, err := l.svcCtx.Redis.SaddCtx(l.ctx, key, userIdStr)
@@ -40,6 +45,9 @@ func (l *CollectPostLogic) CollectPost(in *interaction.InteractionRequest) (*int
 
 	// 3. 如果添加成功，发送 MQ 消息
 	if added > 0 {
+		removeDummyUser(l.ctx, l.svcCtx, key)
+		AddBloom(l.ctx, l.svcCtx, KeyBloomPostCollect, in.TargetId)
+
 		event := &InteractionEvent{
 			UserId:   in.UserId,
 			TargetId: in.TargetId,

@@ -1,29 +1,15 @@
 spring:
-  # --- 数据库连接 (PostgreSQL) ---
+  # --- 1. 数据库与中间件连接 (Dev 环境专属 IP 和密码) ---
   datasource:
-    driver-class-name: org.postgresql.Driver
-    # 引用环境变量 DB_URL
-    url: ${DB_URL:jdbc:postgresql://localhost:5432/rednote-mongodb?currentSchema=public}
-    username: ${DB_USERNAME:postgres}
-    password: ${DB_PASSWORD:postgres}
-  mail:
-    host: ${MAIL_HOST}
-    username: ${MAIL_USERNAME}
-    password: ${MAIL_PASSWORD}
-    default-encoding: UTF-8
-    protocol: smtp
-    properties:
-      mail:
-        debug: true      # 【关键】开启调试模式，看具体交互
-        smtp:
-          auth: true
-          ssl:
-            enable: true # 强制 SSL
-            trust: "*"   # 信任所有证书（解决本地证书链问题）
-          socketFactory: # 某些旧版 JDK 或环境需要显式指定 socketFactory
-            port: 465
-            class: javax.net.ssl.SSLSocketFactory
-  # --- NoSQL & Cache ---
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: ${DB_URL:jdbc:mysql://localhost:3306/user_db?useUnicode=true&characterEncoding=utf8mb4&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false}
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:123456}
+    hikari:
+      maximum-pool-size: 30 # 开发环境给个 30 够用了
+      connection-timeout: 30000
+      minimum-idle: 10
+
   data:
     mongodb:
       uri: ${MONGO_URI:mongodb://localhost:27017/rednote}
@@ -32,90 +18,114 @@ spring:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
       database: 0
-      password: ${REDIS_PASSWORD:} # 默认为空
+      password: ${REDIS_PASSWORD:}
 
   elasticsearch:
-    # Docker 映射到了宿主机的 9200 端口，所以用 localhost
     uris: http://localhost:9200
     socket-timeout: 30s
     connection-timeout: 5s
-    # 开发环境我们关了 xpack，所以不需要 username/password
-# --- 阿里云 OSS ---
+
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:admin}
+    password: ${RABBITMQ_PASSWORD:admin}
+    listener:
+      simple:
+        retry:
+          enabled: true
+          max-attempts: 3
+          initial-interval: 1000ms
+          multiplier: 2.0
+          max-interval: 10000ms
+        default-requeue-rejected: false
+
+  mail:
+    host: ${MAIL_HOST}
+    username: ${MAIL_USERNAME}
+    password: ${MAIL_PASSWORD}
+    default-encoding: UTF-8
+    protocol: smtp
+    properties:
+      mail:
+        debug: true # 开发环境开启邮件 debug
+        smtp:
+          auth: true
+          ssl:
+            enable: true
+            trust: "*"
+          socketFactory:
+            port: 465
+            class: javax.net.ssl.SSLSocketFactory
+
+  output:
+    ansi:
+      enabled: ALWAYS
+
+# --- 2. 外部 API 密钥 (依赖本地环境变量或 .env) ---
 aliyun:
   oss:
-    enable: true # 设置为 false 启用本地 Mock 模式
+    enable: true
     endpoint: ${ALIYUN_OSS_ENDPOINT:oss-cn-shenzhen.aliyuncs.com}
     access-key-id: ${ALIYUN_ACCESS_KEY_ID}
     access-key-secret: ${ALIYUN_ACCESS_KEY_SECRET}
     bucket-name: ${ALIYUN_BUCKET_NAME}
-file:
-  upload:
-    path: ./uploads/ # 文件存放在项目根目录的 uploads 文件夹
-    base-url: http://localhost:8080/uploads/ # 返回给前端的 URL 前缀
-# --- 微信小程序配置 ---
+
 wechat:
   appid: ${WECHAT_APPID}
   secret: ${WECHAT_SECRET}
 
-# --- MyBatis Plus  ---
-mybatis-plus:
-  mapper-locations: classpath:/mapper/*.xml
-  type-aliases-package: com.szu.afternoon3.platform.entity
-  configuration:
-    log-impl: org.apache.ibatis.logging.slf4j.Slf4jImpl
-    map-underscore-to-camel-case: true
-  global-config:
-    db-config:
-      logic-delete-value: 1
-      logic-not-delete-value: 0
-
-logging:
-  level:
-    root: INFO
-    # 1. Listener: 保持 DEBUG，配合你刚才代码里的 log.debug，
-    # 这样你能看到业务流转（如：收到点赞、发帖），但因为你代码里已经过滤了高频废话，所以不会太吵。
-    com.szu.afternoon3.platform.listener: DEBUG
-
-    # 2. MyBatis (SQL): 建议改为 INFO
-    # 除非你在修 SQL 语句的 Bug，否则平时不要开 DEBUG。
-    # DEBUG 级别不仅打印 SQL，还会打印查询出的每一行结果（Result Set），非常占屏幕。
-    com.szu.afternoon3.platform.mapper: INFO
-
-    # 3. MongoDB Template: 建议改为 INFO
-    # DEBUG 会打印生成的 Query 对象。如果你信任 Spring Data 的查询生成，平时不需要看。
-    org.springframework.data.mongodb.core.MongoTemplate: INFO
-
-    # 4. 【罪魁祸首】MongoDB 驱动协议: 必须改为 WARN 或 ERROR
-    # 这里是打印底层 TCP/IP 协议包的，开发时几乎永远不需要看这个，除非你在调试 MongoDB 驱动本身的 Bug。
-    org.mongodb.driver.protocol.command: WARN
-
+tencent:
+  im:
+    sdk-appid: ${TENCENT_IM_SDK_APPID}
+    secret-key: ${TENCENT_IM_SECRET_KEY}
+    expire-time: 604800
 
 ai:
   deepseek:
     url: https://api.deepseek.com/chat/completions
     key: ${DEEPSEEK_API_KEY}
     model: deepseek-chat
-
   dashscope:
     api-key: ${QWENVL_API_KEY}
     model: qwen-vl-plus
-
   bot:
     user-id: ${CHATBOT_ID}
     user-nickname: ${CHATBOT_NICKNAME}
 
-management:
-  health:
-    mail:
-      enabled: false
+szu:
+  jwt:
+    secret: ${JWT_SECRET:defaultSecretForDevOnly123456}
 
+app:
+  post:
+    audit-enable: ${POST_AUDIT_ENABLE:false}
+
+file:
+  upload:
+    path: ./uploads/
+    base-url: http://localhost:8080/uploads/
+
+# --- 3. 开发环境专属日志与调试 ---
+mybatis-plus:
+  configuration:
+    # 仅在开发环境开启 SQL 控制台打印
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+
+logging:
+  level:
+    root: INFO
+    com.szu.afternoon3.platform.listener: DEBUG
+    com.szu.afternoon3.platform.mapper: INFO
+    org.springframework.data.mongodb.core.MongoTemplate: INFO
+    org.mongodb.driver.protocol.command: WARN
+
+# --- 4. 微服务本地联调地址 ---
 grpc:
   client:
     interaction-service:
-      # 宿主机访问 Docker 映射出来的端口
       address: 'static://127.0.0.1:8081'
       negotiation-type: plaintext
-    # 2. 搜索服务
     search-service:
       address: 'static://127.0.0.1:8082'
       negotiation-type: plaintext

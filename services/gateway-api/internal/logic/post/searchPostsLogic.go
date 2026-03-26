@@ -31,12 +31,20 @@ func NewSearchPostsLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Searc
 }
 
 func (l *SearchPostsLogic) SearchPosts(req *types.SearchReq) (resp *types.PageResultPost, err error) {
+	// 兼容前端可能传来的 size/pageSize 两种分页参数。
 	if req.PageSize == 0 && req.Size > 0 {
 		req.PageSize = req.Size
 	}
 	if req.Page == 0 {
 		req.Page = 1
 	}
+
+	// 第一步：先调用 search-rpc，拿到搜索/排序结果。
+	// search-rpc 负责：
+	// 1. 关键词搜索
+	// 2. Tag 过滤
+	// 3. ES 排序
+	// 4. 返回帖子基础信息
 	client := searchservice.NewSearchService(l.svcCtx.SearchRpc)
 	result, err := client.Search(l.ctx, &searchservice.SearchRequest{
 		Keyword:  req.Keyword,
@@ -50,6 +58,8 @@ func (l *SearchPostsLogic) SearchPosts(req *types.SearchReq) (resp *types.PageRe
 		return nil, err
 	}
 
+	// 第二步：从搜索结果里提取 postIds 和 authorId 映射，
+	// 为后面的 interaction-rpc 批量聚合做准备。
 	postIds := make([]string, 0, len(result.GetItems()))
 	postAuthorMap := make(map[string]int64, len(result.GetItems()))
 	for _, item := range result.GetItems() {
@@ -63,6 +73,9 @@ func (l *SearchPostsLogic) SearchPosts(req *types.SearchReq) (resp *types.PageRe
 
 	statsMap := map[string]*interactionservice.PostStats{}
 	if len(postIds) > 0 {
+		// 第三步：批量调用 interaction-rpc，把“实时互动字段”一次性补齐。
+		// 这里是网关编排职责最核心的地方：
+		// 搜索服务只负责找到帖子，互动服务负责补点赞/收藏/评分/关注态。
 		interactionClient := interactionservice.NewInteractionService(l.svcCtx.InteractionRpc)
 		statsResp, err := interactionClient.BatchPostStats(l.ctx, &interactionservice.BatchPostStatsRequest{
 			UserId:        ctxutil.UserID(l.ctx),
@@ -110,11 +123,17 @@ func (l *SearchPostsLogic) SearchPosts(req *types.SearchReq) (resp *types.PageRe
 		}
 
 		if stat != nil {
+			// interaction-rpc 返回时，用它覆盖搜索结果里那些需要实时性的字段。
+			// 这样最终前端拿到的是“搜索结果 + 实时互动态”的统一视图。
+			post.LikeCount = stat.GetLikeCount()
 			post.IsLiked = stat.GetIsLiked()
 			post.IsCollected = stat.GetIsCollected()
 			post.IsFollowed = stat.GetIsFollowed()
 			post.CollectCount = stat.GetCollectCount()
 			post.CommentCount = stat.GetCommentCount()
+			post.RatingAverage = stat.GetRatingAverage()
+			post.RatingCount = stat.GetRatingCount()
+			post.MyScore = stat.GetMyScore()
 		}
 
 		records = append(records, post)

@@ -6,28 +6,28 @@ Timeout: 60000
 UserRpc:
   Etcd:
     Hosts:
-      - etcd-local-dev:2379
+      - etcd:2379
     Key: user.rpc
 
 SearchRpc:
   Etcd:
     Hosts:
-      - etcd-local-dev:2379
+      - etcd:2379
     Key: search.rpc
 
 InteractionRpc:
   Etcd:
     Hosts:
-      - etcd-local-dev:2379
+      - etcd:2379
     Key: interaction.rpc
 
 Redis:
-  Host: redis-local-dev:6379
+  Host: redis:6379
   Pass: ""
   Type: node
 
 JavaApi:
-  BaseUrl: http://host.docker.internal:8080
+  BaseUrl: ${JAVA_API_BASE_URL:http://host.docker.internal:8080}
   TimeoutMs: 30000
 Jwt:
   Secret: defaultSecretForDevOnly123456

@@ -60,6 +60,7 @@ message AuthResponse {
 
 message SendEmailCodeRequest {
   string email = 1;
+  string scene = 2; // register / reset_password / bind_email
 }
 
 message SendEmailCodeResponse {
@@ -69,6 +70,7 @@ message SendEmailCodeResponse {
 message VerifyEmailCodeRequest {
   string email = 1;
   string code = 2;
+  string scene = 3; // register / reset_password / bind_email
 }
 
 message VerifyEmailCodeResponse {

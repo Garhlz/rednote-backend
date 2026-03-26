@@ -1,118 +1,63 @@
 server:
-  address: 0.0.0.0
   port: 8080
   servlet:
-    context-path: / # 默认根路径
+    context-path: /
   undertow:
     threads:
-      # IO 线程：主要负责非阻塞的网络连接。
-      # 设置为 CPU 核心数即可。4G 内存的云服务器通常是 2核 (vCPU)。
-      # 如果设置过大，会产生无意义的上下文切换。
       io: 2
-
-      # Worker 线程：负责处理具体的 Controller/Service 业务逻辑（阻塞操作）。
-      # 默认是 io * 8 = 16。
-      # 在内存受限时，不要设置得太高（例如 200），因为每个 Java 线程都需要独立的 Stack 内存（默认 1MB）。
-      # 设置为 32-64 足够应对大多数中小规模并发。
       worker: 100
-
-      # 缓冲区大小：Undertow 分配内存的单位。
-      buffer-size: 16384
-
-      # 是否使用堆外内存 (Direct Memory)。
-      # 开启 (true)：网络 IO 性能更好，减少 GC 压力。
-      # 关闭 (false)：所有内存都在 Heap 里，容易触发 Full GC，但不容易导致系统级 OOM。
-      direct-buffers: true
+    buffer-size: 16384
+    direct-buffers: true
 
 spring:
   application:
     name: afternoon3-backend
   profiles:
-    active: dev # 默认激活开发环境
-  # 全局 JSON 配置 (前后端交互时间格式化)
-  # --- Jackson 全局 JSON 配置 (解决前后端时间格式不一致问题) ---
+    # 默认激活 dev 环境。如果在服务器上跑，可以在启动时用 --spring.profiles.active=prod 覆盖它
+    active: dev
+
+  # JSON 序列化规则（全环境通用）
   jackson:
     serialization:
-      # 必须：禁用将日期写为时间戳（否则可能会变成数组 [2025,12,13...]）
       write-dates-as-timestamps: false
     date-format: yyyy-MM-dd HH:mm:ss
     time-zone: GMT+8
-    default-property-inclusion: always # 即使字段是 null 也返回（方便前端判断）
-  datasource:
-    hikari:
-      # 【调优】建议设置为 30-50
-      # 公式参考：Core_count * 2 + effective_spindle_count
-      # 但在 Docker 容器里，主要看内存，给 30 试试
-      maximum-pool-size: 30
-      # 连接超时时间，默认 30s，如果等待太久会报错，可以保持不变
-      connection-timeout: 30000
-      # 最小空闲连接
-      minimum-idle: 10
-  # --- 文件上传限制 ---
+    default-property-inclusion: always
+
+  # 文件上传限制（全环境通用）
   servlet:
     multipart:
       max-file-size: 200MB
       max-request-size: 200MB
-  rabbitmq:
-    host: ${RABBITMQ_HOST:localhost} # 默认 localhost，但在 Docker 里会被环境变量覆盖
-    port: ${RABBITMQ_PORT:5672}
-    username: ${RABBITMQ_USERNAME:admin}
-    password: ${RABBITMQ_PASSWORD:admin}
-    listener:
-      simple:
-        # 开启重试
-        retry:
-          enabled: true
-          max-attempts: 3        # 最大尝试次数 (1次正常 + 2次重试)
-          initial-interval: 1000ms # 第一次重试间隔 1秒
-          multiplier: 2.0        # 间隔倍数 (1s -> 2s)
-          max-interval: 10000ms  # 最大间隔 10秒
-        # 关键配置：重试耗尽后，是否重新入队？
-        # 设为 false 表示"拒绝(Reject)"。
-        # 配合我们在 Java 代码里配置的 DLX，Reject 的消息会被自动发送到死信队列。
-        default-requeue-rejected: false
-  output:
-    ansi:
-      enabled: ALWAYS  # 强制让后端输出带颜色的日志
 
-# --- MyBatis-Plus 全局配置 ---
+# MyBatis-Plus 全局结构规则（全环境通用）
 mybatis-plus:
+  mapper-locations: classpath:/mapper/*.xml
+  type-aliases-package: com.szu.afternoon3.platform.entity
   configuration:
-    map-underscore-to-camel-case: true # 开启下划线转驼峰 (user_id -> userId)
-    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl # 开发时打印 SQL 到控制台 (生产环境需在-prod中覆盖)
+    map-underscore-to-camel-case: true
   global-config:
     db-config:
-      logic-delete-field: isDeleted # 逻辑删除字段名
-      logic-delete-value: 1 # 1 代表已删除
-      logic-not-delete-value: 0 # 0 代表未删除
-      id-type: auto # 主键策略：数据库自增f
-  mapper-locations: classpath:mapper/*.xml # 如果你写 XML，放在 resources/mapper 下
+      logic-delete-field: isDeleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+      id-type: auto
 
-# --- 自定义配置 (预留位置) ---
+# 业务通用常量
 szu:
   jwt:
-    secret: ${JWT_SECRET:defaultSecretForDevOnly123456} # 支持读取环境变量，读不到就用默认值
-    expiration: 604800 # 7天
+    expiration: 604800 # 7天过期规则不变
   oss:
     default-avatar: https://afternoon3-rednote.oss-cn-shenzhen.aliyuncs.com/default_avatar.jpg
-
-tencent:
-  im:
-    sdk-appid: ${TENCENT_IM_SDK_APPID}
-    secret-key: ${TENCENT_IM_SECRET_KEY}
-    expire-time: 604800 # 签名有效期，单位秒 (建议 7 天，与 Token 保持一致)
-
-app:
-  post:
-    # 是否开启帖子审核
-    # 默认为 false (直接发布)，可通过 .env 文件中的 POST_AUDIT_ENABLE=true 开启
-    audit-enable: ${POST_AUDIT_ENABLE:false}
 
 management:
   endpoints:
     web:
       exposure:
-        include: prometheus, health, info # 暴露 prometheus 接口
+        include: prometheus, health, info
   metrics:
     tags:
-      application: ${spring.application.name} # 给数据打标签，方便在 Grafana 区分应用
+      application: ${spring.application.name}
+  health:
+    mail:
+      enabled: false

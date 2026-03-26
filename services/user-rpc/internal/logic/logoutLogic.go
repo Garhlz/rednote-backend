@@ -41,7 +41,7 @@ func (l *LogoutLogic) Logout(in *user.LogoutRequest) (*user.Empty, error) {
 		if ttl <= 0 {
 			return
 		}
-		_ = l.svcCtx.Redis.Setex(tokenBlockPrefix+token, "1", int(ttl))
+		_ = l.svcCtx.Redis.Setex(blockedTokenKey(token), "1", int(ttl))
 	}
 
 	blockToken(in.GetAccessToken())

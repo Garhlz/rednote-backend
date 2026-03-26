@@ -3,6 +3,7 @@ package logic
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"crypto/tls"
 	"database/sql"
 	"encoding/hex"
@@ -28,6 +29,10 @@ const (
 	tokenBlockPrefix    = "auth:token:block:"
 	refreshTokenPrefix  = "auth:refresh:"
 	tokenVersionPrefix  = "auth:token:version:"
+
+	emailSceneRegister      = "register"
+	emailSceneResetPassword = "reset_password"
+	emailSceneBindEmail     = "bind_email"
 )
 
 type tokenClaims struct {
@@ -187,8 +192,34 @@ func refreshTokenKey(userId int64, jti string) string {
 	return fmt.Sprintf("%s%d:%s", refreshTokenPrefix, userId, jti)
 }
 
+func emailCodeKey(scene, email string) string {
+	return fmt.Sprintf("%s%s:%s", emailCodeKeyPrefix, scene, email)
+}
+
+func emailLimitKey(scene, email string) string {
+	return fmt.Sprintf("%s%s:%s", emailLimitKeyPrefix, scene, email)
+}
+
+func normalizeEmailScene(scene string) (string, bool) {
+	switch strings.TrimSpace(scene) {
+	case emailSceneRegister:
+		return emailSceneRegister, true
+	case emailSceneResetPassword:
+		return emailSceneResetPassword, true
+	case emailSceneBindEmail:
+		return emailSceneBindEmail, true
+	default:
+		return "", false
+	}
+}
+
 func tokenVersionKey(userId int64) string {
 	return fmt.Sprintf("%s%d", tokenVersionPrefix, userId)
+}
+
+func blockedTokenKey(token string) string {
+	sum := sha256.Sum256([]byte(token))
+	return tokenBlockPrefix + hex.EncodeToString(sum[:])
 }
 
 func setTokenVersion(ctx context.Context, svcCtx *svc.ServiceContext, userId int64, version int64) error {

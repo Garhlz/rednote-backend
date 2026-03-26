@@ -31,6 +31,7 @@ func (l *SendEmailCodeLogic) SendEmailCode(req *types.AuthSendCodeReq) (resp *ty
 	client := userservice.NewUserService(l.svcCtx.UserRpc)
 	result, err := client.SendEmailCode(l.ctx, &userservice.SendEmailCodeRequest{
 		Email: req.Email,
+		Scene: req.Scene,
 	})
 	if err != nil {
 		return nil, err

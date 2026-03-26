@@ -1,11 +1,9 @@
-version: '3.8'
-
 services:
   # ==========================================
   # 0. 微服务基础设施 (新增 Etcd)
   # ==========================================
 
-  # Etcd: Go-Zero 的服务发现与配置中心 (必须!)
+  # Etcd: Go-Zero 的服务发现与配置中心
   etcd:
     image: quay.io/coreos/etcd:v3.5.0
     command:
@@ -27,26 +25,25 @@ services:
       - dev-net
 
   # ==========================================
-  # 1. 基础数据库
+  # 1. 数据库
   # ==========================================
 
-  pg:
-    image: postgres:15-alpine
+  db:
+    image: mysql:8.0
     ports:
-      - "127.0.0.1:5432:5432"
+      - "0.0.0.0:3306:3306"
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: platform_db
+      MYSQL_ROOT_PASSWORD: 123456
+      MYSQL_DATABASE: user_db
       TZ: Asia/Shanghai
     volumes:
-      - pg_local_data:/var/lib/postgresql/data
-      # Docker 容器首次启动（且数据卷为空）时，会自动执行这个目录下的 .sql 文件
-      - ../scripts/init-users.sql:/docker-entrypoint-initdb.d/restore.sql
+      - mysql_local_data:/var/lib/mysql
+      # MySQL 同样支持挂载初始化脚本
+      - ./scripts/init-users.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - dev-net
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: [ "CMD", "mysqladmin" ,"ping", "-h", "localhost" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -54,19 +51,20 @@ services:
   mongo:
     image: mongo:6.0
     ports:
-      - "127.0.0.1:27017:27017"
+      - "0.0.0.0:27017:27017"
     environment:
       MONGO_INITDB_DATABASE: rednote
       TZ: Asia/Shanghai
     volumes:
       - mongo_local_data:/data/db
+#      - ~/Downloads/mongo_backup:/tmp/backup  # 临时映射
     networks:
       - dev-net
 
   redis:
     image: redis/redis-stack-server:latest
     ports:
-      - "127.0.0.1:6379:6379"
+      - "0.0.0.0:6379:6379"
     environment:
       TZ: Asia/Shanghai
     volumes:
@@ -98,8 +96,7 @@ services:
   # ==========================================
 
   es:
-    # 注意路径：假设 Dockerfile.es 和插件 zip 包也移动到了 deploy/ 目录下
-    # 如果没移，还在根目录，则是 ../Dockerfile.es
+    # Dockerfile.es 和插件 zip 包也移动到了 deploy/es/ 目录下
     build:
       context: .
       dockerfile: deploy/es/Dockerfile
@@ -125,46 +122,9 @@ services:
   # ==========================================
   # 4. 业务服务 (Go Sidecar & New Interaction Service)
   # ==========================================
-#  platform-java-dev:
-#    build:
-#      context: ../services/platform-java
-#      dockerfile: Dockerfile
-#    # 负载均衡和扩展预留：如果是生产环境，通常不固定 container_name
-#    ports:
-#      - "8080:8080"
-#    env_file:
-#      - ../services/platform-java/.env
-#    environment:
-#      - SPRING_PROFILES_ACTIVE=dev
-#      # 显式指定容器内通信地址，覆盖 .env 中的 localhost
-#      - DB_URL=jdbc:postgresql://pg:5432/platform_db
-#      - REDIS_HOST=redis
-#      - SPRING_RABBITMQ_HOST=mq
-#      - MONGO_URI=mongodb://mongo:27017/rednote
-#      - ETCD_ENDPOINTS=http://etcd:2379
-#    volumes:
-#      - ../services/platform-java/logs:/app/logs
-#      - ../services/platform-java/uploads:/app/uploads
-#    depends_on:
-#      pg:
-#        condition: service_healthy
-#      es:
-#        condition: service_healthy
-#      mq:
-#        condition: service_healthy
-#      etcd:
-#        condition: service_started
-#    deploy:
-#      resources:
-#        limits:
-#          memory: 1G # Java 17 + Spring Boot 3 建议给到 1G
-#    networks:
-#      - dev-net
-
   sync-sidecar:
     build:
-      # ⚠️ 关键修改：因为 docker-compose 在 deploy/ 下，所以要往上一级找 services
-      context: ../services/sync-sidecar
+      context: services/sync-sidecar
       dockerfile: Dockerfile.dev
       args:
         GOPROXY: https://goproxy.cn,direct
@@ -181,8 +141,7 @@ services:
       - NO_PROXY=es,localhost,127.0.0.1
 
     volumes:
-      # ⚠️ 关键修改：挂载本地源码也要用相对路径，确保热重载生效
-      - ../services/sync-sidecar:/app
+      - ./services/sync-sidecar:/app
     depends_on:
       es:
         condition: service_healthy
@@ -195,7 +154,7 @@ services:
 
   interaction-rpc:
     build:
-      context: ../services/interaction-rpc
+      context: services/interaction-rpc
       dockerfile: Dockerfile
       args:
         GOPROXY: https://goproxy.cn,direct
@@ -216,7 +175,7 @@ services:
 
   search-rpc:
     build:
-      context: ../services/search-rpc
+      context: services/search-rpc
       dockerfile: Dockerfile
       args:
         GOPROXY: https://goproxy.cn,direct
@@ -236,7 +195,6 @@ services:
         condition: service_started
       mq:
         condition: service_healthy
-      # ⚠️ 确保依赖了 ES
       es:
         condition: service_healthy
     networks:
@@ -244,20 +202,20 @@ services:
 
   user-rpc:
     build:
-      context: ../services/user-rpc
+      context: services/user-rpc
       dockerfile: Dockerfile
       args:
         GOPROXY: https://goproxy.cn,direct
     ports:
       - "127.0.0.1:8083:8080"
     env_file:
-      - ../services/user-rpc/.env
+      - services/user-rpc/.env
     environment:
       - TZ=Asia/Shanghai
     depends_on:
       etcd:
         condition: service_started
-      pg:
+      db:
         condition: service_healthy
       redis:
         condition: service_started
@@ -266,12 +224,12 @@ services:
 
   gateway-api:
     build:
-      context: ..
+      context: .
       dockerfile: services/gateway-api/Dockerfile
       args:
         GOPROXY: https://goproxy.cn,direct
     ports:
-      - "127.0.0.1:8090:8090"
+      - "0.0.0.0:8090:8090"
     environment:
       - TZ=Asia/Shanghai
       - JAVA_API_BASE_URL=http://host.docker.internal:8080
@@ -296,11 +254,12 @@ services:
       - dev-net
 
 volumes:
-  pg_local_data:
+  mysql_local_data:
   mongo_local_data:
   redis_local_data:
   mq_local_data:
   es_local_data:
+
 
 networks:
   dev-net:

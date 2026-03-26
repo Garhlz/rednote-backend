@@ -49,6 +49,7 @@ type PostEsDoc struct {
 func (l *SearchLogic) Search(in *search.SearchRequest) (*search.SearchResponse, error) {
 	// 1. 异步记录搜索历史 (对应 Java: rabbitTemplate.convertAndSend("search.history"))
 	// 既然我们在搜索微服务内部，直接写 Mongo 效率更高，或者你也发 MQ。这里演示直接写库。
+	// 开了个协程记录搜索历史，非常合理
 	if in.UserId > 0 && in.Keyword != "" {
 		go l.recordSearchHistory(in.UserId, in.Keyword)
 	}
@@ -225,6 +226,7 @@ func (l *SearchLogic) Search(in *search.SearchRequest) (*search.SearchResponse, 
 				Nickname: doc.UserNickname,
 				Avatar:   doc.UserAvatar,
 			},
+			// TODO bug here
 			// IsLiked 可以在这里设为 false，让 Java 网关层去补全
 			// 或者如果 Search 微服务能访问 Redis，也可以在这里查
 			IsLiked: false,

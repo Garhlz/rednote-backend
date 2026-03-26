@@ -248,6 +248,10 @@ type PostStats struct {
 	IsFollowed    bool                   `protobuf:"varint,3,opt,name=is_followed,json=isFollowed,proto3" json:"is_followed,omitempty"`
 	CollectCount  int32                  `protobuf:"varint,4,opt,name=collect_count,json=collectCount,proto3" json:"collect_count,omitempty"`
 	CommentCount  int32                  `protobuf:"varint,5,opt,name=comment_count,json=commentCount,proto3" json:"comment_count,omitempty"`
+	RatingAverage float64                `protobuf:"fixed64,6,opt,name=rating_average,json=ratingAverage,proto3" json:"rating_average,omitempty"`
+	RatingCount   int32                  `protobuf:"varint,7,opt,name=rating_count,json=ratingCount,proto3" json:"rating_count,omitempty"`
+	MyScore       float64                `protobuf:"fixed64,8,opt,name=my_score,json=myScore,proto3" json:"my_score,omitempty"`
+	LikeCount     int32                  `protobuf:"varint,9,opt,name=like_count,json=likeCount,proto3" json:"like_count,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -313,6 +317,34 @@ func (x *PostStats) GetCollectCount() int32 {
 func (x *PostStats) GetCommentCount() int32 {
 	if x != nil {
 		return x.CommentCount
+	}
+	return 0
+}
+
+func (x *PostStats) GetRatingAverage() float64 {
+	if x != nil {
+		return x.RatingAverage
+	}
+	return 0
+}
+
+func (x *PostStats) GetRatingCount() int32 {
+	if x != nil {
+		return x.RatingCount
+	}
+	return 0
+}
+
+func (x *PostStats) GetMyScore() float64 {
+	if x != nil {
+		return x.MyScore
+	}
+	return 0
+}
+
+func (x *PostStats) GetLikeCount() int32 {
+	if x != nil {
+		return x.LikeCount
 	}
 	return 0
 }
@@ -501,14 +533,19 @@ const file_interaction_interaction_proto_rawDesc = "" +
 	"\x0fpost_author_map\x18\x03 \x03(\v25.interaction.BatchPostStatsRequest.PostAuthorMapEntryR\rpostAuthorMap\x1a@\n" +
 	"\x12PostAuthorMapEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\x03R\x05value:\x028\x01\"\xb4\x01\n" +
+	"\x05value\x18\x02 \x01(\x03R\x05value:\x028\x01\"\xb8\x02\n" +
 	"\tPostStats\x12\x19\n" +
 	"\bis_liked\x18\x01 \x01(\bR\aisLiked\x12!\n" +
 	"\fis_collected\x18\x02 \x01(\bR\visCollected\x12\x1f\n" +
 	"\vis_followed\x18\x03 \x01(\bR\n" +
 	"isFollowed\x12#\n" +
 	"\rcollect_count\x18\x04 \x01(\x05R\fcollectCount\x12#\n" +
-	"\rcomment_count\x18\x05 \x01(\x05R\fcommentCount\"\xb0\x01\n" +
+	"\rcomment_count\x18\x05 \x01(\x05R\fcommentCount\x12%\n" +
+	"\x0erating_average\x18\x06 \x01(\x01R\rratingAverage\x12!\n" +
+	"\frating_count\x18\a \x01(\x05R\vratingCount\x12\x19\n" +
+	"\bmy_score\x18\b \x01(\x01R\amyScore\x12\x1d\n" +
+	"\n" +
+	"like_count\x18\t \x01(\x05R\tlikeCount\"\xb0\x01\n" +
 	"\x16BatchPostStatsResponse\x12D\n" +
 	"\x05stats\x18\x01 \x03(\v2..interaction.BatchPostStatsResponse.StatsEntryR\x05stats\x1aP\n" +
 	"\n" +

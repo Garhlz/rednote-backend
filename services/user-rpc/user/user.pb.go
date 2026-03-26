@@ -464,6 +464,7 @@ func (x *AuthResponse) GetUser() *UserSummary {
 type SendEmailCodeRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Email         string                 `protobuf:"bytes,1,opt,name=email,proto3" json:"email,omitempty"`
+	Scene         string                 `protobuf:"bytes,2,opt,name=scene,proto3" json:"scene,omitempty"` // register / reset_password / bind_email
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -501,6 +502,13 @@ func (*SendEmailCodeRequest) Descriptor() ([]byte, []int) {
 func (x *SendEmailCodeRequest) GetEmail() string {
 	if x != nil {
 		return x.Email
+	}
+	return ""
+}
+
+func (x *SendEmailCodeRequest) GetScene() string {
+	if x != nil {
+		return x.Scene
 	}
 	return ""
 }
@@ -553,6 +561,7 @@ type VerifyEmailCodeRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Email         string                 `protobuf:"bytes,1,opt,name=email,proto3" json:"email,omitempty"`
 	Code          string                 `protobuf:"bytes,2,opt,name=code,proto3" json:"code,omitempty"`
+	Scene         string                 `protobuf:"bytes,3,opt,name=scene,proto3" json:"scene,omitempty"` // register / reset_password / bind_email
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -597,6 +606,13 @@ func (x *VerifyEmailCodeRequest) GetEmail() string {
 func (x *VerifyEmailCodeRequest) GetCode() string {
 	if x != nil {
 		return x.Code
+	}
+	return ""
+}
+
+func (x *VerifyEmailCodeRequest) GetScene() string {
+	if x != nil {
+		return x.Scene
 	}
 	return ""
 }
@@ -1558,14 +1574,16 @@ const file_user_user_proto_rawDesc = "" +
 	"\x06region\x18\x06 \x01(\tR\x06region\"^\n" +
 	"\fAuthResponse\x12'\n" +
 	"\x06tokens\x18\x01 \x01(\v2\x0f.user.TokenPairR\x06tokens\x12%\n" +
-	"\x04user\x18\x02 \x01(\v2\x11.user.UserSummaryR\x04user\",\n" +
+	"\x04user\x18\x02 \x01(\v2\x11.user.UserSummaryR\x04user\"B\n" +
 	"\x14SendEmailCodeRequest\x12\x14\n" +
-	"\x05email\x18\x01 \x01(\tR\x05email\"E\n" +
+	"\x05email\x18\x01 \x01(\tR\x05email\x12\x14\n" +
+	"\x05scene\x18\x02 \x01(\tR\x05scene\"E\n" +
 	"\x15SendEmailCodeResponse\x12,\n" +
-	"\x12next_retry_seconds\x18\x01 \x01(\x05R\x10nextRetrySeconds\"B\n" +
+	"\x12next_retry_seconds\x18\x01 \x01(\x05R\x10nextRetrySeconds\"X\n" +
 	"\x16VerifyEmailCodeRequest\x12\x14\n" +
 	"\x05email\x18\x01 \x01(\tR\x05email\x12\x12\n" +
-	"\x04code\x18\x02 \x01(\tR\x04code\"/\n" +
+	"\x04code\x18\x02 \x01(\tR\x04code\x12\x14\n" +
+	"\x05scene\x18\x03 \x01(\tR\x05scene\"/\n" +
 	"\x17VerifyEmailCodeResponse\x12\x14\n" +
 	"\x05valid\x18\x01 \x01(\bR\x05valid\"s\n" +
 	"\x0fRegisterRequest\x12\x14\n" +

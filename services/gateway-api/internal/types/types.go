@@ -37,6 +37,7 @@ type AuthResponse struct {
 
 type AuthSendCodeReq struct {
 	Email string `json:"email"`
+	Scene string `json:"scene"`
 }
 
 type BindEmailReq struct {
@@ -62,15 +63,15 @@ type ReplyUserInfo struct {
 }
 
 type CommentVO struct {
-	Id            string       `json:"id"`
-	Content       string       `json:"content"`
-	CreatedAt     string       `json:"createdAt"`
-	Author        SimpleUserVO `json:"author"`
-	LikeCount     int32        `json:"likeCount"`
-	IsLiked       bool         `json:"isLiked"`
+	Id            string        `json:"id"`
+	Content       string        `json:"content"`
+	CreatedAt     string        `json:"createdAt"`
+	Author        SimpleUserVO  `json:"author"`
+	LikeCount     int32         `json:"likeCount"`
+	IsLiked       bool          `json:"isLiked"`
 	ReplyToUser   ReplyUserInfo `json:"replyToUser"`
-	ReplyCount    int32        `json:"replyCount"`
-	ChildComments []CommentVO  `json:"childComments"`
+	ReplyCount    int32         `json:"replyCount"`
+	ChildComments []CommentVO   `json:"childComments"`
 }
 
 type Empty struct {

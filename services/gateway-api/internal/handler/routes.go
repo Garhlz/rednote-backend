@@ -18,6 +18,8 @@ import (
 )
 
 func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
+	// 后台管理接口：基本都直接代理给 Java。
+	// 这里的网关职责主要是统一入口、鉴权、头透传和错误包装。
 	server.AddRoutes(
 		[]rest.Route{
 			{
@@ -165,6 +167,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 		rest.WithPrefix("/api/auth"),
 	)
 
+	// 评论接口当前主要还是 Java 业务域负责。
 	server.AddRoutes(
 		[]rest.Route{
 			{
@@ -191,6 +194,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 		rest.WithPrefix("/api/comment"),
 	)
 
+	// 通用上传接口直接代理给 Java。
 	server.AddRoutes(
 		[]rest.Route{
 			{
@@ -202,6 +206,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 		rest.WithPrefix("/api/common"),
 	)
 
+	// 开发辅助接口直接代理。
 	server.AddRoutes(
 		[]rest.Route{
 			{
@@ -218,6 +223,12 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 		rest.WithPrefix("/api/dev"),
 	)
 
+	// interaction 接口不走 Java，直接打到 interaction-rpc。
+	// 这里网关的职责主要是：
+	// 1. 解析 HTTP 请求
+	// 2. 从 context 取当前用户
+	// 3. 调 RPC
+	// 4. 返回统一响应
 	server.AddRoutes(
 		[]rest.Route{
 			{
@@ -259,6 +270,9 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 		rest.WithPrefix("/api/interaction"),
 	)
 
+	// 帖子接口是网关职责最典型的一组：
+	// 1. 创建/删除/更新仍然多由 Java 负责
+	// 2. 列表/搜索/详情则由网关做聚合，把搜索结果和互动状态拼成统一前端视图
 	server.AddRoutes(
 		[]rest.Route{
 			{
@@ -305,7 +319,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			{
 				Method:  http.MethodGet,
 				Path:    "/:postId",
-				Handler: javaproxy.ProxyHandler(serverCtx),
+				Handler: post.GetPostDetailHandler(serverCtx),
 			},
 			{
 				Method:  http.MethodGet,

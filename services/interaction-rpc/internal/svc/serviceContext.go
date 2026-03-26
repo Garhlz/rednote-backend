@@ -3,19 +3,23 @@ package svc
 import (
 	"context"
 	"interaction-rpc/internal/config"
+	"strings"
 
-	"github.com/rabbitmq/amqp091-go"         // RabbitMQ 官方驱动
+	"github.com/rabbitmq/amqp091-go" // RabbitMQ 官方驱动
+	goredis "github.com/redis/go-redis/v9"
 	"github.com/zeromicro/go-zero/core/logx" // 用于打印日志
 	"github.com/zeromicro/go-zero/core/stores/redis"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
+// 全称 Service Context。这里面装着所有和第三方组件（Redis、Mongo、MQ）建好的连接
 type ServiceContext struct {
 	Config config.Config
 
 	// 1. 定义 Redis 客户端变量
-	Redis *redis.Redis
+	Redis    *redis.Redis
+	RawRedis *goredis.Client
 
 	// 2. 定义 RabbitMQ 连接和通道
 	// 注意：为了演示简单，这里只保存 Channel。
@@ -30,6 +34,15 @@ func NewServiceContext(c config.Config) *ServiceContext {
 	// A. 初始化 BizRedis
 	// MustNewRedis 意味着如果连不上(比如配置错了)，程序直接崩溃报错，防止带病运行
 	redisClient := redis.MustNewRedis(c.BizRedis)
+	addr := strings.TrimSpace(c.BizRedis.Host)
+	if addr == "" {
+		panic("BizRedis.Host is required")
+	}
+	rawRedis := goredis.NewClient(&goredis.Options{
+		Addr:     addr,
+		Password: c.BizRedis.Pass,
+		DB:       0,
+	})
 
 	// B. 初始化 RabbitMQ
 	// 建立 TCP 连接
@@ -63,6 +76,7 @@ func NewServiceContext(c config.Config) *ServiceContext {
 	return &ServiceContext{
 		Config:    c,
 		Redis:     redisClient,
+		RawRedis:  rawRedis,
 		MqConn:    conn,
 		MqChannel: ch,
 		Mongo:     mongoDb,

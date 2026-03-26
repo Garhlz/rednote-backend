@@ -45,6 +45,10 @@ message PostStats {
   bool is_followed = 3;
   int32 collect_count = 4;
   int32 comment_count = 5;
+  double rating_average = 6;
+  int32 rating_count = 7;
+  double my_score = 8;
+  int32 like_count = 9;
 }
 
 message BatchPostStatsResponse {

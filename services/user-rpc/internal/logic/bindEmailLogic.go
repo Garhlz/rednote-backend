@@ -36,7 +36,7 @@ func (l *BindEmailLogic) BindEmail(in *user.BindEmailRequest) (*user.Empty, erro
 		return nil, status.Error(codes.InvalidArgument, "invalid params")
 	}
 
-	cached, err := l.svcCtx.Redis.GetCtx(l.ctx, emailCodeKeyPrefix+email)
+	cached, err := l.svcCtx.Redis.GetCtx(l.ctx, emailCodeKey(emailSceneBindEmail, email))
 	if err != nil && err != redis.Nil {
 		return nil, status.Error(codes.Internal, "verify code error")
 	}
@@ -66,6 +66,6 @@ func (l *BindEmailLogic) BindEmail(in *user.BindEmailRequest) (*user.Empty, erro
 		return nil, status.Error(codes.Internal, "update user failed")
 	}
 
-	_, _ = l.svcCtx.Redis.Del(emailCodeKeyPrefix + email)
+	_, _ = l.svcCtx.Redis.Del(emailCodeKey(emailSceneBindEmail, email))
 	return &user.Empty{}, nil
 }

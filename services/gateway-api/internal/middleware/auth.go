@@ -30,20 +30,27 @@ const tokenVersionKeyPrefix = "auth:token:version:"
 func NewAuthMiddleware(cfg config.Config, redisClient *redis.Redis) rest.Middleware {
 	secret := []byte(cfg.Jwt.Secret)
 	patterns := cfg.Jwt.IgnorePatterns
+	// 如果开启了 token version 校验，网关会去 Redis 读取当前用户的 tokenVersion，
+	// 从而让 JWT 具备“可即时失效”的能力。
 	checkTokenVersion := cfg.Jwt.CheckTokenVersion && redisClient != nil
 	publicPaths := map[string]struct{}{
-		"/api/post/list":          {},
-		"/api/post/search":        {},
+		"/api/post/list":           {},
+		"/api/post/search":         {},
 		"/api/post/search/suggest": {},
-		"/api/tag/hot":            {},
-		"/api/comment/list":       {},
-		"/api/comment/sub-list":   {},
+		"/api/tag/hot":             {},
+		"/api/comment/list":        {},
+		"/api/comment/sub-list":    {},
 	}
 
 	return func(next http.HandlerFunc) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
+			// 第一类路径：公开路径或配置里声明跳过鉴权的路径。
+			// 这类路径允许匿名访问，但如果请求里带了 access token，网关仍会尽量解析它，
+			// 这样列表页/搜索页也能拿到“当前用户是否点赞/收藏”这类弱登录态信息。
 			if r.URL.Path != "/api/user/profile" && (shouldSkipAuth(r.URL.Path, patterns) || isPublicPath(r.URL.Path, publicPaths)) {
 				if r.URL.Path == "/api/auth/logout" {
+					// 登出接口比较特殊：即便本身允许跳过严格鉴权，也要把 access/refresh token 透传下去，
+					// 让 user-rpc 有机会做 token 拉黑和 refresh key 删除。
 					ctx := r.Context()
 					if token := extractBearer(r.Header.Get("Authorization")); token != "" {
 						ctx = context.WithValue(ctx, "accessToken", token)
@@ -57,6 +64,9 @@ func NewAuthMiddleware(cfg config.Config, redisClient *redis.Redis) rest.Middlew
 				ctx := r.Context()
 				token := extractBearer(r.Header.Get("Authorization"))
 				if token != "" {
+					// 公开接口上的“弱鉴权”：
+					// token 合法就把用户上下文注入进去，后续 logic 就可以做个性化聚合；
+					// token 不合法则直接忽略，继续按匿名访问处理。
 					claims := &authClaims{}
 					_, err := jwt.ParseWithClaims(token, claims, func(t *jwt.Token) (any, error) {
 						return secret, nil
@@ -74,6 +84,7 @@ func NewAuthMiddleware(cfg config.Config, redisClient *redis.Redis) rest.Middlew
 				return
 			}
 
+			// 第二类路径：必须登录后才能访问。
 			token := extractBearer(r.Header.Get("Authorization"))
 			if token == "" {
 				httpx.ErrorCtx(r.Context(), w, response.Unauthorized())
@@ -89,6 +100,8 @@ func NewAuthMiddleware(cfg config.Config, redisClient *redis.Redis) rest.Middlew
 				return
 			}
 			if checkTokenVersion {
+				// 这里是“JWT + Redis tokenVersion”组合方案的关键：
+				// 即便 token 签名正确，只要 Redis 里的最新版本号已经变化，旧 token 也会立即失效。
 				key := fmt.Sprintf("%s%d", tokenVersionKeyPrefix, claims.UserId)
 				value, err := redisClient.GetCtx(r.Context(), key)
 				if err != nil {
@@ -104,6 +117,7 @@ func NewAuthMiddleware(cfg config.Config, redisClient *redis.Redis) rest.Middlew
 			ctx := context.WithValue(r.Context(), "userId", claims.UserId)
 			ctx = context.WithValue(ctx, "role", claims.Role)
 			ctx = context.WithValue(ctx, "nickname", claims.Nickname)
+			// accessToken / refreshToken 也放进 context，便于后续 Java 代理或 user-rpc 调用时透传。
 			ctx = context.WithValue(ctx, "accessToken", token)
 			if rt := extractBearer(r.Header.Get("X-Refresh-Token")); rt != "" {
 				ctx = context.WithValue(ctx, "refreshToken", rt)
@@ -114,6 +128,7 @@ func NewAuthMiddleware(cfg config.Config, redisClient *redis.Redis) rest.Middlew
 	}
 }
 
+// extractBearer 把 "Bearer xxx" 形式的 Authorization 头还原成纯 token。
 func extractBearer(value string) string {
 	if value == "" {
 		return ""
@@ -124,6 +139,8 @@ func extractBearer(value string) string {
 	return ""
 }
 
+// tokenVersionOk 仅用于公开路径上的弱校验。
+// 如果这里返回 false，网关不会报错，而是把请求当成匿名访问。
 func tokenVersionOk(ctx context.Context, redisClient *redis.Redis, claims *authClaims) bool {
 	if redisClient == nil || claims == nil {
 		return false
@@ -136,6 +153,7 @@ func tokenVersionOk(ctx context.Context, redisClient *redis.Redis, claims *authC
 	return value == fmt.Sprintf("%d", claims.TokenVersion)
 }
 
+// shouldSkipAuth / isPublicPath / matchPattern 共同决定“这条路径是否需要强制鉴权”。
 func shouldSkipAuth(path string, patterns []string) bool {
 	for _, pattern := range patterns {
 		if matchPattern(path, pattern) {

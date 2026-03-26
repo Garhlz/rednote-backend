@@ -2,17 +2,17 @@ Name: user.rpc
 ListenOn: 0.0.0.0:8080
 Etcd:
   Hosts:
-  - etcd-local-dev:2379
+  - etcd:2379
   Key: user.rpc
-Postgres:
-  DataSource: postgres://postgres:postgres@postgres-local-dev:5432/platform_db?sslmode=disable
+Mysql:
+  DataSource: root:123456@tcp(db:3306)/user_db?charset=utf8mb4&parseTime=true&loc=Asia%2FShanghai
 BizRedis:
-  Host: redis-local-dev:6379
+  Host: redis:6379
   Type: node
   Pass: ""
 RabbitMQ:
   Enabled: "true"
-  Url: amqp://admin:admin@mq-local-dev:5672/
+  Url: amqp://admin:admin@mq:5672/
   Exchange: platform.topic.exchange
   UserUpdateRoutingKey: user.update
   UserDeleteRoutingKey: user.delete

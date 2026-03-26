@@ -3,26 +3,102 @@ package logic
 import (
 	"context"
 	"encoding/json"
+	"interaction-rpc/internal/svc"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/rabbitmq/amqp091-go"
+	goredis "github.com/redis/go-redis/v9"
 	"github.com/zeromicro/go-zero/core/logx"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 // ==========================================
-// 1. 常量定义 (保持与 Java RedisKey 一致)
+// 1. 常量定义
 // ==========================================
 const (
-	// BizRedis Key 前缀
+	// BizRedis Key 前缀。
+	// 这里的 Redis 不是单纯“查不到就算了”的旁路缓存，而是互动读链路的主读取来源。
+	// Mongo/Java 侧更多承担持久化、异步聚合、搜索同步等职责。
 	KeyPostLikeSet    = "post:like:"    // 对应 Java: POST_LIKE_SET
 	KeyPostCollectSet = "post:collect:" // 对应 Java: POST_COLLECT_SET
 	KeyPostRateHash   = "post:rate:"    // 对应 Java: POST_RATE_HASH
 	KeyCommentLikeSet = "comment:like:" // 对应 Java: COMMENT_LIKE_SET
+	KeyCacheWarmLock  = "lock:cache:warm:"
 
 	// RabbitMQ 配置 (必须与 Java 端配置一致)
 	ExchangeName     = "platform.topic.exchange"
 	RoutingKeyCreate = "interaction.create"
 	RoutingKeyDelete = "interaction.delete"
+
+	// Bloom Filter 只做“快速判断某个目标是否可能存在互动数据”，
+	// 它不是事实源，也不参与真实计数。
+	// 一旦 Bloom 因为 Redis 重启丢失，系统仍然可以回退到 Mongo 预热。
+	KeyBloomPostLike    = "bloom:post_likes"
+	KeyBloomPostCollect = "bloom:post_collects"
+	KeyBloomCommentLike = "bloom:comment_likes"
+	KeyBloomPostRate    = "bloom:post_rates"
+
+	// DummyUserId/占位字段用于表示“这个 key 已经被预热过，但当前确实没有真实数据”。
+	// 这样即使 Mongo 查询结果为空，也能在 Redis 中留下一个可见痕迹，避免后续请求持续穿透到 Mongo。
+	DummyUserId = "-1"
+
+	// 预热后的互动集合只保留有限时间，避免冷门帖子长期占用 Redis 内存。
+	cacheTTLSeconds = 24 * 60 * 60
+	// 预热时加一把短锁，避免同一个 key 在高并发下被多个请求同时回源 Mongo。
+	cacheWarmLockSeconds = 5
+	cacheWarmRetryCount  = 10
+	cacheWarmRetryDelay  = 50 * time.Millisecond
+	bloomErrorRate       = 0.01
+	bloomCapacity        = 1_000_000
+)
+
+// setCacheSpec/hashCacheSpec 把“某类互动缓存”的差异参数抽出来，
+// 后面点赞、收藏、评论点赞、评分都共用一套预热逻辑。
+// 这样做的目的是让缓存策略统一，避免每种互动都复制一套近似代码。
+type setCacheSpec struct {
+	redisKeyPrefix  string
+	mongoCollection string
+	targetField     string
+	bloomKey        string
+}
+
+type hashCacheSpec struct {
+	redisKeyPrefix  string
+	mongoCollection string
+	targetField     string
+	valueField      string
+	bloomKey        string
+}
+
+var (
+	postLikeCacheSpec = setCacheSpec{
+		redisKeyPrefix:  KeyPostLikeSet,
+		mongoCollection: "post_likes",
+		targetField:     "postId",
+		bloomKey:        KeyBloomPostLike,
+	}
+	postCollectCacheSpec = setCacheSpec{
+		redisKeyPrefix:  KeyPostCollectSet,
+		mongoCollection: "post_collects",
+		targetField:     "postId",
+		bloomKey:        KeyBloomPostCollect,
+	}
+	commentLikeCacheSpec = setCacheSpec{
+		redisKeyPrefix:  KeyCommentLikeSet,
+		mongoCollection: "comment_likes",
+		targetField:     "commentId",
+		bloomKey:        KeyBloomCommentLike,
+	}
+	postRateCacheSpec = hashCacheSpec{
+		redisKeyPrefix:  KeyPostRateHash,
+		mongoCollection: "post_ratings",
+		targetField:     "postId",
+		valueField:      "score",
+		bloomKey:        KeyBloomPostRate,
+	}
 )
 
 // ==========================================
@@ -68,4 +144,335 @@ func publishEvent(ctx context.Context, channel *amqp091.Channel, routingKey stri
 
 	logx.WithContext(ctx).Infof("Sent MQ Event: %s -> %s", routingKey, string(body))
 	return nil
+}
+
+// EnsurePostLikeCache / EnsurePostCollectCache / EnsureCommentLikeCache / EnsurePostRateCache
+// 都是在“真正读写 Redis 前，先确保这个 key 已经完成冷启动预热”。
+// 如果 Redis 中已存在 key，会直接返回；只有缓存缺失时才会回源 Mongo。
+func EnsurePostLikeCache(ctx context.Context, svcCtx *svc.ServiceContext, postId string) error {
+	return ensureSetCacheLoaded(ctx, svcCtx, postId, postLikeCacheSpec)
+}
+
+func EnsurePostCollectCache(ctx context.Context, svcCtx *svc.ServiceContext, postId string) error {
+	return ensureSetCacheLoaded(ctx, svcCtx, postId, postCollectCacheSpec)
+}
+
+func EnsureCommentLikeCache(ctx context.Context, svcCtx *svc.ServiceContext, commentId string) error {
+	return ensureSetCacheLoaded(ctx, svcCtx, commentId, commentLikeCacheSpec)
+}
+
+func EnsurePostRateCache(ctx context.Context, svcCtx *svc.ServiceContext, postId string) error {
+	return ensureHashCacheLoaded(ctx, svcCtx, postId, postRateCacheSpec)
+}
+
+// ensureSetCacheLoaded 用于预热 Set 结构缓存，如点赞/收藏/评论点赞。
+// 这段逻辑解决的是 write-behind 模式下最危险的问题：
+// 如果 Redis key 因为冷启动或淘汰而消失，直接 SADD/SREM 会把“当前操作”误当成全量数据，
+// 造成 Redis 中只剩新写入的一条记录，历史互动数据在读链路上“蒸发”。
+func ensureSetCacheLoaded(ctx context.Context, svcCtx *svc.ServiceContext, targetId string, spec setCacheSpec) error {
+	key := spec.redisKeyPrefix + targetId
+	exists, err := svcCtx.Redis.ExistsCtx(ctx, key)
+	if err != nil {
+		return err
+	}
+	if exists {
+		// key 已存在，说明这个目标的互动集合已经在 Redis 中建立好了，直接使用即可。
+		return nil
+	}
+
+	// 当前不存在这个redis key
+	lockKey := KeyCacheWarmLock + key
+	// 当lock key不存在时设置string,有过期时间
+	locked, err := svcCtx.Redis.SetnxEx(lockKey, "1", cacheWarmLockSeconds)
+	if err != nil {
+		return err
+	}
+	// locked == 0,即没有拿到分布式锁
+	if !locked {
+		// 别的请求正在做预热，本请求短暂等待，尽量复用对方的结果，避免同时打 Mongo。
+		for i := 0; i < cacheWarmRetryCount; i++ {
+			time.Sleep(cacheWarmRetryDelay)
+			exists, err = svcCtx.Redis.ExistsCtx(ctx, key)
+			if err != nil {
+				return err
+			}
+			if exists {
+				return nil
+			}
+		}
+	} else {
+		// 当前请求拿到了预热锁，由它负责回源 Mongo 并构建 Redis key。
+		defer func() {
+			_, _ = svcCtx.Redis.DelCtx(ctx, lockKey)
+		}()
+	}
+
+	// 拿到了分布式锁，尝试回查mongo
+	exists, err = svcCtx.Redis.ExistsCtx(ctx, key)
+	if err != nil {
+		return err
+	}
+	if exists {
+		return nil
+	}
+
+	if svcCtx.Mongo == nil {
+		// 理论上互动持久化数据来自 Mongo；如果这里没有 Mongo，只能退化为“不预热直接返回”。
+		// 这不是理想状态，但保留了服务可用性。
+		return nil
+	}
+
+	var likes []struct {
+		UserId int64 `bson:"userId"`
+	}
+
+	coll := svcCtx.Mongo.Collection(spec.mongoCollection)
+	cursor, err := coll.Find(ctx, bson.M{spec.targetField: targetId}, options.Find().SetProjection(bson.M{"userId": 1}))
+	if err != nil {
+		return err
+	}
+	defer cursor.Close(ctx)
+	if err := cursor.All(ctx, &likes); err != nil {
+		return err
+	}
+
+	if len(likes) > 0 {
+		// Mongo 中存在真实互动记录，整批写回 Redis Set。
+		args := make([]any, len(likes))
+		for i, like := range likes {
+			args[i] = strconv.FormatInt(like.UserId, 10)
+		}
+		_, err = svcCtx.Redis.SaddCtx(ctx, key, args...)
+		if err == nil {
+			// 一旦确认真实存在互动数据，就把 targetId 加入 Bloom。
+			// 后续读请求可以先走 Bloom 做快速判断，减少不必要的 Mongo 预热尝试。
+			AddBloom(ctx, svcCtx, spec.bloomKey, targetId)
+		}
+	} else {
+		// Mongo 返回空集合时不能什么都不写。
+		// 否则下一次读写这个目标时，仍然会认为“缓存不存在”，又去查 Mongo，形成穿透。
+		// 即这个集合已经被预热过，但是不存在真实数据
+		_, err = svcCtx.Redis.SaddCtx(ctx, key, DummyUserId)
+	}
+	if err != nil {
+		return err
+	}
+
+	// 预热后的 key 统一设置 TTL，避免 Redis 中残留大量长期无人访问的互动集合。
+	_ = svcCtx.Redis.ExpireCtx(ctx, key, cacheTTLSeconds)
+	return nil
+}
+
+// ensureHashCacheLoaded 用于预热 Hash 结构缓存，目前服务于帖子评分。
+// 它和 Set 版本的思路一致，只是把 userId -> score 作为 hash field/value 存储。
+func ensureHashCacheLoaded(ctx context.Context, svcCtx *svc.ServiceContext, targetId string, spec hashCacheSpec) error {
+	key := spec.redisKeyPrefix + targetId
+	exists, err := svcCtx.Redis.ExistsCtx(ctx, key)
+	if err != nil {
+		return err
+	}
+	if exists {
+		return nil
+	}
+
+	lockKey := KeyCacheWarmLock + key
+	locked, err := svcCtx.Redis.SetnxEx(lockKey, "1", cacheWarmLockSeconds)
+	if err != nil {
+		return err
+	}
+	if !locked {
+		// 其他请求正在预热评分缓存，这里做短暂自旋等待，尽量避免并发回源。
+		for i := 0; i < cacheWarmRetryCount; i++ {
+			time.Sleep(cacheWarmRetryDelay)
+			exists, err = svcCtx.Redis.ExistsCtx(ctx, key)
+			if err != nil {
+				return err
+			}
+			if exists {
+				return nil
+			}
+		}
+	} else {
+		defer func() {
+			_, _ = svcCtx.Redis.DelCtx(ctx, lockKey)
+		}()
+	}
+
+	exists, err = svcCtx.Redis.ExistsCtx(ctx, key)
+	if err != nil {
+		return err
+	}
+	if exists {
+		return nil
+	}
+
+	if svcCtx.Mongo == nil {
+		return nil
+	}
+
+	type ratingDoc struct {
+		UserId int64   `bson:"userId"`
+		Score  float64 `bson:"score"`
+	}
+
+	var ratings []ratingDoc
+	coll := svcCtx.Mongo.Collection(spec.mongoCollection)
+	cursor, err := coll.Find(ctx, bson.M{spec.targetField: targetId}, options.Find().SetProjection(bson.M{"userId": 1, spec.valueField: 1}))
+	if err != nil {
+		return err
+	}
+	defer cursor.Close(ctx)
+	if err := cursor.All(ctx, &ratings); err != nil {
+		return err
+	}
+
+	if len(ratings) == 0 {
+		// 评分也需要“空值占位”。
+		// 这样即便该帖子从未被评分，也能阻止后续请求持续穿透到 Mongo。
+		_, err = svcCtx.Redis.HsetnxCtx(ctx, key, DummyUserId, "0")
+		if err != nil {
+			return err
+		}
+		_ = svcCtx.Redis.ExpireCtx(ctx, key, cacheTTLSeconds)
+		return nil
+	}
+
+	for _, rating := range ratings {
+		// 用一位小数字符串写入 Redis，保证和业务协议中的评分格式一致。
+		scoreStr := strconv.FormatFloat(rating.Score, 'f', 1, 64)
+		if err := svcCtx.Redis.HsetCtx(ctx, key, strconv.FormatInt(rating.UserId, 10), scoreStr); err != nil {
+			return err
+		}
+	}
+	// 评分数据存在时，同样把帖子加入 Bloom，供后续快速判断使用。
+	AddBloom(ctx, svcCtx, spec.bloomKey, targetId)
+	_ = svcCtx.Redis.ExpireCtx(ctx, key, cacheTTLSeconds)
+	return nil
+}
+
+// ShouldLoadSetCache / ShouldLoadHashCache 负责决定“是否值得尝试预热”。
+// 返回 true 的含义不是“Redis 一定缺 key”，而是“这个目标可能有真实互动数据，或者 Bloom 本身不可用，需要兜底检查”。
+func ShouldLoadSetCache(ctx context.Context, svcCtx *svc.ServiceContext, targetId string, spec setCacheSpec) bool {
+	ready, exists := CheckBloom(ctx, svcCtx, spec.bloomKey, targetId)
+	// bloom本身不可用
+	if !ready {
+		// Bloom 不可用时保守处理，允许走预热逻辑，避免漏掉真实数据。
+		return true
+	}
+	// 返回当前redis key是否可能存在
+	return exists
+}
+
+func ShouldLoadHashCache(ctx context.Context, svcCtx *svc.ServiceContext, targetId string, spec hashCacheSpec) bool {
+	ready, exists := CheckBloom(ctx, svcCtx, spec.bloomKey, targetId)
+	if !ready {
+		return true
+	}
+	return exists
+}
+
+// CheckBloom 返回两个值：
+// 1. ready: Bloom 本身是否可用
+// 2. exists: 如果可用，这个 value 是否“可能存在”
+//
+// 这里故意把“不存在 Bloom key / RedisBloom 不可用 / 指令报错”都视为 ready=false，
+// 让上层走保守兜底逻辑，而不是直接返回 false 造成假阴性。
+func CheckBloom(ctx context.Context, svcCtx *svc.ServiceContext, bloomKey string, value string) (bool, bool) {
+	if svcCtx.RawRedis == nil {
+		return false, false
+	}
+
+	keyExists, err := svcCtx.RawRedis.Exists(ctx, bloomKey).Result()
+	if err != nil || keyExists == 0 {
+		return false, false
+	}
+
+	res, err := svcCtx.RawRedis.Do(ctx, "BF.EXISTS", bloomKey, value).Int64()
+	if err != nil {
+		return false, false
+	}
+
+	return true, res == 1
+}
+
+// AddBloom 在首次写入真实互动数据时，把目标加入 Bloom。
+// BF.RESERVE 重复执行时会报“item exists”，这里显式吞掉这个错误。
+func AddBloom(ctx context.Context, svcCtx *svc.ServiceContext, bloomKey string, value string) {
+	if svcCtx.RawRedis == nil {
+		return
+	}
+
+	_, err := svcCtx.RawRedis.Do(ctx, "BF.RESERVE", bloomKey, bloomErrorRate, bloomCapacity).Result()
+	if err != nil && !isBloomAlreadyExistsErr(err) {
+		logx.WithContext(ctx).Errorf("reserve bloom failed: %v", err)
+		return
+	}
+
+	if _, err := svcCtx.RawRedis.Do(ctx, "BF.ADD", bloomKey, value).Result(); err != nil {
+		logx.WithContext(ctx).Errorf("add bloom failed: %v", err)
+	}
+}
+
+// countSetWithoutDummy 用于对外返回真实计数。
+// Redis 中的 DummyUserId 只是防穿透占位节点，不能被算进点赞数/收藏数。
+func countSetWithoutDummy(ctx context.Context, svcCtx *svc.ServiceContext, key string) (int64, error) {
+	count, err := svcCtx.Redis.ScardCtx(ctx, key)
+	if err != nil {
+		return 0, err
+	}
+	hasDummy, err := svcCtx.Redis.SismemberCtx(ctx, key, DummyUserId)
+	if err != nil {
+		return count, err
+	}
+	if hasDummy && count > 0 {
+		count--
+	}
+	return count, nil
+}
+
+// removeDummyUser / ensureDummyUserIfEmpty / removeDummyRate / ensureDummyRateIfEmpty
+// 保证“空集合也有 key，有真实数据时又不会被 Dummy 干扰”。
+// 这几个辅助函数是让 Set/Hash 在反复增删后仍然保持缓存语义稳定的关键。
+func removeDummyUser(ctx context.Context, svcCtx *svc.ServiceContext, key string) {
+	_, _ = svcCtx.Redis.SremCtx(ctx, key, DummyUserId)
+	_ = svcCtx.Redis.ExpireCtx(ctx, key, cacheTTLSeconds)
+}
+
+func ensureDummyUserIfEmpty(ctx context.Context, svcCtx *svc.ServiceContext, key string) {
+	count, err := svcCtx.Redis.ScardCtx(ctx, key)
+	if err != nil {
+		return
+	}
+	if count > 0 {
+		_ = svcCtx.Redis.ExpireCtx(ctx, key, cacheTTLSeconds)
+		return
+	}
+	_, _ = svcCtx.Redis.SaddCtx(ctx, key, DummyUserId)
+	_ = svcCtx.Redis.ExpireCtx(ctx, key, cacheTTLSeconds)
+}
+
+func removeDummyRate(ctx context.Context, svcCtx *svc.ServiceContext, key string) {
+	_, _ = svcCtx.Redis.HdelCtx(ctx, key, DummyUserId)
+	_ = svcCtx.Redis.ExpireCtx(ctx, key, cacheTTLSeconds)
+}
+
+func ensureDummyRateIfEmpty(ctx context.Context, svcCtx *svc.ServiceContext, key string) {
+	size, err := svcCtx.Redis.HlenCtx(ctx, key)
+	if err != nil {
+		return
+	}
+	if size > 0 {
+		_ = svcCtx.Redis.ExpireCtx(ctx, key, cacheTTLSeconds)
+		return
+	}
+	_, _ = svcCtx.Redis.HsetnxCtx(ctx, key, DummyUserId, "0")
+	_ = svcCtx.Redis.ExpireCtx(ctx, key, cacheTTLSeconds)
+}
+
+func isBloomAlreadyExistsErr(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "item exists")
+}
+
+func isRedisNil(err error) bool {
+	return err == goredis.Nil
 }

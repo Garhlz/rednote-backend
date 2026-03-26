@@ -39,7 +39,7 @@ func (l *RegisterLogic) Register(in *user.RegisterRequest) (*user.AuthResponse, 
 		return nil, status.Error(codes.InvalidArgument, "email, code and password are required")
 	}
 
-	cached, err := l.svcCtx.Redis.GetCtx(l.ctx, emailCodeKeyPrefix+email)
+	cached, err := l.svcCtx.Redis.GetCtx(l.ctx, emailCodeKey(emailSceneRegister, email))
 	if err != nil && err != redis.Nil {
 		return nil, status.Error(codes.Internal, "verify code error")
 	}
@@ -83,7 +83,7 @@ func (l *RegisterLogic) Register(in *user.RegisterRequest) (*user.AuthResponse, 
 		CreatedAt:         now,
 	}
 
-	id, err := l.svcCtx.Users.Insert(l.ctx, userData)
+	id, err := l.svcCtx.Users.InsertAndReturnID(l.ctx, userData)
 	if err != nil {
 		return nil, status.Error(codes.Internal, "create user failed")
 	}
@@ -104,7 +104,7 @@ func (l *RegisterLogic) Register(in *user.RegisterRequest) (*user.AuthResponse, 
 		return nil, status.Error(codes.Internal, "store token version failed")
 	}
 
-	_, _ = l.svcCtx.Redis.Del(emailCodeKeyPrefix + email)
+	_, _ = l.svcCtx.Redis.Del(emailCodeKey(emailSceneRegister, email))
 
 	return &user.AuthResponse{
 		Tokens: tokens,

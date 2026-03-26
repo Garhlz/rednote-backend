@@ -7,7 +7,7 @@ import (
 
 type Config struct {
 	zrpc.RpcServerConf
-	Postgres struct {
+	Mysql struct {
 		DataSource string
 	}
 	BizRedis redis.RedisConf

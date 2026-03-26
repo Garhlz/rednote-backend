@@ -42,7 +42,7 @@ func (l *RefreshTokenLogic) RefreshToken(in *user.RefreshTokenRequest) (*user.Au
 		return nil, status.Error(codes.Unauthenticated, "invalid refresh token")
 	}
 
-	blocked, err := l.svcCtx.Redis.ExistsCtx(l.ctx, tokenBlockPrefix+in.GetRefreshToken())
+	blocked, err := l.svcCtx.Redis.ExistsCtx(l.ctx, blockedTokenKey(in.GetRefreshToken()))
 	if err != nil {
 		return nil, status.Error(codes.Internal, "refresh token check failed")
 	}

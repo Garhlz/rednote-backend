@@ -29,6 +29,11 @@ func (l *UnlikePostLogic) UnlikePost(in *interaction.InteractionRequest) (*inter
 	key := KeyPostLikeSet + in.TargetId
 	userIdStr := strconv.FormatInt(in.UserId, 10)
 
+	if err := EnsurePostLikeCache(l.ctx, l.svcCtx, in.TargetId); err != nil {
+		l.Logger.Errorf("ensure post like cache error: %v", err)
+		return nil, err
+	}
+
 	// BizRedis SREM
 	removed, err := l.svcCtx.Redis.SremCtx(l.ctx, key, userIdStr)
 	if err != nil {
@@ -37,6 +42,8 @@ func (l *UnlikePostLogic) UnlikePost(in *interaction.InteractionRequest) (*inter
 	}
 
 	if removed > 0 {
+		ensureDummyUserIfEmpty(l.ctx, l.svcCtx, key)
+
 		event := &InteractionEvent{
 			UserId:   in.UserId,
 			TargetId: in.TargetId,

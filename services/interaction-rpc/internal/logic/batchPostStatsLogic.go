@@ -31,46 +31,92 @@ func (l *BatchPostStatsLogic) BatchPostStats(in *interaction.BatchPostStatsReque
 		return &interaction.BatchPostStatsResponse{Stats: map[string]*interaction.PostStats{}}, nil
 	}
 
+	// 这个接口是“帖子互动展示聚合口”：
+	// 它不负责返回帖子正文，而是统一返回点赞数、收藏数、是否点赞、是否收藏、我的评分、是否关注作者等互动字段。
+	// 网关在列表页、搜索页、详情页都会调用它，把互动视图收敛到 interaction-rpc。
 	userId := in.GetUserId()
+	userIdStr := strconv.FormatInt(userId, 10)
 	stats := make(map[string]*interaction.PostStats, len(in.GetPostIds()))
 	for _, postId := range in.GetPostIds() {
+		// 初始化stats这个map中的每个元素
 		stats[postId] = &interaction.PostStats{}
 	}
 
 	for _, postId := range in.GetPostIds() {
-		collectCount, err := l.svcCtx.Redis.ScardCtx(l.ctx, KeyPostCollectSet+postId)
+		// 先按需预热 Redis。
+		// 这里不是每次都无脑查 Mongo，而是先走 Bloom 判断：
+		// 1. Bloom 可用且判断“可能存在互动” -> 尝试预热
+		// 2. Bloom 不可用 -> 保守起见也尝试预热
+		// 3. Bloom 明确判断不存在 -> 跳过预热，直接走 Redis 空值语义
+		if ShouldLoadSetCache(l.ctx, l.svcCtx, postId, postCollectCacheSpec) {
+			if err := EnsurePostCollectCache(l.ctx, l.svcCtx, postId); err != nil {
+				l.Logger.Errorf("ensure post collect cache error: %v", err)
+			}
+		}
+		if ShouldLoadSetCache(l.ctx, l.svcCtx, postId, postLikeCacheSpec) {
+			if err := EnsurePostLikeCache(l.ctx, l.svcCtx, postId); err != nil {
+				l.Logger.Errorf("ensure post like cache error: %v", err)
+			}
+		}
+		if ShouldLoadHashCache(l.ctx, l.svcCtx, postId, postRateCacheSpec) {
+			if err := EnsurePostRateCache(l.ctx, l.svcCtx, postId); err != nil {
+				l.Logger.Errorf("ensure post rate cache error: %v", err)
+			}
+		}
+
+		// 点赞数/收藏数统一从 interaction-rpc 维护的 Redis 集合读取，
+		// 不再依赖 ES 中最终一致的冗余计数。
+		collectCount, err := countSetWithoutDummy(l.ctx, l.svcCtx, KeyPostCollectSet+postId)
 		if err != nil {
 			l.Logger.Errorf("collect count error: %v", err)
 		} else {
 			stats[postId].CollectCount = int32(collectCount)
 		}
+		likeCount, err := countSetWithoutDummy(l.ctx, l.svcCtx, KeyPostLikeSet+postId)
+		if err != nil {
+			l.Logger.Errorf("like count error: %v", err)
+		} else {
+			stats[postId].LikeCount = int32(likeCount)
+		}
 
 		if userId > 0 {
-			userKey := strconv.FormatInt(userId, 10)
-			member, err := l.svcCtx.Redis.SismemberCtx(l.ctx, KeyPostCollectSet+postId, userKey)
+			// 对当前登录用户，直接判断其 userId 是否存在于目标 Set 中，即可得到是否点赞/收藏。
+			member, err := l.svcCtx.Redis.SismemberCtx(l.ctx, KeyPostCollectSet+postId, userIdStr)
 			if err != nil {
 				l.Logger.Errorf("collect status error: %v", err)
 			} else {
 				stats[postId].IsCollected = member
 			}
-			liked, err := l.svcCtx.Redis.SismemberCtx(l.ctx, KeyPostLikeSet+postId, userKey)
+			liked, err := l.svcCtx.Redis.SismemberCtx(l.ctx, KeyPostLikeSet+postId, userIdStr)
 			if err != nil {
 				l.Logger.Errorf("like status error: %v", err)
 			} else {
 				stats[postId].IsLiked = liked
 			}
+			// 我的评分来自评分 Hash 中 userId 对应的 field。
+			// 如果查不到，说明当前用户还没给这篇帖子打过分。
+			score, err := l.svcCtx.Redis.HgetCtx(l.ctx, KeyPostRateHash+postId, userIdStr)
+			if err != nil {
+				l.Logger.Errorf("rate status error: %v", err)
+			} else if parsed, parseErr := strconv.ParseFloat(score, 64); parseErr == nil {
+				stats[postId].MyScore = parsed
+			}
 		}
 	}
 
 	if l.svcCtx.Mongo != nil {
+		// 评论数、评分总人数、评分均值目前仍由 Mongo posts 文档提供。
+		// 这部分不是高频切换状态，不需要像点赞/收藏那样完全依赖 Redis Set/Hash。
 		type postDoc struct {
-			ID           string `bson:"_id"`
-			CommentCount int32  `bson:"commentCount"`
+			ID            string  `bson:"_id"`
+			CommentCount  int32   `bson:"commentCount"`
+			RatingCount   int32   `bson:"ratingCount"`
+			RatingAverage float64 `bson:"ratingAverage"`
 		}
 		cursor, err := l.svcCtx.Mongo.Collection("posts").Find(
 			l.ctx,
 			bson.M{"_id": bson.M{"$in": in.GetPostIds()}},
-			options.Find().SetProjection(bson.M{"commentCount": 1}),
+			options.Find().SetProjection(bson.M{"commentCount": 1, "ratingCount": 1, "ratingAverage": 1}),
 		)
 		if err != nil {
 			l.Logger.Errorf("mongo query error: %v", err)
@@ -83,12 +129,15 @@ func (l *BatchPostStatsLogic) BatchPostStats(in *interaction.BatchPostStatsReque
 				}
 				if st, ok := stats[doc.ID]; ok {
 					st.CommentCount = doc.CommentCount
+					st.RatingCount = doc.RatingCount
+					st.RatingAverage = doc.RatingAverage
 				}
 			}
 		}
 	}
 
 	if userId > 0 && l.svcCtx.Mongo != nil && len(in.GetPostAuthorMap()) > 0 {
+		// 是否关注作者也在这里顺手聚合，避免网关或详情页再额外查一次关系表。
 		authorSet := make(map[int64]struct{})
 		for _, authorId := range in.GetPostAuthorMap() {
 			if authorId > 0 {

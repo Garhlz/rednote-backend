@@ -40,7 +40,7 @@ func (l *ResetPasswordLogic) ResetPassword(in *user.ResetPasswordRequest) (*user
 		return nil, status.Error(codes.InvalidArgument, "password too short")
 	}
 
-	cached, err := l.svcCtx.Redis.GetCtx(l.ctx, emailCodeKeyPrefix+email)
+	cached, err := l.svcCtx.Redis.GetCtx(l.ctx, emailCodeKey(emailSceneResetPassword, email))
 	if err != nil && err != redis.Nil {
 		return nil, status.Error(codes.Internal, "verify code error")
 	}
@@ -72,6 +72,6 @@ func (l *ResetPasswordLogic) ResetPassword(in *user.ResetPasswordRequest) (*user
 		return nil, status.Error(codes.Internal, "store token version failed")
 	}
 
-	_, _ = l.svcCtx.Redis.Del(emailCodeKeyPrefix + email)
+	_, _ = l.svcCtx.Redis.Del(emailCodeKey(emailSceneResetPassword, email))
 	return &user.Empty{}, nil
 }

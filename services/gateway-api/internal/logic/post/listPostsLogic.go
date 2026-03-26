@@ -31,6 +31,10 @@ func NewListPostsLogic(ctx context.Context, svcCtx *svc.ServiceContext) *ListPos
 }
 
 func (l *ListPostsLogic) ListPosts(req *types.SearchReq) (resp *types.PageResultPost, err error) {
+	// 列表页和搜索页的网关编排模式基本一致：
+	// 1. 先从 search-rpc 拿帖子列表
+	// 2. 再批量调 interaction-rpc 补互动字段
+	// 3. 最后拼成前端统一的 PostVO
 	if req.PageSize == 0 && req.Size > 0 {
 		req.PageSize = req.Size
 	}
@@ -110,11 +114,17 @@ func (l *ListPostsLogic) ListPosts(req *types.SearchReq) (resp *types.PageResult
 		}
 
 		if stat != nil {
+			// 这里的覆盖逻辑体现了网关的“统一出参”职责：
+			// 对前端来说，不需要知道 likeCount 来自哪个服务，也不需要自己再发一次互动请求。
+			post.LikeCount = stat.GetLikeCount()
 			post.IsLiked = stat.GetIsLiked()
 			post.IsCollected = stat.GetIsCollected()
 			post.IsFollowed = stat.GetIsFollowed()
 			post.CollectCount = stat.GetCollectCount()
 			post.CommentCount = stat.GetCommentCount()
+			post.RatingAverage = stat.GetRatingAverage()
+			post.RatingCount = stat.GetRatingCount()
+			post.MyScore = stat.GetMyScore()
 		}
 
 		records = append(records, post)

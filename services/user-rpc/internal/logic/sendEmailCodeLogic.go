@@ -30,11 +30,15 @@ func NewSendEmailCodeLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Sen
 // Auth / Account
 func (l *SendEmailCodeLogic) SendEmailCode(in *user.SendEmailCodeRequest) (*user.SendEmailCodeResponse, error) {
 	email := strings.TrimSpace(in.GetEmail())
+	scene, ok := normalizeEmailScene(in.GetScene())
 	if email == "" {
 		return nil, status.Error(codes.InvalidArgument, "email is required")
 	}
+	if !ok {
+		return nil, status.Error(codes.InvalidArgument, "invalid scene")
+	}
 
-	limitKey := emailLimitKeyPrefix + email
+	limitKey := emailLimitKey(scene, email)
 	allowed, err := l.svcCtx.Redis.SetnxEx(limitKey, "1", 60)
 	if err != nil {
 		return nil, status.Error(codes.Internal, "rate limit error")
@@ -48,7 +52,7 @@ func (l *SendEmailCodeLogic) SendEmailCode(in *user.SendEmailCodeRequest) (*user
 		return nil, status.Error(codes.Internal, "generate code failed")
 	}
 
-	subject := "【映记】验证码"
+	subject := "【分享派】验证码"
 	body := "您的验证码是：" + code + "。有效期为5分钟，请勿泄露给他人。"
 	if err := sendEmail(l.svcCtx.Config, email, subject, body); err != nil {
 		l.Logger.Errorf("send email failed: %s", err)
@@ -56,7 +60,7 @@ func (l *SendEmailCodeLogic) SendEmailCode(in *user.SendEmailCodeRequest) (*user
 		return nil, status.Errorf(codes.Internal, "mail send failed: %s", err)
 	}
 
-	codeKey := emailCodeKeyPrefix + email
+	codeKey := emailCodeKey(scene, email)
 	if err := l.svcCtx.Redis.Setex(codeKey, code, int(time.Minute.Seconds()*5)); err != nil {
 		return nil, status.Error(codes.Internal, "store code failed")
 	}

@@ -17,15 +17,15 @@ import (
 )
 
 var (
-	usersFieldNames          = builder.RawFieldNames(&Users{}, true)
+	usersFieldNames          = builder.RawFieldNames(&Users{})
 	usersRows                = strings.Join(usersFieldNames, ",")
-	usersRowsExpectAutoSet   = strings.Join(stringx.Remove(usersFieldNames, "id", "create_at", "create_time", "created_at", "update_at", "update_time", "updated_at"), ",")
-	usersRowsWithPlaceHolder = builder.PostgreSqlJoin(stringx.Remove(usersFieldNames, "id", "create_at", "create_time", "created_at", "update_at", "update_time", "updated_at"))
+	usersRowsExpectAutoSet   = strings.Join(stringx.Remove(usersFieldNames, "`id`", "`create_at`", "`create_time`", "`created_at`", "`update_at`", "`update_time`", "`updated_at`"), ",")
+	usersRowsWithPlaceHolder = strings.Join(stringx.Remove(usersFieldNames, "`id`", "`create_at`", "`create_time`", "`created_at`", "`update_at`", "`update_time`", "`updated_at`"), "=?,") + "=?"
 )
 
 type (
 	usersModel interface {
-		Insert(ctx context.Context, data *Users) (int64, error)
+		Insert(ctx context.Context, data *Users) (sql.Result, error)
 		FindOne(ctx context.Context, id int64) (*Users, error)
 		FindOneByEmail(ctx context.Context, email string) (*Users, error)
 		Update(ctx context.Context, data *Users) error
@@ -38,40 +38,40 @@ type (
 	}
 
 	Users struct {
-		Id                int64          `db:"id"`
-		Email             string         `db:"email"`
-		Password          string         `db:"password"`
-		Nickname          string         `db:"nickname"`
-		Avatar            string         `db:"avatar"`
-		Gender            int64          `db:"gender"`
-		Birthday          sql.NullTime   `db:"birthday"`
-		Region            sql.NullString `db:"region"`
-		Bio               string         `db:"bio"`
-		Role              string         `db:"role"`
-		Status            int64          `db:"status"`
-		IsDeleted         int64          `db:"is_deleted"`
-		CreatedAt         time.Time      `db:"created_at"`
-		UpdatedAt         time.Time      `db:"updated_at"`
-		TokenVersion      int64          `db:"token_version"`
-		PasswordChangedAt time.Time      `db:"password_changed_at"`
+		Id                int64          `db:"id"`                  // ä¸»é”®ID
+		Email             string         `db:"email"`               // é‚®ç®±
+		Password          string         `db:"password"`            // å¯†ç  (bcryptåŠ å¯†åŽ)
+		Nickname          string         `db:"nickname"`            // æ˜µç§°
+		Avatar            string         `db:"avatar"`              // å¤´åƒURL
+		Gender            int64          `db:"gender"`              // æ€§åˆ«: 0-æœªçŸ¥, 1-ç”·, 2-å¥³
+		Birthday          sql.NullTime   `db:"birthday"`            // ç”Ÿæ—¥
+		Region            sql.NullString `db:"region"`              // åœ°åŒº
+		Bio               string         `db:"bio"`                 // ä¸ªäººç®€ä»‹
+		Role              string         `db:"role"`                // è§’è‰²: USER, ADMIN
+		Status            int64          `db:"status"`              // çŠ¶æ€: 1-æ­£å¸¸, 0-ç¦ç”¨
+		TokenVersion      int64          `db:"token_version"`       // JWT tokenç‰ˆæœ¬å· (ç™»å‡º/æ”¹å¯†ç æ—¶è‡ªå¢ž)
+		PasswordChangedAt time.Time      `db:"password_changed_at"` // å¯†ç æœ€åŽä¿®æ”¹æ—¶é—´
+		CreatedAt         time.Time      `db:"created_at"`          // åˆ›å»ºæ—¶é—´
+		UpdatedAt         time.Time      `db:"updated_at"`          // æ›´æ–°æ—¶é—´
+		IsDeleted         int64          `db:"is_deleted"`          // é€»è¾‘åˆ é™¤æ ‡è®°: 0-æœªåˆ é™¤, 1-å·²åˆ é™¤
 	}
 )
 
 func newUsersModel(conn sqlx.SqlConn) *defaultUsersModel {
 	return &defaultUsersModel{
 		conn:  conn,
-		table: `"public"."users"`,
+		table: "`users`",
 	}
 }
 
 func (m *defaultUsersModel) Delete(ctx context.Context, id int64) error {
-	query := fmt.Sprintf("delete from %s where id = $1", m.table)
+	query := fmt.Sprintf("delete from %s where `id` = ?", m.table)
 	_, err := m.conn.ExecCtx(ctx, query, id)
 	return err
 }
 
 func (m *defaultUsersModel) FindOne(ctx context.Context, id int64) (*Users, error) {
-	query := fmt.Sprintf("select %s from %s where id = $1 limit 1", usersRows, m.table)
+	query := fmt.Sprintf("select %s from %s where `id` = ? limit 1", usersRows, m.table)
 	var resp Users
 	err := m.conn.QueryRowCtx(ctx, &resp, query, id)
 	switch err {
@@ -86,7 +86,7 @@ func (m *defaultUsersModel) FindOne(ctx context.Context, id int64) (*Users, erro
 
 func (m *defaultUsersModel) FindOneByEmail(ctx context.Context, email string) (*Users, error) {
 	var resp Users
-	query := fmt.Sprintf("select %s from %s where email = $1 limit 1", usersRows, m.table)
+	query := fmt.Sprintf("select %s from %s where `email` = ? limit 1", usersRows, m.table)
 	err := m.conn.QueryRowCtx(ctx, &resp, query, email)
 	switch err {
 	case nil:
@@ -98,16 +98,15 @@ func (m *defaultUsersModel) FindOneByEmail(ctx context.Context, email string) (*
 	}
 }
 
-func (m *defaultUsersModel) Insert(ctx context.Context, data *Users) (int64, error) {
-	query := fmt.Sprintf("insert into %s (%s) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) returning id", m.table, usersRowsExpectAutoSet)
-	var id int64
-	err := m.conn.QueryRowCtx(ctx, &id, query, data.Email, data.Password, data.Nickname, data.Avatar, data.Gender, data.Birthday, data.Region, data.Bio, data.Role, data.Status, data.IsDeleted, data.TokenVersion, data.PasswordChangedAt)
-	return id, err
+func (m *defaultUsersModel) Insert(ctx context.Context, data *Users) (sql.Result, error) {
+	query := fmt.Sprintf("insert into %s (%s) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", m.table, usersRowsExpectAutoSet)
+	ret, err := m.conn.ExecCtx(ctx, query, data.Email, data.Password, data.Nickname, data.Avatar, data.Gender, data.Birthday, data.Region, data.Bio, data.Role, data.Status, data.TokenVersion, data.PasswordChangedAt, data.IsDeleted)
+	return ret, err
 }
 
 func (m *defaultUsersModel) Update(ctx context.Context, newData *Users) error {
-	query := fmt.Sprintf("update %s set %s where id = $1", m.table, usersRowsWithPlaceHolder)
-	_, err := m.conn.ExecCtx(ctx, query, newData.Id, newData.Email, newData.Password, newData.Nickname, newData.Avatar, newData.Gender, newData.Birthday, newData.Region, newData.Bio, newData.Role, newData.Status, newData.IsDeleted, newData.TokenVersion, newData.PasswordChangedAt)
+	query := fmt.Sprintf("update %s set %s where `id` = ?", m.table, usersRowsWithPlaceHolder)
+	_, err := m.conn.ExecCtx(ctx, query, newData.Email, newData.Password, newData.Nickname, newData.Avatar, newData.Gender, newData.Birthday, newData.Region, newData.Bio, newData.Role, newData.Status, newData.TokenVersion, newData.PasswordChangedAt, newData.IsDeleted, newData.Id)
 	return err
 }
 

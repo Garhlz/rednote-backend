@@ -28,11 +28,12 @@ func NewVerifyEmailCodeLogic(ctx context.Context, svcCtx *svc.ServiceContext) *V
 func (l *VerifyEmailCodeLogic) VerifyEmailCode(in *user.VerifyEmailCodeRequest) (*user.VerifyEmailCodeResponse, error) {
 	email := strings.TrimSpace(in.GetEmail())
 	code := strings.TrimSpace(in.GetCode())
-	if email == "" || code == "" {
+	scene, ok := normalizeEmailScene(in.GetScene())
+	if email == "" || code == "" || !ok {
 		return &user.VerifyEmailCodeResponse{Valid: false}, nil
 	}
 
-	val, err := l.svcCtx.Redis.GetCtx(l.ctx, emailCodeKeyPrefix+email)
+	val, err := l.svcCtx.Redis.GetCtx(l.ctx, emailCodeKey(scene, email))
 	if err != nil {
 		if err == redis.Nil {
 			return &user.VerifyEmailCodeResponse{Valid: false}, nil

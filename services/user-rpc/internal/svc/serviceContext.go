@@ -6,7 +6,6 @@ import (
 	"user-rpc/internal/mq"
 
 	"github.com/zeromicro/go-zero/core/logx"
-	"github.com/zeromicro/go-zero/core/stores/postgres"
 	"github.com/zeromicro/go-zero/core/stores/redis"
 	"github.com/zeromicro/go-zero/core/stores/sqlx"
 )
@@ -15,12 +14,12 @@ type ServiceContext struct {
 	Config    config.Config
 	Db        sqlx.SqlConn
 	Redis     *redis.Redis
-	Users     model.UsersModel
+	Users     model.UsersExtendedModel
 	Publisher *mq.Publisher
 }
 
 func NewServiceContext(c config.Config) *ServiceContext {
-	db := postgres.New(c.Postgres.DataSource)
+	db := sqlx.NewMysql(c.Mysql.DataSource)
 	publisher, err := mq.NewPublisher(c)
 	if err != nil {
 		logx.Errorf("rabbitmq init failed: %v", err)
@@ -30,7 +29,7 @@ func NewServiceContext(c config.Config) *ServiceContext {
 		Config:    c,
 		Db:        db,
 		Redis:     redis.MustNewRedis(c.BizRedis),
-		Users:     model.NewUsersModel(db),
+		Users:     model.NewUsersExtendedModel(db),
 		Publisher: publisher,
 	}
 }

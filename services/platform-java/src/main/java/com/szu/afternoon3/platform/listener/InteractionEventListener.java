@@ -1,6 +1,7 @@
 package com.szu.afternoon3.platform.listener;
 
 import cn.hutool.core.util.StrUtil;
+import com.mongodb.DuplicateKeyException;
 import com.szu.afternoon3.platform.config.RabbitConfig;
 import com.szu.afternoon3.platform.entity.User;
 import com.szu.afternoon3.platform.entity.mongo.*;
@@ -61,20 +62,19 @@ public class InteractionEventListener {
         try {
             switch (event.getType()) {
                 case "LIKE":
-                    handleLike(event);
-                    if ("ADD".equals(event.getAction())) {
+                    if (handleLike(event)) {
                         sendPostNotification(event, NotificationType.LIKE_POST);
                     }
                     break;
                 case "COLLECT":
-                    handleCollect(event);
-                    if ("ADD".equals(event.getAction())) {
+                    if (handleCollect(event)) {
                         sendPostNotification(event, NotificationType.COLLECT_POST);
                     }
                     break;
                 case "RATE":
-                    handleRate(event);
-                    sendPostNotification(event, NotificationType.RATE_POST);
+                    if (handleRate(event)) {
+                        sendPostNotification(event, NotificationType.RATE_POST);
+                    }
                     break;
                 case "FOLLOW":
                     if ("ADD".equals(event.getAction())) {
@@ -83,8 +83,7 @@ public class InteractionEventListener {
                     break;
 
                 case "COMMENT_LIKE":
-                    handleCommentLike(event);
-                    if ("ADD".equals(event.getAction())) {
+                    if(handleCommentLike(event)){
                         sendCommentLikeNotification(event);
                     }
                     break;
@@ -96,28 +95,34 @@ public class InteractionEventListener {
     }
 
     // --- 点赞处理 ---
-    private void handleLike(InteractionEvent event) {
+    private boolean handleLike(InteractionEvent event) {
         String postId = event.getTargetId();
         Long userId = event.getUserId();
 
         if ("ADD".equals(event.getAction())) {
-            // 1. 幂等性检查：如果库里已经有了，就不插了（虽然 Redis 挡了一层，但为了保险）
-            if (!postLikeRepository.existsByUserIdAndPostId(userId, postId)) {
+            try {
                 PostLikeDoc doc = new PostLikeDoc();
                 doc.setUserId(userId);
                 doc.setPostId(postId);
                 doc.setCreatedAt(LocalDateTime.now());
+                // 依赖联合唯一索引防并发
                 postLikeRepository.save(doc);
 
-                // 2. 原子更新计数
+                // 落盘成功后，再执行计数和 ES 同步
                 updatePostCount(postId, "likeCount", 1);
-
                 updateESPostCount(postId, "likeCount", 1);
+
+                return true; // 成功新增，告诉外层可以发通知了
+
+            } catch (DuplicateKeyException e) {
+                log.info("重复点赞已被 MongoDB 拦截: userId={}, postId={}", userId, postId);
+                return false; // 重复操作，别发通知
             }
         } else {
             postLikeRepository.deleteByUserIdAndPostId(userId, postId);
             updatePostCount(postId, "likeCount", -1);
             updateESPostCount(postId, "likeCount", -1);
+            return false;
         }
     }
 
@@ -126,7 +131,7 @@ public class InteractionEventListener {
      */
     private void updateESPostCount(String postId, String fieldName, int delta) {
         // 1. 准备脚本
-        // 你的脚本逻辑很好，考虑了字段为 null 的情况
+        // 考虑了字段为 null 的情况
         String scriptSource = "if (ctx._source." + fieldName + " == null) { " +
                 "   ctx._source." + fieldName + " = params.delta; " +
                 "} else { " +
@@ -157,38 +162,46 @@ public class InteractionEventListener {
     }
 
     // --- 收藏处理 ---
-    private void handleCollect(InteractionEvent event) {
+    private boolean handleCollect(InteractionEvent event) {
         String postId = event.getTargetId();
         Long userId = event.getUserId();
 
         if ("ADD".equals(event.getAction())) {
-            if (!postCollectRepository.existsByUserIdAndPostId(userId, postId)) {
+            try {
                 PostCollectDoc doc = new PostCollectDoc();
                 doc.setUserId(userId);
                 doc.setPostId(postId);
                 doc.setCreatedAt(LocalDateTime.now());
                 postCollectRepository.save(doc);
+
                 updatePostCount(postId, "collectCount", 1);
+                return true;
+
+            } catch (DuplicateKeyException e) {
+                log.info("重复收藏已被 MongoDB 拦截: userId={}, postId={}", userId, postId);
+                return false;
             }
         } else {
             postCollectRepository.deleteByUserIdAndPostId(userId, postId);
             updatePostCount(postId, "collectCount", -1);
+            return false;
         }
     }
 
     // --- 评分处理 (难点) ---
-    private void handleRate(InteractionEvent event) {
+    // --- 评分处理 (利用联合唯一索引优化版) ---
+    private boolean handleRate(InteractionEvent event) {
         String postId = event.getTargetId();
         Long userId = event.getUserId();
         Double newScore = event.getValue();
 
-        // 1. 查旧评分
+        // 1. 查旧评分：评分业务允许修改，所以需要先判断是否存在旧记录
         Optional<PostRatingDoc> oldRatingOpt = postRatingRepository.findByUserIdAndPostId(userId, postId);
 
         // 2. 查 Post 当前状态 (需要 totalCount 和 currentAvg 来计算)
         // 注意：这里读取可能会有微小的并发偏差，但在大作业场景可接受
         PostDoc post = postRepository.findById(postId).orElse(null);
-        if (post == null) return;
+        if (post == null) return false;
 
         double currentAvg = post.getRatingAverage() == null ? 0.0 : post.getRatingAverage();
         int currentCount = post.getRatingCount() == null ? 0 : post.getRatingCount();
@@ -202,7 +215,7 @@ public class InteractionEventListener {
             Double oldScore = oldRating.getScore();
 
             // 如果分值没变，啥也不干
-            if (oldScore.equals(newScore)) return;
+            if (oldScore.equals(newScore)) return false;
 
             // 更新记录
             oldRating.setScore(newScore);
@@ -216,47 +229,72 @@ public class InteractionEventListener {
             // 更新 Post
             updatePostRating(postId, newAvg, 0); // count 增量为 0
 
+            // 修改评分通常不需要发送新通知，返回 false
+            return false;
+
         } else {
             // === 情况 B: 新增评分 ===
-            PostRatingDoc doc = new PostRatingDoc();
-            doc.setUserId(userId);
-            doc.setPostId(postId);
-            doc.setScore(newScore);
-            doc.setCreatedAt(LocalDateTime.now());
-            postRatingRepository.save(doc);
+            try {
+                PostRatingDoc doc = new PostRatingDoc();
+                doc.setUserId(userId);
+                doc.setPostId(postId);
+                doc.setScore(newScore);
+                doc.setCreatedAt(LocalDateTime.now());
 
-            // 重新计算均分: (总分 + 新分) / (总人数 + 1)
-            double newTotalScore = totalScore + newScore;
-            double newAvg = newTotalScore / (currentCount + 1);
+                // 关键点：利用联合唯一索引防止并发下的重复新增
+                postRatingRepository.save(doc);
 
-            // 更新 Post
-            updatePostRating(postId, newAvg, 1); // count 增量为 1
+                // 重新计算均分: (总分 + 新分) / (总人数 + 1)
+                double newTotalScore = totalScore + newScore;
+                double newAvg = newTotalScore / (currentCount + 1);
+
+                // 更新 Post
+                updatePostRating(postId, newAvg, 1); // count 增量为 1
+
+                // 真正新增评分成功，返回 true 触发外层发送通知
+                return true;
+
+            } catch (DuplicateKeyException e) {
+                // 如果在执行 exists 判断到 save 之间有另一个请求抢先插入了
+                // 唯一索引会抛出此异常，我们直接拦截，防止 ratingCount 重复增加
+                log.info("并发新增评分已被 MongoDB 联合唯一索引拦截: userId={}, postId={}", userId, postId);
+                return false;
+            }
         }
     }
 
     // --- 评论点赞处理逻辑 ---
-    private void handleCommentLike(InteractionEvent event) {
+    // --- 评论点赞处理 (利用联合唯一索引优化版) ---
+    private boolean handleCommentLike(InteractionEvent event) {
         String commentId = event.getTargetId();
         Long userId = event.getUserId();
 
         if ("ADD".equals(event.getAction())) {
-            // 1. 幂等性检查
-            if (!commentLikeRepository.existsByUserIdAndCommentId(userId, commentId)) {
-                // 2. 插入流水记录
+            // 1. 尝试直接插入流水记录
+            try {
                 CommentLikeDoc doc = new CommentLikeDoc();
                 doc.setUserId(userId);
                 doc.setCommentId(commentId);
                 doc.setCreatedAt(LocalDateTime.now());
+
+                // 关键：利用联合唯一索引拦截重复请求
                 commentLikeRepository.save(doc);
 
-                // 3. 原子更新评论的点赞计数 (likeCount + 1)
+                // 2. 只有 save 成功（没有抛出异常），才执行原子的计数更新 (+1)
                 updateCommentCount(commentId, 1);
+
+                return true; // 真正新增成功，通知外层可以发消息了
+
+            } catch (DuplicateKeyException e) {
+                // 如果并发请求或者网络重试导致重复插入，会被唯一索引挡在这里
+                log.info("重复评论点赞已被 MongoDB 拦截: userId={}, commentId={}", userId, commentId);
+                return false; // 重复操作，不触发通知
             }
         } else {
-            // 1. 删除流水
+            // 取消点赞逻辑保持原样
             commentLikeRepository.deleteByUserIdAndCommentId(userId, commentId);
-            // 2. 计数 - 1
             updateCommentCount(commentId, -1);
+            return false;
         }
     }
 

@@ -221,6 +221,7 @@ type SearchHistoryResp {
 	keywords []string `json:"keywords"`
 }
 
+// group 会影响生成出来的 handler/logic 分组目录
 @server (
 	prefix: /api/auth
 	group:  auth
