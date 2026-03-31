@@ -6,10 +6,12 @@ package message
 import (
 	"context"
 
+	"gateway-api/internal/pkg/ctxutil"
 	"gateway-api/internal/svc"
 	"gateway-api/internal/types"
 
 	"github.com/zeromicro/go-zero/core/logx"
+	"notification-rpc/notificationservice"
 )
 
 type ReadNotificationLogic struct {
@@ -27,7 +29,13 @@ func NewReadNotificationLogic(ctx context.Context, svcCtx *svc.ServiceContext) *
 }
 
 func (l *ReadNotificationLogic) ReadNotification(req *types.Empty) (resp *types.Empty, err error) {
-	// todo: add your logic here and delete this line
+	client := notificationservice.NewNotificationService(l.svcCtx.NotificationRpc)
+	_, err = client.MarkAllRead(l.ctx, &notificationservice.MarkAllReadRequest{
+		UserId: ctxutil.UserID(l.ctx),
+	})
+	if err != nil {
+		return nil, err
+	}
 
-	return
+	return &types.Empty{}, nil
 }

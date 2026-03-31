@@ -1,397 +1,264 @@
-# 📱 分享派 Sharely - 后端服务
+# Sharely / 分享派后端
 
-这是一个基于 Spring Boot 和微服务架构思想构建的后端系统，为“类小红书”的内容社区及 Web 管理后台提供 API 支持。
+这是一个面向内容社区场景的混合微服务后端项目。当前架构不是单一技术栈单体，而是：
+
+- `gateway-api` 作为统一入口网关
+- `user-rpc`、`interaction-rpc`、`search-rpc` 作为 Go 专职微服务
+- `platform-java` 作为帖子、评论、通知、后台等业务主服务
+- `sync-sidecar` 作为 MQ 消费与 ES/Mongo 同步 Sidecar
+
+项目目标不是演示简单 CRUD，而是尽量贴近真实工程场景：统一鉴权、跨服务聚合、事件驱动、最终一致性、搜索、互动高频读模型、多存储协作。
 
 - [业务代码规范](./business_codes.md)
-- [apifox接口(openapi)](./openapi.json)
+- [OpenAPI / Apifox 导出](./openapi.json)
 
-## 🛠 技术栈 (Tech Stack)
+## 当前技术栈
 
-本项目采用现代化的 Java 后端技术栈，容器化部署。
+- `Go 1.25`：实现网关、账号、互动、搜索、同步 Sidecar
+- `Java 17 + Spring Boot 3`：实现业务主服务 `platform-java`
+- `go-zero`：用于 API 网关、zRPC 服务、服务发现与工程脚手架
+- `gRPC / zRPC`：用于网关与 Go 微服务之间的内部调用
+- `MySQL 8`：承载用户域核心关系数据
+- `MongoDB 6`：承载帖子、评论、通知、关注关系等文档数据
+- `Redis 7 / Redis Stack`：承载 token 状态、验证码、互动读模型、Bloom Filter
+- `RabbitMQ 3.12`：承载业务事件与异步解耦
+- `Elasticsearch 8`：承载搜索、建议与排序
+- `Docker / Docker Compose`：承载本地基础设施和 Go 服务联调
+- `JWT`：承载 access / refresh token 会话体系
+- `Micrometer + Prometheus`：Java 服务指标暴露基础
+- `MyBatis-Plus`：Java 侧关系型访问
+- `Spring Data MongoDB`：Java 侧 MongoDB 访问
 
-    开发语言: Java 17 (LTS) + Go 1.21
+## 当前系统架构
 
-    核心框架: Spring Boot 3.x
-
-    数据库: PostgreSQL + MongoDB
-    
-    ORM 框架: MyBatis-Plus (高效的数据库操作与动态 SQL)
-
-    缓存: Redis 7 (用于 Session 管理、验证码、高频计数)
-
-    网关/API: Go-Zero (gateway-api)
-
-    对象存储: Aliyun OSS (存储图片、视频资源)
-
-    反向代理: Nginx (端口转发、静态资源托管)
-
-    容器化: Docker & Docker Compose
-
-    API 文档: Apifox / Swagger / OpenAPI 3
-
-    搜索/分析: Elasticsearch 8.11 (IK分词 + Pinyin插件) + Kibana
-
-    数据同步 (Sidecar): Go 1.21 (轻量级消费者，负责 MQ -> ES/Mongo 同步)
-
-    消息队列: RabbitMQ 3.12 (异步解耦、流量削峰、死信处理)
-
-    AI 能力: Qwen-VL (Spring AI 集成，支持多模态理解)
-
-    即时通讯: Tencent Cloud IM (预留)
-
-## 🏗 系统架构 (Architecture)
-```
+```mermaid
 graph TD
-    User[Web/移动端] --> Nginx[Nginx 网关 (80/443)]
-    Nginx -->|/api| Gateway[Go 网关 gateway-api (8090)]
+    Client[Web / App / 管理后台] --> Gateway[gateway-api (Go)]
 
     Gateway -->|zRPC| UserRPC[user-rpc]
     Gateway -->|zRPC| InteractionRPC[interaction-rpc]
     Gateway -->|zRPC| SearchRPC[search-rpc]
-    Gateway -->|HTTP 代理| Java[Spring Boot 平台服务 (8080)]
+    Gateway -->|HTTP 代理 / 聚合| Java[platform-java]
 
-    UserRPC --> PostgreSQL[(PostgreSQL: 用户/账号)]
-    Java --> MongoDB[(MongoDB: 帖子/评论/互动冗余)]
-    Java --> Redis[(Redis: 计数/验证码/缓存)]
-    Java --> OSS[阿里云 OSS: 图片/视频]
-    Java --> MQ[RabbitMQ]
+    UserRPC --> MySQL[(MySQL: users)]
+    UserRPC --> Redis[(Redis)]
 
-    subgraph "异步同步层 (Sidecar Pattern)"
-        MQ -->|订阅变更事件| GoSidecar[Go Sidecar (同步消费者)]
-        GoSidecar -->|回查数据| MongoDB
-        GoSidecar -->|写入/更新| ES[(Elasticsearch: 搜索索引)]
-    end
+    InteractionRPC --> Redis
+    InteractionRPC --> Mongo[(MongoDB)]
+    InteractionRPC --> MQ[(RabbitMQ)]
 
-    SearchRPC --> ES
-    Java -->|HTTP 请求| AI[大模型 API (QwenVL: 内容理解/生成)]
+    SearchRPC --> ES[(Elasticsearch)]
+    SearchRPC --> Mongo
+
+    Java --> Mongo
+    Java --> Redis
+    Java --> MQ
+    Java --> ES
+
+    MQ --> Sidecar[sync-sidecar (Go)]
+    Sidecar --> Mongo
+    Sidecar --> ES
 ```
 
-## 核心架构设计亮点
-1. **微服务迁移与边界收敛 (Microservice Migration)**
+## 架构设计亮点
 
-- 网关统一入口：gateway-api 负责鉴权、聚合与请求路由，Java 仅保留业务域能力。
-- user-rpc 作为账号与鉴权事实来源，统一 Token/JWT 签发与吊销策略。
-- interaction-rpc/search-rpc 提供独立的交互与搜索能力，网关负责聚合返回字段。
+- **混合微服务架构**：采用 `Go 网关 + Go 专职服务 + Java 业务主服务` 的迁移式架构，而不是一次性暴力拆分单体。
+- **统一网关入口**：所有请求先进入 `gateway-api`，由网关统一完成鉴权、错误包装、上下文透传、路由和结果聚合。
+- **用户域独立**：`user-rpc` 统一负责账号注册登录、JWT 签发、refresh token 轮换、tokenVersion 失效控制。
+- **互动域独立**：`interaction-rpc` 统一负责点赞、收藏、评分及互动状态查询，避免互动逻辑散落在 Java 与前端。
+- **搜索域独立**：`search-rpc` 专注 ES 搜索、搜索建议、搜索历史与排序能力。
+- **事件驱动解耦**：通过 `RabbitMQ` 传递帖子、互动、用户变更事件，把主写链路与索引/冗余同步解耦。
+- **最终一致性设计**：Mongo、ES、冗余用户信息更新通过 MQ + Sidecar 异步完成，避免分布式事务。
+- **互动读模型设计**：将点赞、收藏、评分等高频展示数据收敛到 Redis 读模型，由 `interaction-rpc` 统一对外提供。
+- **缓存冷启动保护**：互动链路实现了懒加载预热、短锁防击穿、Dummy 占位防穿透、Bloom Filter 优化。
+- **JWT 即时失效机制**：结合 `refresh token jti`、Redis 白名单、tokenVersion、黑名单机制，实现更可控的会话管理。
+- **网关聚合能力**：列表、搜索、详情等接口由网关聚合搜索结果、互动状态、用户上下文，统一输出前端需要的视图模型。
+- **可演进的数据边界**：用户主事实源在 MySQL；内容与关系数据在 Mongo；搜索在 ES；短期状态与高频集合在 Redis。
 
-2. **混合存储策略 (Polyglot Persistence)**
+## 亮眼特性
 
-- PostgreSQL: 作为 Source of Truth，存储核心用户账号、关系型强事务数据。
+- **帖子列表/搜索聚合链路**
+  - `search-rpc` 返回搜索结果
+  - `interaction-rpc` 批量补齐 `likeCount / collectCount / isLiked / isCollected / isFollowed / rating`
+  - `gateway-api` 输出统一 `PostVO`
 
-- MongoDB: 存储帖子(Post)、评论(Comment)及海量交互数据。利用其 Schema-free 特性冗余用户信息(Nickname/Avatar)，避免 N+1 查询问题。
+- **帖子详情聚合链路**
+  - `platform-java` 返回帖子正文、图片、作者基础信息
+  - `interaction-rpc` 返回实时互动字段
+  - `gateway-api` 做最终拼装
 
-3. **异步事件驱动与最终一致性 (Event-Driven Architecture)**
+- **Redis 互动高频链路**
+  - 点赞、收藏使用 Redis Set
+  - 评分使用 Redis Hash
+  - 通过写前预热避免冷缓存覆盖历史数据
+  - 通过 Dummy 占位避免空值穿透
+  - 通过 Bloom 减少无意义预热
 
-- 消息总线 (Message Bus): 引入 RabbitMQ (Topic Exchange) 作为全链路事件总线，实现核心业务的深度解耦。
-    
-- CQRS 索引同步: 帖子发布/更新写入 MongoDB 后，发送消息至 MQ，消费者异步将数据同步至 Elasticsearch，保证搜索数据的近实时 (NRT) 可见性。
-    
-- 最终一致性 (Eventual Consistency):
+- **用户登录态设计**
+  - access token / refresh token 分离
+  - refresh token 引入 `jti` 做单张白名单管理
+  - `tokenVersion` 实现整批 token 即时失效
+  - 网关统一校验并向下游透传用户上下文
 
-    - 关键业务数据（如用户信息修改）采用“发布-订阅”模式，异步触发 MongoDB 中冗余数据（Post/Comment 作者信息）的批量更新，避免分布式事务的性能损耗。
+- **网关弱登录态支持**
+  - 公开接口允许匿名访问
+  - 若请求携带合法 access token，网关仍会解析登录态
+  - 列表/搜索页可在匿名和登录两种状态下复用同一接口
 
-    - AI 异步介入: 也就是在发帖成功后，异步投递消息触发 AI 摘要生成与自动评论，不阻塞主线程，提升用户体验。
+## 核心模块
 
-4. **多级缓存与高并发支撑 (Redis Strategy)**
+### gateway-api
 
-- 写缓冲 (Write-Behind Pattern):
-    - 高频互动: 点赞、收藏等操作直接写入 Redis Set (去重) 与 Hash (计数)，通过定时任务或阈值触发异步落库 MongoDB，削峰填谷，保护数据库。
+- 统一 HTTP 入口
+- JWT 校验与 tokenVersion 校验
+- 用户上下文注入与 Java 头透传
+- Java 反向代理
+- 搜索页、列表页、详情页跨服务聚合
 
-    - 浏览量计数: 使用 Redis HyperLogLog (或原子计数器) 聚合高并发的帖子浏览量 (View Count)，批量定时同步至数据库。
+### user-rpc
 
-- 安全与会话管理:
+- 邮箱注册、登录、刷新、登出
+- 用户资料查询与更新
+- 验证码发送与校验
+- refresh token 白名单管理
+- tokenVersion 维护与即时失效
 
-    - Token 黑名单: 用户登出或修改密码时，将旧 JWT 加入 Redis Set 黑名单（设置 TTL），实现无状态 Token 的即时失效机制。
+### interaction-rpc
 
-    - 验证码缓存: 注册/登录验证码存入 String 类型并设置短时过期。
+- 点赞、取消点赞
+- 收藏、取消收藏
+- 帖子评分
+- 评论点赞
+- 批量帖子互动状态聚合
+- Redis 冷启动预热与缓存保护逻辑
 
-- 热点数据加速:
+### search-rpc
 
-    - 热门标签: 对计算代价较高的“热门标签 (Hot Tags)”聚合结果进行缓存，降低 MongoDB 聚合查询压力。
+- 帖子搜索
+- 搜索建议
+- 搜索历史
+- ES 排序与查询
 
-    - 通用缓存: 使用 @Cacheable 对配置信息、用户信息等读多写少的数据进行缓存。
+### platform-java
 
-5. **高可用搜索架构 (Advanced Search)**
+- 帖子、评论、通知、管理后台
+- MongoDB 业务主写入
+- RabbitMQ 事件发布与消费
+- ES 业务冗余更新
+- 部分后台能力通过 gRPC 回调 `user-rpc`
 
-- Elasticsearch 8: 替代了原有的 MongoDB 正则搜索，性能提升显著。
+### sync-sidecar
 
-- 智能分词与补全: 集成 IK 中文分词 与 Pinyin 拼音插件，支持“输入 szu 搜 深圳大学”的混合检索体验，并提供搜索建议 (Suggestion)。
+- 消费 MQ 事件
+- 回查 Mongo 数据
+- 将帖子与用户冗余变更同步到 ES / Mongo
 
-- 混合排序算法: 实现了基于 Function Score 的综合热度排序（结合了 BM25 相关度 + 点赞数对数加权 + 高斯函数时间衰减）。
+## 关键请求流
 
-6. **AI Native 内容生态**
+### 登录
 
-- 全链路 AI 介入: 帖子发布后自动触发 AI 管道。
-
-- 智能生产: 自动生成内容摘要（Summary）、智能打标（Auto-Tagging）。
-
-- 活跃气氛: 引入“AI 省流助手”角色，自动在评论区生成诙谐的总结评论。
-
-- 安全风控: 内容发布前经过 AI 敏感词与合规性校验。
-
-7. **Sidecar 异构微服务模式 (Polyglot Sidecar)**
-- **架构决策**: 为了在低内存服务器（4GB）上维持高性能运行，我们将资源密集型的“数据同步消费者”从 Java 主进程中剥离。
-- **Go Sidecar**: 使用 Go 语言编写独立的 Sidecar 容器，内存占用仅约 10MB。它专门负责监听 RabbitMQ 的业务变更消息（PostCreate/Update/Delete），并负责将数据从 MongoDB 同步至 Elasticsearch。
-- **优势**: 实现了 **主应用（业务逻辑）** 与 **辅助应用（数据管道）** 的语言级解耦，既保留了 Java 生态的开发效率，又利用了 Go 在高并发和低内存下的运行时优势。
-
-8. **低资源环境下的 CI/CD 最佳实践**
-- **挑战**: 生产环境网络受限（无法流畅访问 Docker Hub/Github）且内存不足，导致直接在服务器上进行 `docker build` 或 `mvn package` 经常失败或 OOM。
-- **解决方案**: 设计了 "Local Build, Remote Load" 的部署流水线。
-    - **Java**: 本地编译 JAR 包 -> 增量传输 -> 服务器复用基础镜像运行。
-    - **Go**: 本地构建全量 Docker 镜像 -> 导出为 tar.gz -> 传输至服务器 -> `docker load` 加载。
-- **效果**: 将部署过程对服务器的 CPU/网络 消耗降至最低，确保了交付的稳定性。
-
-## 核心模块划分
-
-Gateway API (Go-Zero):
-- 统一鉴权入口、错误码规范、公共头透传与用户上下文注入。
-- 网关聚合：补齐用户/交互/搜索等聚合字段，输出一致的前端响应结构。
-
-user-rpc:
-- 邮箱注册/登录/刷新/登出/改密/绑定邮箱。
-- 用户资料 CRUD、Token 签发/吊销与版本控制。
-
-interaction-rpc:
-- 点赞/收藏/评分等交互行为。
-- 批量状态与用户统计接口，为网关聚合提供基础数据。
-
-search-rpc:
-- 搜索建议、历史、全文检索与排序策略。
-- ES 索引查询与建议能力。
-
-platform-java (业务域):
-- 帖子/评论/通知/后台管理等业务域。
-- Mongo + MQ + ES 同步处理、AI 相关能力。
-
-sync-sidecar (Go):
-- 订阅 MQ 变更事件，回查 Mongo 并写入 ES。
-
-## 网关模块细分 (gateway-api)
-
-auth:
-- 登录/注册/刷新/登出/验证码发送与统一响应结构。
-
-user:
-- 获取/更新个人资料、公开资料与用户相关查询。
-
-post:
-- 列表/详情/搜索/推荐等请求聚合，必要时转发至 Java。
-
-interaction:
-- 交互操作与批量状态获取（RPC）。
-
-comment:
-- 评论相关接口（Java 代理或聚合）。
-
-search:
-- 搜索历史、建议、结果聚合（RPC）。
-
-message:
-- 通知/未读数接口（Java 代理）。
-
-tag:
-- 热门标签等聚合接口（Java 代理或 ES 查询）。
-
-common:
-- 上传、通用能力与辅助接口。
-
-admin:
-- 管理后台接口（优先透传 Java）。
-
-javaproxy:
-- 统一 HTTP 反向代理，负责超时、头透传白名单与错误包装。
-
-## 项目结构
-```
-graph TD
-    Request[前端请求] --> DTO
-    DTO --> Controller
-    Controller --> Service
-    
-    subgraph 业务逻辑层
-    Service --> Manager[通用业务处理]
-    Service --> AI_Client[AI 服务调用]
-    end
-    
-    subgraph 数据持久层
-    Manager --> UserMapper[UserMapper (MyBatis)]
-    Manager --> MongoRepo[PostRepository (MongoTemplate)]
-    Manager --> ESRepo[PostEsRepository (Elasticsearch)]
-    end
-    
-    UserMapper <--> PG[(PostgreSQL)]
-    MongoRepo <--> Mongo[(MongoDB)]
-    ESRepo <--> ES[(Elasticsearch)]
-    
-    Service --> VO
-    VO --> Result[统一响应]
+```text
+Client
+  -> gateway-api /api/auth/login
+  -> user-rpc Login
+  -> 校验用户与密码
+  -> 签发 access/refresh token
+  -> Redis 写 refresh 白名单与 tokenVersion
+  -> gateway-api 返回统一响应
 ```
 
----
+### 帖子列表
 
-## 🐳 Docker 开发环境极速配置指南
-
-为了确保大家开发环境一致，避免“在我这能跑，在你那报错”的玄学问题，我们使用 Docker Compose 一键启动所有依赖服务（Postgres, Mongo, Redis, RabbitMQ, ES, Kibana, Sidecar）。
-
-你不需要在本地手动安装这些数据库，只需要安装 Docker。
-1. 准备工作
-🛠️ 安装 Docker Desktop
-
-请根据你的操作系统下载并安装 Docker Desktop：
-
-    Windows: (⚠️ 重要：安装时请勾选 Use WSL 2 based engine，这是 Windows 运行 Docker 的最佳实践)
-
-    Mac (Intel/Apple Chip): 直接下载
-
-    Linux: 直接安装 Docker Engine 和 Docker Compose Plugin。
-
-⚙️ 调整内存限制 (重要!)
-
-我们的环境包含 ES 和 Java 后端，比较吃内存。
-
-    打开 Docker Desktop 设置 -> Resources。
-
-    确保 Memory 至少分配 4GB (推荐 6GB+)。
-
-    点击 "Apply & Restart"。
-
-2. ⚠️ 启动前检查 (防坑必读)
-
-在运行命令前，请务必停止你电脑上本地安装的同类服务，否则会端口冲突！
-
-    如果你本地装了 MySQL/Postgres，请停止它 (占用 5432)。
-
-    如果你本地装了 Redis，请停止它 (占用 6379)。
-
-    如果你本地装了 Mongo，请停止它 (占用 27017)。
-
-3. 🚀 一键启动
-
-在项目根目录下打开终端（Terminal / CMD / PowerShell），运行：
-```Bash
-
-docker compose -f docker-compose-dev.yml up -d
+```text
+Client
+  -> gateway-api /api/post/list
+  -> search-rpc Search
+  -> interaction-rpc BatchPostStats
+  -> gateway-api 聚合为统一 PostVO
+  -> 返回前端
 ```
 
-    -f docker-compose-dev.yml: 指定使用开发环境的配置。
+### 帖子详情
 
-    -d: 后台运行 (Detached mode)，不会阻塞你的终端。
-
-    首次运行需要下载镜像，可能需要几分钟，请耐心等待。
-
-验证是否成功
-
-运行以下命令查看容器状态：
-```Bash
-
-docker compose -f docker-compose-dev.yml ps
+```text
+Client
+  -> gateway-api /api/post/:postId
+  -> platform-java 获取帖子主体内容
+  -> interaction-rpc 获取实时互动字段
+  -> gateway-api 覆盖并聚合结果
+  -> 返回前端
 ```
 
-如果所有容器的状态 (STATUS) 都是 Up 或 Up (healthy)，恭喜你，环境搭建完成！🎉
+## 本地开发启动方式
 
-4. 💻 如何连接? (开发必看)
+当前推荐的本地联调方式是：
 
-容器启动后，端口已经映射到你的本机 (localhost)。在 IDEA / GoLand / Navicat 中直接配置如下：
-| 服务 | 主机 (Host) | 端口 (Port) | 用户名 | 密码 | 备注 |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| PostgreSQL | localhost | 5432 | postgres | postgres | 数据库名: platform_db |
-| MongoDB | localhost | 27017 | (无) | (无) | 数据库名: rednote |
-| Redis | localhost | 6379 | (无) | (无) | |
-| RabbitMQ | localhost | 5672 | admin | admin | 消息队列端口 |
-| Elasticsearch | localhost | 9200 | (无) | (无) | 开发环境关闭了安全认证 |
+- Java 主服务 `platform-java` 直接在宿主机运行
+- MySQL / Mongo / Redis / RabbitMQ / ES 与 Go 服务走 Docker Compose
 
-🌐 常用管理面板
+### 1. 启动基础设施和 Go 服务
 
-启动后，你可以直接在浏览器访问这些好用的管理界面：
+在项目根目录执行：
 
-    RabbitMQ 控制台: http://localhost:15672 (账号: admin / admin)
-
-    Kibana (ES 可视化): http://localhost:5601
-
-5. 🛠️ 常用操作速查
-
-停止所有服务 (下班关机前)：
-```Bash
-docker compose -f docker-compose-dev.yml down
+```bash
+docker compose up -d --build
 ```
 
-查看某个服务的日志 (比如看 Sidecar 为什么报错)：
-```Bash
+常用服务端口：
 
-# 查看实时日志 (Ctrl+C 退出)
-docker logs -f sidecar-local-dev
-# 或者
-docker logs -f mq-local-dev
-```
-重启某个服务 (比如卡住了)：
-```Bash
+- `gateway-api`: `8090`
+- `interaction-rpc`: `8081`
+- `search-rpc`: `8082`
+- `user-rpc`: `8083`
+- `MySQL`: `3306`
+- `MongoDB`: `27017`
+- `Redis`: `6379`
+- `RabbitMQ`: `5672`
+- `RabbitMQ Console`: `15672`
+- `Elasticsearch`: `9200`
 
-docker compose -f docker-compose-dev.yml restart sync-sidecar-dev
-```
-清理全部数据 (想重头再来)：
-```Bash
+### 2. 在宿主机启动 Java
 
-# 慎用！这会清空数据库所有数据
-docker compose -f docker-compose-dev.yml down -v
-```
-
-6. ❓ 常见问题 FAQ
-
-Q: 启动报错 Bind for 0.0.0.0:5432 failed: port is already allocated A: 你的电脑上已经跑了一个 Postgres。请手动停止本地的 Postgres 服务，或者卸载它。
-
-Q: Sidecar 启动报错 connection refused A: Sidecar 依赖 ES 和 MQ。如果这两个还没启动好（Healthcheck 未通过），Sidecar 可能会报错退出。Docker 会自动重启它，通常等待 30 秒左右就会变绿（Healthy）。
-
-Q: ES 启动报错 exited with code 137 A: 内存不足。Docker 也就是被系统杀掉了。请参考第 1 步，调大 Docker Desktop 的内存限制。
-
-Q: 我修改了 sync-sidecar 里的 Go 代码，怎么生效？ A: 我们配置了热挂载。只需重启容器即可生效：
-```Bash
-docker compose -f docker-compose-dev.yml restart sync-sidecar-dev
+```bash
+cd services/platform-java
+SPRING_PROFILES_ACTIVE=dev mvn spring-boot:run
 ```
 
-## 环境变量配置 (.env) [重要]
-为了安全起见，我们不再直接修改 application-dev.yml 中的密码，而是通过根目录下的 .env 文件注入环境变量。
+如果 Java 需要访问本地基础设施，常见环境变量可以显式指定为：
 
-- 在项目根目录下创建一个名为 .env 的文件。
-
-- 复制以下内容并修改为你本地的真实配置：
-
-```Properties
-# --- 数据库配置 ---
-DB_URL=jdbc:postgresql://localhost:5432/platform_db?currentSchema=public
-DB_USERNAME=postgres
-DB_PASSWORD=postgres
-
-# --- Redis 配置 ---
-REDIS_HOST=localhost
-REDIS_PORT=6379
-REDIS_PASSWORD=  # 如果本地没密码就留空
-
-# --- 阿里云 OSS (开发环境可以使用 Mock 模式) ---
-# 设置为 false 则开启本地模拟上传，文件存放在项目根目录/uploads下
-ALIYUN_OSS_ENABLE=false
-# 如果设置为 true，则必须填写下面的真实的 Key
-ALIYUN_ACCESS_KEY_ID=
-ALIYUN_ACCESS_KEY_SECRET=
-ALIYUN_BUCKET_NAME=
-
-# --- 微信小程序 ---
-WECHAT_APPID=你的APPID
-WECHAT_SECRET=你的SECRET
-
-# --- 邮件服务 ---
-MAIL_HOST=smtp.163.com
-MAIL_USERNAME=你的邮箱@163.com
-MAIL_PASSWORD=你的授权码
-
-# --- 腾讯云 IM (新增) ---
-TENCENT_IM_SDK_APPID=你的SDKAppID
-TENCENT_IM_SECRET_KEY=你的密钥
-
-# --- 内容安全 (新增) ---
-# 是否开启帖子自动进入审核状态 (true=发帖后状态为0, false=直接发布)
-POST_AUDIT_ENABLE=false
-
-CHATBOT_ID=276
-CHATBOT_NICKNAME=AI省流助手
-
-QWENVL_API_KEY=
+```bash
+SPRING_PROFILES_ACTIVE=dev \
+DB_URL='jdbc:mysql://127.0.0.1:3306/user_db?useUnicode=true&characterEncoding=utf8mb4&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false' \
+MONGO_URI='mongodb://127.0.0.1:27017/rednote' \
+REDIS_HOST='127.0.0.1' \
+RABBITMQ_HOST='127.0.0.1' \
+mvn spring-boot:run
 ```
+
+### 3. 宿主机模式说明
+
+`gateway-api` 默认通过：
+
+```text
+http://host.docker.internal:8080
+```
+
+访问宿主机上的 Java 服务。Linux 环境下如果遇到容器无法访问宿主机 `8080`，通常需要额外放行防火墙，例如：
+
+```bash
+sudo ufw allow in on docker0 to any port 8080 proto tcp
+```
+
+## 配置与文档
+
+- 网关 API 定义文件：[gateway.api](./services/gateway-api/gateway.api)
+- 统一开放接口导出：[openapi.json](./openapi.json)
+- Docker 编排文件：[docker-compose.yml](./docker-compose.yml)
+
+## 后续演进方向
+
+- 补充 Prometheus + Grafana 的混合微服务监控方案
+- 引入 OpenTelemetry / Jaeger 做链路追踪
+- 完善关键链路的单元测试与集成测试
+- 为 MQ 异步链路补充死信、重试和对账修复机制
+- 继续收敛互动相关展示字段的事实源

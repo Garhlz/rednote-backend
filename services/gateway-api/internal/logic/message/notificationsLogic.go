@@ -6,10 +6,12 @@ package message
 import (
 	"context"
 
+	"gateway-api/internal/pkg/ctxutil"
 	"gateway-api/internal/svc"
 	"gateway-api/internal/types"
 
 	"github.com/zeromicro/go-zero/core/logx"
+	"notification-rpc/notificationservice"
 )
 
 type NotificationsLogic struct {
@@ -26,8 +28,37 @@ func NewNotificationsLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Not
 	}
 }
 
-func (l *NotificationsLogic) Notifications() (resp *types.Empty, err error) {
-	// todo: add your logic here and delete this line
+func (l *NotificationsLogic) Notifications(req *types.NotificationListReq) (resp *types.NotificationPageResult, err error) {
+	client := notificationservice.NewNotificationService(l.svcCtx.NotificationRpc)
+	result, err := client.ListNotifications(l.ctx, &notificationservice.ListNotificationsRequest{
+		UserId:   ctxutil.UserID(l.ctx),
+		Page:     req.Page,
+		PageSize: req.Size,
+	})
+	if err != nil {
+		return nil, err
+	}
 
-	return
+	records := make([]types.NotificationVO, 0, len(result.GetItems()))
+	for _, item := range result.GetItems() {
+		records = append(records, types.NotificationVO{
+			Id:             item.GetId(),
+			ReceiverId:     item.GetReceiverId(),
+			SenderId:       item.GetSenderId(),
+			SenderNickname: item.GetSenderNickname(),
+			SenderAvatar:   item.GetSenderAvatar(),
+			Type:           item.GetType().String(),
+			TargetId:       item.GetTargetId(),
+			TargetPreview:  item.GetTargetPreview(),
+			IsRead:         item.GetIsRead(),
+			CreatedAt:      item.GetCreatedAt(),
+		})
+	}
+
+	return &types.NotificationPageResult{
+		Records: records,
+		Total:   result.GetTotal(),
+		Current: result.GetPage(),
+		Size:    result.GetPageSize(),
+	}, nil
 }

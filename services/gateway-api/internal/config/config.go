@@ -8,11 +8,17 @@ import (
 
 type Config struct {
 	rest.RestConf
-	UserRpc        zrpc.RpcClientConf
-	SearchRpc      zrpc.RpcClientConf
-	InteractionRpc zrpc.RpcClientConf
-	Redis          redis.RedisConf
-	JavaApi        struct {
+	UserRpc         zrpc.RpcClientConf
+	SearchRpc       zrpc.RpcClientConf
+	InteractionRpc  zrpc.RpcClientConf
+	NotificationRpc zrpc.RpcClientConf
+	Redis           redis.RedisConf
+	Metrics         struct {
+		Host string
+		Port int
+		Path string
+	}
+	JavaApi struct {
 		BaseUrl   string
 		TimeoutMs int64
 	}

@@ -5,6 +5,11 @@ Etcd:
     - etcd:2379
   Key: interaction.rpc
 
+Metrics:
+  Host: 0.0.0.0
+  Port: 40092
+  Path: /metrics
+
 # 业务 Redis 配置
 BizRedis:
   Host: redis:6379

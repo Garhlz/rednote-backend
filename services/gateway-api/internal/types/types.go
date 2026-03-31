@@ -77,6 +77,35 @@ type CommentVO struct {
 type Empty struct {
 }
 
+type NotificationListReq struct {
+	Page int32 `form:"page,optional"`
+	Size int32 `form:"size,optional"`
+}
+
+type NotificationBatchReadReq struct {
+	Ids []string `json:"ids"`
+}
+
+type NotificationVO struct {
+	Id             string `json:"id"`
+	ReceiverId     int64  `json:"receiverId"`
+	SenderId       int64  `json:"senderId"`
+	SenderNickname string `json:"senderNickname"`
+	SenderAvatar   string `json:"senderAvatar"`
+	Type           string `json:"type"`
+	TargetId       string `json:"targetId"`
+	TargetPreview  string `json:"targetPreview"`
+	IsRead         bool   `json:"isRead"`
+	CreatedAt      int64  `json:"createdAt"`
+}
+
+type NotificationPageResult struct {
+	Records []NotificationVO `json:"records"`
+	Total   int64            `json:"total"`
+	Current int32            `json:"current"`
+	Size    int32            `json:"size"`
+}
+
 type HistoryReq struct {
 	Keyword string `form:"keyword,optional"`
 }

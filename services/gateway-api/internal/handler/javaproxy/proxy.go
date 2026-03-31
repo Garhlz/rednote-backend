@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"time"
 
+	appmetrics "gateway-api/internal/metrics"
 	"gateway-api/internal/pkg/ctxutil"
 	"gateway-api/internal/svc"
 
@@ -89,13 +90,16 @@ func ProxyHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		// 所有 Java 上游错误在这里统一收口，避免直接把底层错误暴露给前端。
 		logx.WithContext(r.Context()).Errorf("proxy error: %s %s: %v", r.Method, r.URL.Path, err)
 		if errors.Is(err, context.DeadlineExceeded) {
+			appmetrics.IncJavaProxyError(r.Method, r.URL.Path, "deadline_exceeded")
 			writeProxyError(w, http.StatusGatewayTimeout, "upstream timeout")
 			return
 		}
 		if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+			appmetrics.IncJavaProxyError(r.Method, r.URL.Path, "timeout")
 			writeProxyError(w, http.StatusGatewayTimeout, "upstream timeout")
 			return
 		}
+		appmetrics.IncJavaProxyError(r.Method, r.URL.Path, "upstream_error")
 		writeProxyError(w, http.StatusBadGateway, "upstream error")
 	}
 	proxy.ModifyResponse = func(resp *http.Response) error {
@@ -107,7 +111,10 @@ func ProxyHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	}
 
 	return func(w http.ResponseWriter, r *http.Request) {
-		proxy.ServeHTTP(w, r)
+		start := time.Now()
+		rec := &proxyMetricsWriter{ResponseWriter: w, status: http.StatusOK}
+		proxy.ServeHTTP(rec, r)
+		appmetrics.ObserveJavaProxy(r.Method, r.URL.Path, rec.status, time.Since(start))
 	}
 }
 
@@ -127,4 +134,14 @@ func writeProxyError(w http.ResponseWriter, status int, message string) {
 func newRequestId() string {
 	now := time.Now().UnixNano()
 	return strconv.FormatInt(now, 36)
+}
+
+type proxyMetricsWriter struct {
+	http.ResponseWriter
+	status int
+}
+
+func (w *proxyMetricsWriter) WriteHeader(code int) {
+	w.status = code
+	w.ResponseWriter.WriteHeader(code)
 }

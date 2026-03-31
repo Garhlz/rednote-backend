@@ -7,6 +7,11 @@ import (
 
 type Config struct {
 	zrpc.RpcServerConf
+	Metrics struct {
+		Host string
+		Port int
+		Path string
+	}
 	Mysql struct {
 		DataSource string
 	}

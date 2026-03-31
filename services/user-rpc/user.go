@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"user-rpc/internal/config"
+	appmetrics "user-rpc/internal/metrics"
 	"user-rpc/internal/server"
 	"user-rpc/internal/svc"
 	"user-rpc/user"
@@ -24,6 +25,7 @@ func main() {
 	var c config.Config
 	conf.MustLoad(*configFile, &c, conf.UseEnv())
 	ctx := svc.NewServiceContext(c)
+	appmetrics.StartServer(c.Metrics.Host, c.Metrics.Port, c.Metrics.Path)
 
 	s := zrpc.MustNewServer(c.RpcServerConf, func(grpcServer *grpc.Server) {
 		user.RegisterUserServiceServer(grpcServer, server.NewUserServiceServer(ctx))

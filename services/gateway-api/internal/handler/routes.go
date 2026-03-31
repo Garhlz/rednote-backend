@@ -9,6 +9,7 @@ import (
 	auth "gateway-api/internal/handler/auth"
 	interaction "gateway-api/internal/handler/interaction"
 	javaproxy "gateway-api/internal/handler/javaproxy"
+	message "gateway-api/internal/handler/message"
 	post "gateway-api/internal/handler/post"
 	search "gateway-api/internal/handler/search"
 	user "gateway-api/internal/handler/user"
@@ -278,22 +279,22 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			{
 				Method:  http.MethodGet,
 				Path:    "/notifications",
-				Handler: javaproxy.ProxyHandler(serverCtx),
+				Handler: message.NotificationsHandler(serverCtx),
 			},
 			{
 				Method:  http.MethodPost,
 				Path:    "/read",
-				Handler: javaproxy.ProxyHandler(serverCtx),
+				Handler: message.ReadNotificationHandler(serverCtx),
 			},
 			{
 				Method:  http.MethodPut,
 				Path:    "/read",
-				Handler: javaproxy.ProxyHandler(serverCtx),
+				Handler: message.BatchReadNotificationHandler(serverCtx),
 			},
 			{
 				Method:  http.MethodGet,
 				Path:    "/unread-count",
-				Handler: javaproxy.ProxyHandler(serverCtx),
+				Handler: message.UnreadCountHandler(serverCtx),
 			},
 		},
 		rest.WithPrefix("/api/message"),

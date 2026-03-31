@@ -5,6 +5,11 @@ Etcd:
     - etcd:2379
   Key: search.rpc
 
+Metrics:
+  Host: 0.0.0.0
+  Port: 40093
+  Path: /metrics
+
 # Elasticsearch 配置
 Elasticsearch:
   Addresses:

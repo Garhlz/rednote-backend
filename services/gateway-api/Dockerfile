@@ -12,6 +12,7 @@ WORKDIR /app/services/gateway-api
 COPY services/gateway-api/go.mod services/gateway-api/go.sum ./
 COPY services/user-rpc/go.mod services/user-rpc/go.sum ./../user-rpc/
 COPY services/interaction-rpc/go.mod services/interaction-rpc/go.sum ./../interaction-rpc/
+COPY services/notification-rpc/go.mod services/notification-rpc/go.sum ./../notification-rpc/
 COPY services/search-rpc/go.mod services/search-rpc/go.sum ./../search-rpc/
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
@@ -21,6 +22,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 COPY services/gateway-api ./
 COPY services/user-rpc ./../user-rpc
 COPY services/interaction-rpc ./../interaction-rpc
+COPY services/notification-rpc ./../notification-rpc
 COPY services/search-rpc ./../search-rpc
 
 # 编译 (CGO_ENABLED=0 生成静态二进制文件)
@@ -28,10 +30,11 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
     CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /app/gateway-api gateway.go
 
 # 阶段 2: 运行 (Runner)
-FROM alpine:latest
+FROM alpine:3.20
 
 # 安装时区数据和 ca 证书 (访问 HTTPS 或时间处理需要)
-RUN apk --no-cache add ca-certificates tzdata
+RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories \
+    && apk --no-cache add ca-certificates tzdata
 ENV TZ=Asia/Shanghai
 
 WORKDIR /app

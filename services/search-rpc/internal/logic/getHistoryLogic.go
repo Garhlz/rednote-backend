@@ -2,7 +2,9 @@ package logic
 
 import (
 	"context"
+	"time"
 
+	appmetrics "search-rpc/internal/metrics"
 	"search-rpc/internal/svc"
 	"search-rpc/search"
 
@@ -30,6 +32,7 @@ type SearchHistoryDoc struct {
 }
 
 func (l *GetHistoryLogic) GetHistory(in *search.HistoryRequest) (*search.HistoryResponse, error) {
+	start := time.Now()
 	collection := l.svcCtx.Mongo.Collection("search_histories")
 
 	// 1. 构建查询选项: 过滤 userId, 按 updatedAt 倒序, 取前 10 条
@@ -40,6 +43,7 @@ func (l *GetHistoryLogic) GetHistory(in *search.HistoryRequest) (*search.History
 
 	cursor, err := collection.Find(l.ctx, filter, findOptions)
 	if err != nil {
+		appmetrics.ObserveRequest("get_history", "mongo_error", time.Since(start))
 		return nil, err
 	}
 	defer cursor.Close(l.ctx)
@@ -53,5 +57,6 @@ func (l *GetHistoryLogic) GetHistory(in *search.HistoryRequest) (*search.History
 		}
 	}
 
+	appmetrics.ObserveRequest("get_history", "success", time.Since(start))
 	return &search.HistoryResponse{Keywords: keywords}, nil
 }

@@ -13,12 +13,13 @@ import (
 )
 
 type ServiceContext struct {
-	Config         config.Config
-	UserRpc        zrpc.Client
-	SearchRpc      zrpc.Client
-	InteractionRpc zrpc.Client
-	Redis          *redis.Redis
-	JavaHttpClient *http.Client
+	Config          config.Config
+	UserRpc         zrpc.Client
+	SearchRpc       zrpc.Client
+	InteractionRpc  zrpc.Client
+	NotificationRpc zrpc.Client
+	Redis           *redis.Redis
+	JavaHttpClient  *http.Client
 	// JavaApiBaseUrl 是 Java 主业务服务的入口地址。
 	// 当前项目里，很多帖子/评论/通知/后台接口仍然由 Java 负责，网关需要反向代理到这里。
 	JavaApiBaseUrl string
@@ -30,6 +31,7 @@ func NewServiceContext(c config.Config) *ServiceContext {
 	userClient := zrpc.MustNewClient(c.UserRpc)
 	searchClient := zrpc.MustNewClient(c.SearchRpc)
 	interactionClient := zrpc.MustNewClient(c.InteractionRpc)
+	notificationClient := zrpc.MustNewClient(c.NotificationRpc)
 
 	// Java 地址支持三层来源：
 	// 1. 配置文件
@@ -62,12 +64,13 @@ func NewServiceContext(c config.Config) *ServiceContext {
 	}
 
 	return &ServiceContext{
-		Config:         c,
-		UserRpc:        userClient,
-		SearchRpc:      searchClient,
-		InteractionRpc: interactionClient,
-		Redis:          redis.MustNewRedis(c.Redis),
-		JavaHttpClient: &http.Client{Timeout: timeout, Transport: transport},
-		JavaApiBaseUrl: javaBaseURL,
+		Config:          c,
+		UserRpc:         userClient,
+		SearchRpc:       searchClient,
+		InteractionRpc:  interactionClient,
+		NotificationRpc: notificationClient,
+		Redis:           redis.MustNewRedis(c.Redis),
+		JavaHttpClient:  &http.Client{Timeout: timeout, Transport: transport},
+		JavaApiBaseUrl:  javaBaseURL,
 	}
 }

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	appmetrics "search-rpc/internal/metrics"
 	"search-rpc/internal/svc"
 	"search-rpc/search"
 
@@ -47,6 +48,7 @@ type PostEsDoc struct {
 }
 
 func (l *SearchLogic) Search(in *search.SearchRequest) (*search.SearchResponse, error) {
+	start := time.Now()
 	// 1. 异步记录搜索历史 (对应 Java: rabbitTemplate.convertAndSend("search.history"))
 	// 既然我们在搜索微服务内部，直接写 Mongo 效率更高，或者你也发 MQ。这里演示直接写库。
 	// 开了个协程记录搜索历史，非常合理
@@ -165,10 +167,12 @@ func (l *SearchLogic) Search(in *search.SearchRequest) (*search.SearchResponse, 
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(reqBody); err != nil {
+		appmetrics.ObserveRequest("search", "encode_error", time.Since(start))
 		return nil, err
 	}
 
 	// 5. 执行 ES 搜索
+	esStart := time.Now()
 	res, err := l.svcCtx.Es.Search(
 		l.svcCtx.Es.Search.WithContext(l.ctx),
 		l.svcCtx.Es.Search.WithIndex("posts"), // 索引名
@@ -176,11 +180,15 @@ func (l *SearchLogic) Search(in *search.SearchRequest) (*search.SearchResponse, 
 		l.svcCtx.Es.Search.WithTrackTotalHits(true),
 	)
 	if err != nil {
+		appmetrics.ObserveESQuery("search", time.Since(esStart))
+		appmetrics.ObserveRequest("search", "es_error", time.Since(start))
 		return nil, err
 	}
 	defer res.Body.Close()
+	appmetrics.ObserveESQuery("search", time.Since(esStart))
 
 	if res.IsError() {
+		appmetrics.ObserveRequest("search", "es_status_error", time.Since(start))
 		return nil, fmt.Errorf("ES error: %s", res.String())
 	}
 
@@ -197,6 +205,7 @@ func (l *SearchLogic) Search(in *search.SearchRequest) (*search.SearchResponse, 
 	}
 
 	if err := json.NewDecoder(res.Body).Decode(&esResponse); err != nil {
+		appmetrics.ObserveRequest("search", "decode_error", time.Since(start))
 		return nil, err
 	}
 
@@ -234,6 +243,7 @@ func (l *SearchLogic) Search(in *search.SearchRequest) (*search.SearchResponse, 
 		items = append(items, item)
 	}
 
+	appmetrics.ObserveRequest("search", "success", time.Since(start))
 	return &search.SearchResponse{
 		Items: items,
 		Total: esResponse.Hits.Total.Value,

@@ -5,6 +5,9 @@ import (
 	"context"
 	"encoding/json"
 	"regexp"
+	"time"
+
+	appmetrics "search-rpc/internal/metrics"
 	"search-rpc/internal/svc"
 	"search-rpc/search"
 
@@ -28,7 +31,9 @@ func NewSuggestLogic(ctx context.Context, svcCtx *svc.ServiceContext) *SuggestLo
 var chineseRegex = regexp.MustCompile("[\u4e00-\u9fa5]")
 
 func (l *SuggestLogic) Suggest(in *search.SuggestRequest) (*search.SuggestResponse, error) {
+	start := time.Now()
 	if in.Keyword == "" {
+		appmetrics.ObserveRequest("suggest", "empty_keyword", time.Since(start))
 		return &search.SuggestResponse{}, nil
 	}
 
@@ -75,19 +80,24 @@ func (l *SuggestLogic) Suggest(in *search.SuggestRequest) (*search.SuggestRespon
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(reqBody); err != nil {
+		appmetrics.ObserveRequest("suggest", "encode_error", time.Since(start))
 		return nil, err
 	}
 
 	// 4. 执行搜索
+	esStart := time.Now()
 	res, err := l.svcCtx.Es.Search(
 		l.svcCtx.Es.Search.WithContext(l.ctx),
 		l.svcCtx.Es.Search.WithIndex("posts"),
 		l.svcCtx.Es.Search.WithBody(&buf),
 	)
 	if err != nil {
+		appmetrics.ObserveESQuery("suggest", time.Since(esStart))
+		appmetrics.ObserveRequest("suggest", "es_error", time.Since(start))
 		return nil, err
 	}
 	defer res.Body.Close()
+	appmetrics.ObserveESQuery("suggest", time.Since(esStart))
 
 	// 5. 解析高亮结果
 	var esResponse struct {
@@ -98,6 +108,7 @@ func (l *SuggestLogic) Suggest(in *search.SuggestRequest) (*search.SuggestRespon
 		} `json:"hits"`
 	}
 	if err := json.NewDecoder(res.Body).Decode(&esResponse); err != nil {
+		appmetrics.ObserveRequest("suggest", "decode_error", time.Since(start))
 		return nil, err
 	}
 
@@ -128,5 +139,6 @@ func (l *SuggestLogic) Suggest(in *search.SuggestRequest) (*search.SuggestRespon
 		}
 	}
 
+	appmetrics.ObserveRequest("suggest", "success", time.Since(start))
 	return &search.SuggestResponse{Suggestions: suggestions}, nil
 }

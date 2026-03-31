@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"search-rpc/internal/config"
+	appmetrics "search-rpc/internal/metrics"
 	"search-rpc/internal/server"
 	"search-rpc/internal/svc"
 	"search-rpc/search"
@@ -24,6 +25,7 @@ func main() {
 	var c config.Config
 	conf.MustLoad(*configFile, &c)
 	ctx := svc.NewServiceContext(c)
+	appmetrics.StartServer(c.Metrics.Host, c.Metrics.Port, c.Metrics.Path)
 
 	s := zrpc.MustNewServer(c.RpcServerConf, func(grpcServer *grpc.Server) {
 		search.RegisterSearchServiceServer(grpcServer, server.NewSearchServiceServer(ctx))

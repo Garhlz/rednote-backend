@@ -6,10 +6,11 @@ package message
 import (
 	"context"
 
+	"gateway-api/internal/pkg/ctxutil"
 	"gateway-api/internal/svc"
-	"gateway-api/internal/types"
 
 	"github.com/zeromicro/go-zero/core/logx"
+	"notification-rpc/notificationservice"
 )
 
 type UnreadCountLogic struct {
@@ -26,8 +27,14 @@ func NewUnreadCountLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Unrea
 	}
 }
 
-func (l *UnreadCountLogic) UnreadCount() (resp *types.Empty, err error) {
-	// todo: add your logic here and delete this line
+func (l *UnreadCountLogic) UnreadCount() (resp any, err error) {
+	client := notificationservice.NewNotificationService(l.svcCtx.NotificationRpc)
+	result, err := client.GetUnreadCount(l.ctx, &notificationservice.GetUnreadCountRequest{
+		UserId: ctxutil.UserID(l.ctx),
+	})
+	if err != nil {
+		return nil, err
+	}
 
-	return
+	return result.GetUnreadCount(), nil
 }

@@ -2,7 +2,9 @@ package logic
 
 import (
 	"context"
+	"time"
 
+	appmetrics "search-rpc/internal/metrics"
 	"search-rpc/internal/svc"
 	"search-rpc/search"
 
@@ -25,6 +27,7 @@ func NewDeleteHistoryLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Del
 }
 
 func (l *DeleteHistoryLogic) DeleteHistory(in *search.ClearHistoryRequest) (*search.Empty, error) {
+	start := time.Now()
 	collection := l.svcCtx.Mongo.Collection("search_histories")
 
 	var filter bson.M
@@ -33,6 +36,7 @@ func (l *DeleteHistoryLogic) DeleteHistory(in *search.ClearHistoryRequest) (*sea
 		filter = bson.M{"userId": in.UserId}
 		_, err := collection.DeleteMany(l.ctx, filter)
 		if err != nil {
+			appmetrics.ObserveRequest("delete_history", "mongo_error", time.Since(start))
 			return nil, err
 		}
 	} else {
@@ -40,9 +44,11 @@ func (l *DeleteHistoryLogic) DeleteHistory(in *search.ClearHistoryRequest) (*sea
 		filter = bson.M{"userId": in.UserId, "keyword": in.Keyword}
 		_, err := collection.DeleteOne(l.ctx, filter)
 		if err != nil {
+			appmetrics.ObserveRequest("delete_history", "mongo_error", time.Since(start))
 			return nil, err
 		}
 	}
 
+	appmetrics.ObserveRequest("delete_history", "success", time.Since(start))
 	return &search.Empty{}, nil
 }

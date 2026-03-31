@@ -10,6 +10,7 @@ import (
 
 	"gateway-api/internal/config"
 	"gateway-api/internal/handler"
+	appmetrics "gateway-api/internal/metrics"
 	"gateway-api/internal/middleware"
 	"gateway-api/internal/response"
 	"gateway-api/internal/svc"
@@ -49,12 +50,17 @@ func main() {
 	// 2. Redis
 	// 3. Java 代理用的 HTTP Client
 	ctx := svc.NewServiceContext(c)
+	// metrics server 独立监听一个专门端口，只对 Prometheus 暴露 /metrics。
+	// 这样不会和业务接口、鉴权逻辑混在一起。
+	appmetrics.StartServer(c.Metrics.Host, c.Metrics.Port, c.Metrics.Path)
 
 	// 所有请求先经过鉴权中间件：
 	// 1. 判断是否跳过鉴权
 	// 2. 解析 JWT
 	// 3. 校验 token version
 	// 4. 把 userId / role / nickname 等信息放进 context
+	// metrics middleware 放在比较外层，这样能看到整个网关处理链路的最终耗时。
+	server.Use(middleware.NewMetricsMiddleware())
 	server.Use(middleware.NewAuthMiddleware(c, ctx.Redis))
 
 	// 注册所有路由。

@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	appmetrics "user-rpc/internal/metrics"
 	"user-rpc/internal/svc"
 	"user-rpc/user"
 
@@ -32,18 +33,22 @@ func (l *SendEmailCodeLogic) SendEmailCode(in *user.SendEmailCodeRequest) (*user
 	email := strings.TrimSpace(in.GetEmail())
 	scene, ok := normalizeEmailScene(in.GetScene())
 	if email == "" {
+		appmetrics.IncEmailCode("unknown", "invalid_email")
 		return nil, status.Error(codes.InvalidArgument, "email is required")
 	}
 	if !ok {
+		appmetrics.IncEmailCode("unknown", "invalid_scene")
 		return nil, status.Error(codes.InvalidArgument, "invalid scene")
 	}
 
 	limitKey := emailLimitKey(scene, email)
 	allowed, err := l.svcCtx.Redis.SetnxEx(limitKey, "1", 60)
 	if err != nil {
+		appmetrics.IncEmailCode(scene, "limit_check_error")
 		return nil, status.Error(codes.Internal, "rate limit error")
 	}
 	if !allowed {
+		appmetrics.IncEmailCode(scene, "rate_limited")
 		return nil, status.Error(codes.ResourceExhausted, "operation too frequent")
 	}
 
@@ -57,13 +62,16 @@ func (l *SendEmailCodeLogic) SendEmailCode(in *user.SendEmailCodeRequest) (*user
 	if err := sendEmail(l.svcCtx.Config, email, subject, body); err != nil {
 		l.Logger.Errorf("send email failed: %s", err)
 		_, _ = l.svcCtx.Redis.Del(limitKey)
+		appmetrics.IncEmailCode(scene, "send_mail_error")
 		return nil, status.Errorf(codes.Internal, "mail send failed: %s", err)
 	}
 
 	codeKey := emailCodeKey(scene, email)
 	if err := l.svcCtx.Redis.Setex(codeKey, code, int(time.Minute.Seconds()*5)); err != nil {
+		appmetrics.IncEmailCode(scene, "store_code_error")
 		return nil, status.Error(codes.Internal, "store code failed")
 	}
+	appmetrics.IncEmailCode(scene, "success")
 
 	return &user.SendEmailCodeResponse{
 		NextRetrySeconds: 60,

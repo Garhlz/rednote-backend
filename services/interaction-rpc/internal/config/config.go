@@ -8,6 +8,12 @@ import (
 type Config struct {
 	zrpc.RpcServerConf
 
+	Metrics struct {
+		Host string
+		Port int
+		Path string
+	}
+
 	// 对应 YAML 中的 BizRedis 部分
 	// go-zero 会自动识别 structure 中的 json tag 来进行映射
 	BizRedis redis.RedisConf

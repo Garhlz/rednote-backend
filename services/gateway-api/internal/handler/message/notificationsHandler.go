@@ -8,13 +8,20 @@ import (
 
 	"gateway-api/internal/logic/message"
 	"gateway-api/internal/svc"
+	"gateway-api/internal/types"
 	"github.com/zeromicro/go-zero/rest/httpx"
 )
 
 func NotificationsHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		var req types.NotificationListReq
+		if err := httpx.Parse(r, &req); err != nil {
+			httpx.ErrorCtx(r.Context(), w, err)
+			return
+		}
+
 		l := message.NewNotificationsLogic(r.Context(), svcCtx)
-		resp, err := l.Notifications()
+		resp, err := l.Notifications(&req)
 		if err != nil {
 			httpx.ErrorCtx(r.Context(), w, err)
 		} else {

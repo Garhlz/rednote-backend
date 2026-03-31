@@ -21,7 +21,7 @@ spring:
       password: ${REDIS_PASSWORD:}
 
   elasticsearch:
-    uris: http://localhost:9200
+    uris: ${ELASTICSEARCH_URIS:http://localhost:9200}
     socket-timeout: 30s
     connection-timeout: 5s
 
@@ -104,7 +104,7 @@ app:
 file:
   upload:
     path: ./uploads/
-    base-url: http://localhost:8080/uploads/
+    base-url: ${FILE_BASE_URL:http://localhost:8080/uploads/}
 
 # --- 3. 开发环境专属日志与调试 ---
 mybatis-plus:
@@ -131,4 +131,7 @@ grpc:
       negotiation-type: plaintext
     user-service:
       address: 'static://127.0.0.1:8083'
+      negotiation-type: plaintext
+    notification-service:
+      address: 'static://127.0.0.1:8084'
       negotiation-type: plaintext

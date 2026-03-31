@@ -1,0 +1,141 @@
+syntax = "proto3";
+
+package notification;
+
+option go_package = "./notification";
+
+// =======================
+// Common
+// =======================
+
+message Empty {}
+
+// 当前通知类型基本直接对应 platform-java 中的 NotificationType 枚举。
+// 第一阶段先保证语义对齐，后续再由 notification-rpc 独立演进。
+enum NotificationType {
+  NOTIFICATION_TYPE_UNKNOWN = 0;
+
+  COMMENT = 1;
+  REPLY = 2;
+
+  LIKE_POST = 3;
+  COLLECT_POST = 4;
+  RATE_POST = 5;
+  LIKE_COMMENT = 6;
+  FOLLOW = 7;
+
+  SYSTEM = 8;
+  SYSTEM_AUDIT_PASS = 9;
+  SYSTEM_AUDIT_REJECT = 10;
+  SYSTEM_POST_DELETE = 11;
+}
+
+// 面向 RPC 调用方返回的通知对象。
+// created_at 使用 unix seconds，避免 Java/Go 在 LocalDateTime 字符串格式上额外对齐。
+message Notification {
+  string id = 1;
+  int64 receiver_id = 2;
+  int64 sender_id = 3;
+  string sender_nickname = 4;
+  string sender_avatar = 5;
+  NotificationType type = 6;
+  string target_id = 7;
+  string target_preview = 8;
+  bool is_read = 9;
+  int64 created_at = 10;
+}
+
+// 给 notification-rpc 内部写入时使用的载荷。
+// 第一阶段保持和当前 Java listener 组装的 NotificationDoc 语义一致。
+message NotificationPayload {
+  int64 receiver_id = 1;
+  int64 sender_id = 2;
+  string sender_nickname = 3;
+  string sender_avatar = 4;
+  NotificationType type = 5;
+  string target_id = 6;
+  string target_preview = 7;
+}
+
+// =======================
+// Read side
+// =======================
+
+message GetUnreadCountRequest {
+  int64 user_id = 1;
+}
+
+message GetUnreadCountResponse {
+  int64 unread_count = 1;
+}
+
+message ListNotificationsRequest {
+  int64 user_id = 1;
+  int32 page = 2;
+  int32 page_size = 3;
+}
+
+message ListNotificationsResponse {
+  repeated Notification items = 1;
+  int64 total = 2;
+  int32 page = 3;
+  int32 page_size = 4;
+}
+
+message MarkAllReadRequest {
+  int64 user_id = 1;
+}
+
+message MarkBatchReadRequest {
+  int64 user_id = 1;
+  repeated string ids = 2;
+}
+
+// =======================
+// Write side
+// =======================
+
+// 普通通知：评论、回复、系统通知等，保持逐条写入。
+message CreateNotificationRequest {
+  NotificationPayload notification = 1;
+}
+
+// 状态类通知：点赞、收藏、关注、评分等，需要按
+// receiver_id + sender_id + type + target_id 进行 upsert 去重。
+message UpsertNotificationRequest {
+  NotificationPayload notification = 1;
+}
+
+// 预留给后续管理/数据修复使用。
+message CleanDuplicateNotificationsRequest {}
+
+message CleanDuplicateNotificationsResponse {
+  int64 deleted_count = 1;
+}
+
+service NotificationService {
+  // ===== 对外读接口 =====
+
+  // 对应当前 /api/message/unread-count
+  rpc GetUnreadCount(GetUnreadCountRequest) returns (GetUnreadCountResponse);
+
+  // 对应当前 /api/message/notifications
+  rpc ListNotifications(ListNotificationsRequest) returns (ListNotificationsResponse);
+
+  // 对应当前 /api/message/read (全部已读)
+  rpc MarkAllRead(MarkAllReadRequest) returns (Empty);
+
+  // 对应当前 /api/message/read (批量已读)
+  rpc MarkBatchRead(MarkBatchReadRequest) returns (Empty);
+
+  // ===== 对内写接口 =====
+
+  // 普通插入：评论、回复、系统类通知
+  rpc CreateNotification(CreateNotificationRequest) returns (Empty);
+
+  // 去重 upsert：点赞、收藏、评分、关注类通知
+  rpc UpsertNotification(UpsertNotificationRequest) returns (Empty);
+
+  // 仅供管理/数据修复使用，便于迁移旧数据时执行一次清洗。
+  rpc CleanDuplicateNotifications(CleanDuplicateNotificationsRequest) returns (CleanDuplicateNotificationsResponse);
+}

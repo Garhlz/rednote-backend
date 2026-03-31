@@ -4,8 +4,11 @@ go 1.25.6
 
 require (
 	github.com/golang-jwt/jwt/v5 v5.3.0
+	github.com/prometheus/client_golang v1.21.1
 	github.com/zeromicro/go-zero v1.9.4
+	google.golang.org/grpc v1.78.0
 	interaction-rpc v0.0.0
+	notification-rpc v0.0.0
 	search-rpc v0.0.0
 	user-rpc v0.0.0
 )
@@ -46,7 +49,6 @@ require (
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/openzipkin/zipkin-go v0.4.3 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.2 // indirect
-	github.com/prometheus/client_golang v1.21.1 // indirect
 	github.com/prometheus/client_model v0.6.1 // indirect
 	github.com/prometheus/common v0.62.0 // indirect
 	github.com/prometheus/procfs v0.15.1 // indirect
@@ -80,7 +82,6 @@ require (
 	golang.org/x/time v0.10.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20251029180050-ab9386a59fda // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20251029180050-ab9386a59fda // indirect
-	google.golang.org/grpc v1.78.0 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
@@ -97,6 +98,8 @@ require (
 )
 
 replace interaction-rpc => ../interaction-rpc
+
+replace notification-rpc => ../notification-rpc
 
 replace search-rpc => ../search-rpc
 

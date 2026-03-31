@@ -6,6 +6,7 @@ import (
 
 	"interaction-rpc/interaction"
 	"interaction-rpc/internal/config"
+	appmetrics "interaction-rpc/internal/metrics"
 	"interaction-rpc/internal/server"
 	"interaction-rpc/internal/svc"
 
@@ -24,6 +25,9 @@ func main() {
 	var c config.Config
 	conf.MustLoad(*configFile, &c)
 	ctx := svc.NewServiceContext(c)
+	// 互动服务额外起一个独立的 metrics 端口，供 Prometheus 抓取。
+	// 这样不会影响 gRPC 监听端口，也不需要把 /metrics 混进 RPC 服务里。
+	appmetrics.StartServer(c.Metrics.Host, c.Metrics.Port, c.Metrics.Path)
 
 	s := zrpc.MustNewServer(c.RpcServerConf, func(grpcServer *grpc.Server) {
 		interaction.RegisterInteractionServiceServer(grpcServer, server.NewInteractionServiceServer(ctx))
