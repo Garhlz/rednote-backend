@@ -1,116 +1,151 @@
 # TODO List
 
-本文档记录当前代码库里已经确认、但尚未处理完的后端问题与优化项，按优先级划分，优先处理会直接影响功能正确性的事项。
+本文档整合了仓库里原有两份待办，仅保留当前版本里仍然值得继续推进的功能、风险和优化项。
 
 ## P1
 
-### 检查前端 follow 流请求是否显式携带 credentials
-- 现状：网关现在已经支持从 Cookie 中读取 `accessToken`，但如果前端跨域请求没有带 `credentials`，Cookie 仍然不会被发送。
-- 影响：`/api/post/list?tab=follow` 可能继续表现为空列表或未登录。
-- 涉及链路：
-  - 前端请求配置
-  - `services/gateway-api/internal/middleware/auth.go`
-- 建议：确认前端在需要登录态的请求上使用 `credentials: 'include'` 或等价配置。
+### 完成网关 OpenAPI / `gateway.api` 与真实实现的最后一轮对齐
 
-### 检查前端用户搜索请求是否在匿名态误调用
-- 现状：`/api/user/search` 在 OpenAPI 里是强鉴权接口。
-- 影响：如果前端在匿名态触发该请求，会被网关正常拦截，但产品表现可能像“接口异常”。
-- 建议：前端在未登录时避免调用，或改成显式登录后才展示用户搜索入口。
+- 现状：
+  - `/api/user/search` 已由网关补齐实现
+  - `tag/hot`、`tag/ai-generate`、`message/unread-count`、`message/notifications`、`message/read`、`common/upload` 等核心返回结构也已补齐到 `gateway.api`
+  - 但仍有部分后台接口和 Java 直代接口在 `gateway.api` 中使用占位返回结构
+- 影响：
+  - 文档、代码生成结果和真实接口返回不一致
+  - 前端和 Apifox 容易继续基于旧结构联调
+- 建议：
+  - 继续梳理部分后台接口、开发辅助接口等当前仍走 Java 且返回结构未建模的接口
+  - 在确认生成结果不会覆盖现有自定义实现后，统一重新生成网关代码
+
+### 补齐用户域仍由 Java 承担的接口迁移策略
+
+- 现状：
+  - 用户搜索已能通过网关正确代理到 Java
+  - 但关注列表、粉丝列表、好友列表、我的点赞/收藏/评分/历史/评论等接口仍主要依赖 Java
+- 影响：
+  - 用户域边界还不够清晰
+  - 文档层面容易给人“已经完全迁到 Go”的误解
+- 建议：
+  - 明确哪些接口短期保留在 Java
+  - 明确哪些接口后续适合迁到 `user-rpc` 或独立读模型服务
+
+### 做一轮真实接口回归，确认文档与系统行为一致
+
+- 现状：
+  - README 和面试材料已经补齐
+  - 但部分接口属于“网关代理 Java”的混合模式
+- 建议至少回归：
+  - `/api/user/search`
+  - `/api/post/list?tab=follow`
+  - `/api/message/unread-count`
+  - `/api/comment/list`
+  - `/api/post/search`
+  - `/api/post/search/suggest`
 
 ## P2
 
 ### 为 Mongo 老集合补一个索引审计脚本
-- 现状：`comment-rpc` 和 `notification-rpc` 的问题都暴露出：Go 新服务接管 Java 老集合时，索引兼容性是高风险点。
+
+- 现状：
+  - `comment-rpc`、`notification-rpc` 的迁移已经暴露出老集合索引兼容风险
 - 风险：
-  - 旧索引名与新服务不一致会触发 `IndexOptionsConflict`
-  - 新唯一索引覆盖范围过大时会被历史数据卡住
-- 建议：增加一个脚本，一次性列出 `comments/comment_likes/notifications/posts/user_follows` 等集合的：
-  - 索引名
-  - 键模式
-  - unique
-  - partialFilterExpression
-
-### 评估 comment-rpc 删除事件模型是否需要结构化扩展
-- 现状：当前评论删除事件字段较少，下游只能根据 `type/commentId/postId/parentId` 猜测语义。
-- 影响：随着评论域继续演进，软删、级联删、管理员删、作者删等情况可能越来越难区分。
-- 涉及文件：
-  - `services/comment-rpc/internal/logic/common.go`
-  - `services/platform-java/src/main/java/com/szu/afternoon3/platform/event/CommentEvent.java`
-- 建议：后续考虑为事件增加 `deleteMode`、`isRoot`、`operatorRole` 等字段。
-
-### 为 comment-rpc / notification-rpc 增加更多联调与回归脚本
-- 现状：目前已有基础联调脚本，但还没有覆盖删除一级评论、通知去重 upsert、异常权限校验等边界场景。
-- 建议：后续补：
-  - 一级评论软删回归
-  - 通知重复 upsert 回归
-  - 评论权限校验回归
-  - Cookie / Header 双登录态验证脚本
-  - RPC 启动后的索引兼容性回归
-
-### 统一 Go / Java 日志字段并接入集中日志方案
-- 现状：日志已经部分结构化，但 `service`、`traceId/requestId`、`routingKey` 等字段尚未完全统一，排障仍依赖分散的容器日志。
+  - 索引名冲突
+  - 唯一索引和历史脏数据冲突
 - 建议：
-  - 统一 `service` 字段
-  - 统一 `traceId / requestId`
-  - MQ 发布/消费日志统一输出 `routingKey`
-  - 后续接入 `Loki + Promtail + Grafana`
+  - 增加脚本列出以下集合的索引定义：
+    - `comments`
+    - `comment_likes`
+    - `notifications`
+    - `posts`
+    - `user_follows`
 
-### 接入 OpenTelemetry + Jaeger，补齐链路追踪
-- 现状：当前已经具备 metrics 和 logs，且 `service`、`traceId/requestId`、`routingKey` 的统一工作已基本完成，但还没有真正的分布式 tracing。
-- 目标：形成 `Metrics + Logs + Traces` 的完整可观测性闭环，能在发帖、评论、通知、搜索、MQ 同步等链路上按 trace 追踪跨服务调用。
-- 第一阶段建议范围：
-  - `gateway-api -> comment-rpc`
-  - `gateway-api -> notification-rpc`
-  - `gateway-api -> search-rpc`
-  - `gateway-api -> user-rpc`
-  - `platform-java` HTTP 入站链路
-  - `sync-sidecar` MQ 消费链路
-- 落地步骤：
-  - 在 `docker-compose.yml` 中增加 `jaeger`（all-in-one），开放 `16686`、`4317`、`4318`
-  - Go 侧接入 OpenTelemetry SDK 和 OTLP exporter
-  - 为 `gateway-api` 增加 HTTP tracing 中间件
-  - 为 Go RPC client/server 增加 tracing interceptor
-  - `platform-java` 优先用 OpenTelemetry Java agent 接入
-  - MQ 发布/消费补充 `traceparent` / `tracestate` 传播
-  - `sync-sidecar` 在 MQ handler 中恢复 trace context 并创建消费 span
-- 验证目标：
-  - 在 Jaeger UI 中看到 `gateway -> rpc -> java / sidecar` 的调用链
-  - 能定位发帖 -> MQ -> ES、评论 -> 通知、搜索调用等典型链路
+### 评估 comment 事件模型是否要继续结构化
+
+- 现状：
+  - 当前 `comment.create / comment.delete` 事件已能满足现有副作用
+  - 但删除事件字段仍偏少
+- 建议后续可扩展：
+  - `deleteMode`
+  - `isRoot`
+  - `operatorRole`
+  - `operatorUserId`
+
+### 补一轮更完整的联调脚本
+
+- 建议增加：
+  - 一级评论软删回归
+  - 二级评论删除后 `replyCount` 回归
+  - 状态型通知重复 upsert 回归
+  - Cookie / Header 双鉴权模式回归
+  - sidecar 全量重建 ES 回归
+
+### 为 user-rpc 补更完整的事件发布约定
+
+- 现状：
+  - 资料更新已经会发 `user.update`
+  - 但删除/注销、状态变更等事件边界还不够系统
+- 建议：
+  - 明确 `user.update / user.delete / user.status.update` 的统一约定
+  - 让 sidecar 和 Java 消费方更容易扩展
+
+### 统一并固化观测看板
+
+- 现状：
+  - Jaeger、Loki、Promtail、Grafana 已经接入
+  - 但查询方式和面板仍偏手动
+- 建议：
+  - 保存一套默认 Grafana dashboard
+  - 预置按 `service / traceId / routingKey` 查询的 Loki panel
+  - 预置按 HTTP / gRPC / MQ 分类的 Jaeger 使用说明
+
+## P3
+
+### 评估是否继续推进服务发现与多实例验证
+
+- 现状：
+  - Go 服务已接入 etcd
+  - Java 仍主要依赖固定地址或网关代理
+- 建议：
+  - 如果后续目标是“展示微服务治理能力”，可以继续做 Java 侧服务发现适配
+  - 如果目标主要是实习项目展示，可以保留现状，不必继续扩大复杂度
+
+### 评估推荐流是否继续升级为更真实的推荐系统
+
+- 现状：
+  - 当前首页更接近“热度排序 + 关注流 + 搜索聚合”
+- 后续方向：
+  - 标签召回
+  - 简单协同过滤
+  - 行为分层打分
+  - 用户画像和多路召回
 
 ## 已完成
 
-### 评论删除链路一致性修复
-- `comment-rpc` 现在会在一级/二级评论删除后统一发布 `comment.delete` 事件。
-- `comment-rpc` 删除时会主动清理当前评论的点赞关系。
-- Java `CommentEventListener` 不再重复扣减子评论对应的根评论 `replyCount`，避免双重递减。
+### 评论 / 通知 RPC 拆分
 
-### 用户搜索排序优化
-- `/api/user/search` 已增加搜索匹配权重：
-  - 昵称完全命中
-  - 昵称前缀命中
-  - 昵称包含
-  - 邮箱前缀命中
-  - 邮箱包含
-- 关注关系排序现在作为次级排序因子，而不是唯一排序依据。
+- `comment-rpc` 已接管评论创建、删除、一级评论列表、子评论列表
+- `notification-rpc` 已接管通知未读数、通知列表、已读和状态型通知写入
 
-### comment-rpc 索引兼容修复
-- 已对齐 `comment_likes` 集合的旧索引名：
-  - `idx_user_comment_unique`
-  - `commentId`
-- 避免了 Go 新服务接管后因索引名不一致导致的 `IndexOptionsConflict` 启动失败。
+### 评论链路一致性修复
 
-### notification-rpc 唯一索引范围修复
-- `notifications` 集合的唯一索引已经改成部分唯一索引（partial unique index）。
-- 现在仅对状态型通知做唯一约束：
-  - `LIKE_POST`
-  - `COLLECT_POST`
-  - `RATE_POST`
-  - `LIKE_COMMENT`
-  - `FOLLOW`
-- `COMMENT` / `REPLY` / `SYSTEM` 等历史型通知不再被错误纳入唯一约束。
+- 修复评论创建时 MQ 发布失败仍返回成功的问题
+- 修复二级评论删除导致根评论 `replyCount` 被重复扣减的问题
+- 修复一级评论软删除仍发送 delete 事件导致 `post.commentCount` 错扣的问题
 
-### 网关鉴权支持 Cookie 回退
-- `gateway-api` 现在在读取登录态时：
-  - 优先读取 `Authorization`
-  - 取不到时回退读取 `accessToken` / `refreshToken` Cookie
-- 修复了 `follow` 流和用户搜索在前端使用 Cookie 登录态时的弱鉴权/强鉴权问题。
+### 搜索与建议词优化
+
+- 已优化 `hot` 排序权重
+- 已增加“原词优先但不无脑插入”的建议词策略
+
+### 网关鉴权与代理增强
+
+- 支持从 Cookie 回退读取 `accessToken / refreshToken`
+- Java 代理支持透传 `X-User-Id / X-User-Role / X-User-Nickname`
+- `/api/user/search` 已在网关层补齐实现，并已切到自定义 handler，不再走旧的空逻辑或裸代理
+
+### 可观测性建设
+
+- Go 服务已接入 OpenTelemetry
+- Java 已可通过脚本接入 Jaeger
+- Loki + Promtail + Grafana 已接入
+- `service / traceId / requestId / routingKey` 日志字段已基本统一

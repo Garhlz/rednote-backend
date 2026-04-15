@@ -5,7 +5,14 @@ package user
 
 import (
 	"context"
+	"encoding/json"
+	"net/http"
+	"net/url"
+	"strconv"
+	"strings"
 
+	"gateway-api/internal/pkg/ctxutil"
+	"gateway-api/internal/response"
 	"gateway-api/internal/svc"
 	"gateway-api/internal/types"
 
@@ -26,8 +33,58 @@ func NewSearchUsersLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Searc
 	}
 }
 
-func (l *SearchUsersLogic) SearchUsers() (resp *types.Empty, err error) {
-	// todo: add your logic here and delete this line
+type javaEnvelope[T any] struct {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+	Data    T      `json:"data"`
+}
 
-	return
+func (l *SearchUsersLogic) SearchUsers(req *types.UserSearchReq) (resp []types.UserSearchVO, err error) {
+	keyword := strings.TrimSpace(req.Keyword)
+	if keyword == "" {
+		return []types.UserSearchVO{}, nil
+	}
+
+	javaResp, err := l.svcCtx.ProxyToJava(l.ctx, svc.JavaProxyRequest{
+		Method: http.MethodGet,
+		Path:   "/api/user/search",
+		Query: url.Values{
+			"keyword": []string{keyword},
+		},
+		Headers: buildJavaHeaders(l.ctx),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	var envelope javaEnvelope[[]types.UserSearchVO]
+	if err := json.Unmarshal(javaResp.Body, &envelope); err != nil {
+		return nil, err
+	}
+	if javaResp.StatusCode != http.StatusOK || envelope.Code != 200 {
+		return nil, response.NewError(envelope.Code, envelope.Message, javaResp.StatusCode)
+	}
+
+	if envelope.Data == nil {
+		return []types.UserSearchVO{}, nil
+	}
+
+	return envelope.Data, nil
+}
+
+func buildJavaHeaders(ctx context.Context) map[string]string {
+	headers := map[string]string{}
+	if token := ctxutil.AuthToken(ctx); token != "" {
+		headers["Authorization"] = "Bearer " + token
+	}
+	if userID := ctxutil.UserID(ctx); userID > 0 {
+		headers["X-User-Id"] = strconv.FormatInt(userID, 10)
+	}
+	if role := ctxutil.Role(ctx); role != "" {
+		headers["X-User-Role"] = role
+	}
+	if nickname := ctxutil.Nickname(ctx); nickname != "" {
+		headers["X-User-Nickname"] = nickname
+	}
+	return headers
 }

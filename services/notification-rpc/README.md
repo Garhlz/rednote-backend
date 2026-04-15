@@ -1,196 +1,99 @@
 # notification-rpc
 
-`notification-rpc` 是从 `platform-java` 中拆出来的通知微服务，当前负责通知读写存储与通知读模型查询。
+`notification-rpc` 是通知读写中心，负责通知列表、未读数、已读更新，以及状态型通知的去重 upsert。
 
 ## 服务职责
 
 - 维护 MongoDB 中的 `notifications` 集合
-- 提供通知读接口
-  - 未读数
-  - 通知列表
-  - 全部已读
-  - 批量已读
-- 提供通知写接口
-  - 普通通知插入
-  - 状态类通知去重 upsert
-- 提供历史重复通知清洗接口
+- 提供未读数、通知列表、已读能力
+- 提供普通通知插入和状态型通知 upsert
+- 提供历史重复通知清理接口
 
-## 当前拆分边界
+## 接口规范
 
-这次拆分采用的是“先拆存储与读写接口，再拆事件消费”的方式。
+主要通过 `gateway-api` 暴露给前端，写接口则供 Java listener 或其他内部服务调用。
 
-也就是说：
+### 面向前端的核心 HTTP 接口
 
-- `gateway-api` 读取通知时，已经直接走 `notification-rpc`
-- `platform-java` 里的 listener 仍然负责根据业务事件组装通知语义
-- 但最终通知写入已经改成通过 gRPC 调用 `notification-rpc`
+| 网关路径 | 方法 | 说明 |
+| --- | --- | --- |
+| `/api/message/unread-count` | `GET` | 获取未读通知数 |
+| `/api/message/notifications` | `GET` | 获取通知列表 |
+| `/api/message/read` | `POST` | 标记全部已读 |
+| `/api/message/read` | `PUT` | 批量已读 |
 
-当前链路可以理解为：
+调用示例：
 
-```text
-客户端
-  -> gateway-api
-  -> notification-rpc
-  -> Mongo notifications
-
-platform-java listeners
-  -> notification-rpc
-  -> Mongo notifications
+```bash
+curl 'http://localhost:8090/api/message/unread-count' \
+  -H 'Authorization: Bearer <access-token>'
 ```
 
-这样做的好处是：
-
-- 迁移风险更小
-- 前端协议几乎不用改
-- Java 原有通知生成逻辑可以平滑复用
-- 后续仍可继续把 MQ 消费和通知生成逻辑迁到 Go
-
-## 读写模型
-
-### 1. 读模型
-
-客户端当前对通知仍然是拉模型，也就是轮询读取：
-
-- `GetUnreadCount`
-- `ListNotifications`
-- `MarkAllRead`
-- `MarkBatchRead`
-
-这些接口都直接读取或更新 `notifications` 集合。
-
-### 2. 写模型
-
-写入分为两类：
+### 内部 gRPC 接口
 
 - `CreateNotification`
-  - 用于评论、回复、系统通知等“逐条保留”的消息
+  - 评论、回复、系统通知等逐条插入
 - `UpsertNotification`
-  - 用于点赞、收藏、评分、关注等“状态型通知”
-  - 按 `receiverId + senderId + type + targetId` 去重
+  - 点赞、收藏、评分、关注等状态型通知去重写入
+- `CleanDuplicateNotifications`
+  - 清理历史重复通知
 
-这样可以避免“同一个人连续点赞同一篇内容”在消息中心里堆出很多重复记录。
+## 技术实现
 
-## Mongo 文档结构
+### 1. 普通通知与状态型通知分流
 
-当前通知文档核心字段如下：
+- 普通通知
+  - 评论
+  - 回复
+  - 系统通知
+  - 保留完整历史
+- 状态型通知
+  - 点赞帖子
+  - 收藏帖子
+  - 评分帖子
+  - 点赞评论
+  - 关注用户
+  - 相同 `receiverId + senderId + type + targetId` 只保留一条
 
-- `receiverId`
-- `senderId`
-- `senderNickname`
-- `senderAvatar`
-- `type`
-- `targetId`
-- `targetPreview`
-- `isRead`
-- `createdAt`
+### 2. Mongo 唯一索引 + Partial Filter
 
-其中：
+状态型通知通过唯一索引保证去重：
 
-- `receiverId` 表示谁会收到这条通知
-- `senderId` 表示谁触发了这次动作
-- `targetId` 表示被作用的业务对象
-- `targetPreview` 用于消息列表摘要展示
+- 只对状态型通知生效
+- 评论、回复这类历史通知不受影响
+- 老环境若已有脏数据导致建索引失败，服务只记录告警，不阻断启动
 
-## 通知类型
+### 3. 未读与列表查询
 
-当前已支持的通知类型包括：
+- 未读数通过 `receiverId + isRead` 查询
+- 列表按 `createdAt` 倒序
+- 已读更新支持全部已读和批量已读两种模式
 
-- `COMMENT`
-- `REPLY`
-- `LIKE_POST`
-- `COLLECT_POST`
-- `RATE_POST`
-- `LIKE_COMMENT`
-- `FOLLOW`
-- `SYSTEM`
-- `SYSTEM_AUDIT_PASS`
-- `SYSTEM_AUDIT_REJECT`
-- `SYSTEM_POST_DELETE`
+## 技术亮点
 
-## 与 platform-java 的关系
+- 用“通知类型分层”解决了消息中心最常见的刷屏问题
+- Partial unique index 只约束状态型通知，兼顾幂等性和业务语义
+- 面向迁移老数据的环境，唯一索引失败不会直接把服务启动打崩
+- Java listener 仍负责通知语义生成，但最终写入已收口到独立服务，拆分路径平滑
 
-`platform-java` 当前没有直接写 `notifications` 集合，而是通过 `NotificationServiceImpl` 做 gRPC 适配。
+## 与其他服务的关系
 
-因此原有的：
-
-- `InteractionEventListener`
-- `CommentEventListener`
-- `PostAuditListener`
-- `PostEventListener`
-
-不需要大改调用方式，仍然可以继续调用：
-
-- `notificationService.save(...)`
-- `notificationService.markAllAsRead(...)`
-- `notificationService.getMyNotifications(...)`
-
-只是底层实现已经改为走 `notification-rpc`。
-
-## Prometheus 指标
-
-当前服务暴露独立 metrics 端口，默认：
-
-- `40095`
-
-Prometheus 抓取路径：
-
-- `/metrics`
-
-当前主要指标：
-
-- `notification_rpc_requests_total`
-- `notification_rpc_request_duration_seconds`
-
-标签设计：
-
-- `action`
-  - `get_unread_count`
-  - `list_notifications`
-  - `mark_all_read`
-  - `mark_batch_read`
-  - `create_notification`
-  - `upsert_notification`
-  - `clean_duplicate_notifications`
-- `result`
-  - `success`
-  - `mongo_error`
-  - `count_error`
-  - `find_error`
-  - `decode_error`
-  - `aggregate_error`
-  - `delete_error`
-  - `empty_payload`
-  - `empty_ids`
-  - `invalid_ids`
+- `gateway-api`
+  - 直接读取通知未读数和通知列表
+- `platform-java`
+  - 负责消费互动/评论/审核事件并组装通知语义
+  - 最终通过 gRPC 调用本服务写入通知
 
 ## 本地运行
-
-### 编译
 
 ```bash
 cd services/notification-rpc
 go build ./...
+go test ./...
 ```
 
-### 运行
-
-```bash
-cd services/notification-rpc
-go run notification.go -f etc/notification.yaml
-```
-
-### 通过 Docker Compose 启动
+通过 Docker 启动：
 
 ```bash
 docker compose up -d --build notification-rpc
 ```
-
-## 后续可继续优化的方向
-
-- 把通知事件消费逻辑也从 Java listener 迁到 Go
-- 给 `notifications` 集合补合适索引
-  - `receiverId + createdAt`
-  - `receiverId + isRead`
-  - `receiverId + senderId + type + targetId`
-- 进一步接入链路追踪
-- 后续如果前端需要，可在此基础上增加 SSE / WebSocket 推送能力

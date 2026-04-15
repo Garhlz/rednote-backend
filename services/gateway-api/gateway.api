@@ -177,6 +177,14 @@ type UploadReq {
 	file string `form:"file"`
 }
 
+type UploadResp {
+	url string `json:"url"`
+}
+
+type StringList []string
+
+type UnreadCount int64
+
 type PostAuthor {
 	userId   string `json:"userId"`
 	nickname string `json:"nickname"`
@@ -220,6 +228,117 @@ type SearchSuggestResp {
 
 type SearchHistoryResp {
 	keywords []string `json:"keywords"`
+}
+
+type CommentListReq {
+	postId string `form:"postId"`
+	page   int32  `form:"page,optional"`
+	size   int32  `form:"size,optional"`
+}
+
+type CommentSubListReq {
+	rootId string `form:"rootId"`
+	page   int32  `form:"page,optional"`
+	size   int32  `form:"size,optional"`
+}
+
+type CommentPageResult {
+	records []CommentVO `json:"records"`
+	total   int64       `json:"total"`
+	current int32       `json:"current"`
+	size    int32       `json:"size"`
+}
+
+type PageReq {
+	page int32 `form:"page,optional"`
+	size int32 `form:"size,optional"`
+}
+
+type UserPostListReq {
+	type int32 `form:"type,optional"`
+	page int32 `form:"page,optional"`
+	size int32 `form:"size,optional"`
+}
+
+type FriendSearchReq {
+	keyword string `form:"keyword,optional"`
+	page    int32  `form:"page,optional"`
+	size    int32  `form:"size,optional"`
+}
+
+type UserSearchReq {
+	keyword string `form:"keyword"`
+}
+
+type UserSearchVO {
+	userId        string `json:"userId"`
+	nickname      string `json:"nickname"`
+	avatar        string `json:"avatar"`
+	email         string `json:"email"`
+	isFollowed    bool   `json:"isFollowed"`
+	isFollowingMe bool   `json:"isFollowingMe"`
+}
+
+type UserSearchList []UserSearchVO
+
+type PageResultSimpleUser {
+	records []SimpleUserVO `json:"records"`
+	total   int64          `json:"total"`
+	current int32          `json:"current"`
+	size    int32          `json:"size"`
+}
+
+type MyCommentVO {
+	id        string `json:"id"`
+	content   string `json:"content"`
+	createdAt string `json:"createdAt"`
+	likeCount int32  `json:"likeCount"`
+	postId    string `json:"postId"`
+	postCover string `json:"postCover"`
+	postTitle string `json:"postTitle"`
+}
+
+type PageResultMyComment {
+	records []MyCommentVO `json:"records"`
+	total   int64         `json:"total"`
+	current int32         `json:"current"`
+	size    int32         `json:"size"`
+}
+
+type NotificationListReq {
+	page int32 `form:"page,optional"`
+	size int32 `form:"size,optional"`
+}
+
+type NotificationBatchReadReq {
+	ids []string `json:"ids"`
+}
+
+type NotificationVO {
+	id             string `json:"id"`
+	receiverId     int64  `json:"receiverId"`
+	senderId       int64  `json:"senderId"`
+	senderNickname string `json:"senderNickname"`
+	senderAvatar   string `json:"senderAvatar"`
+	type           string `json:"type"`
+	targetId       string `json:"targetId"`
+	targetPreview  string `json:"targetPreview"`
+	isRead         bool   `json:"isRead"`
+	createdAt      int64  `json:"createdAt"`
+}
+
+type NotificationPageResult {
+	records []NotificationVO `json:"records"`
+	total   int64            `json:"total"`
+	current int32            `json:"current"`
+	size    int32            `json:"size"`
+}
+
+type AiGenerateTagsReq {
+	title   string   `json:"title,optional"`
+	content string   `json:"content"`
+	images  []string `json:"images,optional"`
+	video   string   `json:"video,optional"`
 }
 
 // group 会影响生成出来的 handler/logic 分组目录
@@ -268,10 +387,10 @@ service gateway {
 	post /password/change (AuthChangePwdReq) returns (Empty)
 
 	@handler GetFollows
-	get /follows/:userId (UserIdPath) returns (Empty)
+	get /follows/:userId (UserIdPath) returns (PageResultSimpleUser)
 
 	@handler GetFans
-	get /fans/:userId (UserIdPath) returns (Empty)
+	get /fans/:userId (UserIdPath) returns (PageResultSimpleUser)
 
 	@handler FollowUser
 	post /follow (InteractionReq) returns (Empty)
@@ -280,28 +399,28 @@ service gateway {
 	post /unfollow (InteractionReq) returns (Empty)
 
 	@handler GetFriends
-	get /friends returns (Empty)
+	get /friends (FriendSearchReq) returns (PageResultSimpleUser)
 
 	@handler SearchUsers
-	get /search returns (Empty)
+	get /search (UserSearchReq) returns (UserSearchList)
 
 	@handler GetMyLikes
-	get /likes returns (Empty)
+	get /likes (PageReq) returns (PageResultPost)
 
 	@handler GetMyCollects
-	get /collects returns (Empty)
+	get /collects (PageReq) returns (PageResultPost)
 
 	@handler GetMyRatings
-	get /ratings returns (Empty)
+	get /ratings (PageReq) returns (PageResultPost)
 
 	@handler GetMyPosts
-	get /posts returns (Empty)
+	get /posts (UserPostListReq) returns (PageResultPost)
 
 	@handler GetMyHistory
-	get /history returns (Empty)
+	get /history (PageReq) returns (PageResultPost)
 
 	@handler GetMyComments
-	get /comments returns (Empty)
+	get /comments (PageReq) returns (PageResultMyComment)
 }
 
 @server (
@@ -358,10 +477,10 @@ service gateway {
 	get /search (SearchReq) returns (PageResultPost)
 
 	@handler GetUserPosts
-	get /user/:userId (UserIdPath) returns (Empty)
+	get /user/:userId (UserIdPath) returns (PageResultPost)
 
 	@handler GetPostDetail
-	get /:postId (PostIdPath) returns (Empty)
+	get /:postId (PostIdPath) returns (PostVO)
 
 	@handler Suggest
 	get /search/suggest (SuggestReq) returns (SearchSuggestResp)
@@ -388,10 +507,10 @@ service gateway {
 	delete /:id (IdPath) returns (Empty)
 
 	@handler ListComments
-	get /list returns (Empty)
+	get /list (CommentListReq) returns (CommentPageResult)
 
 	@handler SubListComments
-	get /sub-list returns (Empty)
+	get /sub-list (CommentSubListReq) returns (CommentPageResult)
 }
 
 @server (
@@ -400,10 +519,10 @@ service gateway {
 )
 service gateway {
 	@handler HotTags
-	get /hot returns (Empty)
+	get /hot returns (StringList)
 
 	@handler AiGenerateTags
-	post /ai-generate (Empty) returns (Empty)
+	post /ai-generate (AiGenerateTagsReq) returns (StringList)
 }
 
 @server (
@@ -412,16 +531,16 @@ service gateway {
 )
 service gateway {
 	@handler UnreadCount
-	get /unread-count returns (Empty)
+	get /unread-count returns (UnreadCount)
 
 	@handler Notifications
-	get /notifications returns (Empty)
+	get /notifications (NotificationListReq) returns (NotificationPageResult)
 
 	@handler ReadNotification
 	post /read (Empty) returns (Empty)
 
 	@handler BatchReadNotification
-	put /read (Empty) returns (Empty)
+	put /read (NotificationBatchReadReq) returns (Empty)
 }
 
 @server (
@@ -430,7 +549,7 @@ service gateway {
 )
 service gateway {
 	@handler Upload
-	post /upload (UploadReq) returns (Empty)
+	post /upload (UploadReq) returns (UploadResp)
 }
 
 @server (

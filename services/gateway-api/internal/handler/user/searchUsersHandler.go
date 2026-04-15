@@ -8,13 +8,20 @@ import (
 
 	"gateway-api/internal/logic/user"
 	"gateway-api/internal/svc"
+	"gateway-api/internal/types"
 	"github.com/zeromicro/go-zero/rest/httpx"
 )
 
 func SearchUsersHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		var req types.UserSearchReq
+		if err := httpx.Parse(r, &req); err != nil {
+			httpx.ErrorCtx(r.Context(), w, err)
+			return
+		}
+
 		l := user.NewSearchUsersLogic(r.Context(), svcCtx)
-		resp, err := l.SearchUsers()
+		resp, err := l.SearchUsers(&req)
 		if err != nil {
 			httpx.ErrorCtx(r.Context(), w, err)
 		} else {

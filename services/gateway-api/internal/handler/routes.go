@@ -475,7 +475,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			{
 				Method:  http.MethodGet,
 				Path:    "/search",
-				Handler: javaproxy.ProxyHandler(serverCtx),
+				Handler: user.SearchUsersHandler(serverCtx),
 			},
 			{
 				Method:  http.MethodPost,
