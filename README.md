@@ -1,279 +1,425 @@
 # Sharely / 分享派后端
 
-面向内容社区场景的混合微服务后端项目，核心目标不是演示简单 CRUD，而是尽量贴近真实业务中的账号体系、内容写入、互动读模型、搜索、事件驱动同步和可观测性建设。
+面向内容社区场景的混合微服务后端项目。项目围绕用户体系、内容发布、互动读模型、搜索索引同步和本地可观测性建设展开，采用 `Go + Java` 双技术栈协同实现。
 
-当前项目采用渐进式拆分方案：
+该仓库不是“为了拆而拆”的微服务练习，而是一个典型的渐进式演进方案：
 
-- `gateway-api` 作为统一 HTTP 入口
-- `user-rpc`、`interaction-rpc`、`search-rpc`、`comment-rpc`、`notification-rpc` 作为 Go 微服务
-- `platform-java` 继续承接帖子主业务、关注关系、后台管理、部分聚合接口和异步消费逻辑
-- `sync-sidecar` 负责 MQ 消费、日志落库、Mongo/ES 异步同步
+- 保留 Java 服务承接帖子主写链路、管理后台和部分复杂业务编排
+- 将高频读、高并发互动、搜索、评论、通知等模块逐步迁移到 Go 服务
+- 通过 RabbitMQ、Redis、Elasticsearch 和观测组件把分布式链路真正跑通
 
-## 技术栈总览
+## 项目定位
 
-### 后端框架
+这个项目更接近一个“工程化学习型作品”而不是单一 CRUD Demo，重点展示的是以下能力：
 
-- `Go 1.25`
-- `go-zero`
-- `gRPC / zRPC`
-- `Java 17`
-- `Spring Boot 3`
-- `MyBatis-Plus`
-- `Spring Data MongoDB`
+- 如何在已有 Java 业务核心之上，逐步引入 Go 服务并完成架构拆分
+- 如何用 Redis 和 ES 为高频读场景构建独立读模型
+- 如何用 RabbitMQ 做异步解耦，接受最终一致性而不是强推分布式事务
+- 如何把日志、链路追踪、统一响应结构和本地联调工具补完整
+
+## 技术栈
+
+### 后端服务
+
+- `Go`
+  - `go-zero`：网关、zRPC、服务治理基础设施
+  - `gRPC / Protobuf`：Go 服务间通信
+  - `OpenTelemetry`：链路追踪埋点
+- `Java`
+  - `Spring Boot`
+  - `MyBatis-Plus`
+  - `Spring Data MongoDB`
+  - `RabbitMQ Client / HTTP 业务适配`
 
 ### 数据与中间件
 
-- `MySQL 8`
-- `MongoDB 6`
-- `Redis Stack`
-- `RabbitMQ 3.12`
-- `Elasticsearch 8`
-- `etcd`
+- `MySQL`：账号、认证、强事务用户数据
+- `MongoDB`：帖子、评论、通知、交互明细等文档数据
+- `Redis`：JWT 失效控制、验证码、互动读模型、缓存
+- `Elasticsearch`：帖子搜索、建议词、热度排序
+- `RabbitMQ`：事件总线、异步解耦、最终一致性
+- `etcd`：Go 服务注册与发现
 
-### 观测与运维
+### 本地观测与开发配套
 
-- `OpenTelemetry`
-- `Jaeger`
-- `Loki`
-- `Promtail`
-- `Grafana`
-- `Prometheus`
-- `Docker Compose`
+- `Jaeger`：分布式链路追踪
+- `Loki + Promtail + Grafana`：日志采集与检索
+- `Prometheus`：指标采集
+- `Docker Compose`：本地环境编排
 
-## 项目架构
+## 系统架构
 
-### 1. 网关层
+项目整体采用“网关层 + 领域服务层 + 异步同步层 + 多存储层”的分层结构。
 
-`gateway-api` 是唯一 HTTP 入口，负责以下事情：
+```mermaid
+graph TD
+    Client[Web / App / 管理后台] --> Gateway[gateway-api]
 
-- JWT 鉴权与弱登录态兼容
-- `requestId / traceId` 生成和透传
-- 统一错误包装与响应格式
-- 将 HTTP 请求编排为 gRPC 调用或 Java 代理调用
-- 聚合搜索、互动、评论、通知等跨服务数据
+    Gateway --> UserRPC[user-rpc]
+    Gateway --> InteractionRPC[interaction-rpc]
+    Gateway --> SearchRPC[search-rpc]
+    Gateway --> CommentRPC[comment-rpc]
+    Gateway --> NotificationRPC[notification-rpc]
+    Gateway --> Java[platform-java]
 
-### 2. 领域服务层
+    UserRPC --> MySQL[(MySQL)]
+    UserRPC --> Redis[(Redis)]
 
-- `user-rpc`
-  - 账号注册、登录、刷新令牌、资料更新
-  - refresh token 白名单、tokenVersion 即时失效
-- `interaction-rpc`
-  - 点赞、收藏、评分、评论点赞
-  - Redis 互动读模型和缓存预热
-- `search-rpc`
-  - ES 搜索、联想词、搜索历史
-  - 热度排序与搜索历史写入
-- `comment-rpc`
-  - 评论创建、删除、一级评论列表、子评论列表
-  - 评论敏感词校验、评论事件投递
-- `notification-rpc`
-  - 通知未读数、列表、已读
-  - 状态型通知去重 upsert
+    InteractionRPC --> Redis
+    InteractionRPC --> Mongo[(MongoDB)]
+    InteractionRPC --> MQ[(RabbitMQ)]
 
-### 3. Java 主业务层
+    CommentRPC --> Mongo
+    CommentRPC --> MQ
 
-`platform-java` 当前仍是帖子和后台能力的主写服务，负责：
+    NotificationRPC --> Mongo
 
-- 帖子发布、编辑、删除、详情
-- 关注流、关注关系、用户列表聚合
-- 后台审核、日志、统计
-- MQ 事件消费后对帖子计数、通知语义、AI 回复等业务做异步处理
+    SearchRPC --> ES[(Elasticsearch)]
+    SearchRPC --> Mongo
+    SearchRPC --> Redis
 
-### 4. 持久化与读模型层
+    Java --> Mongo
+    Java --> Redis
+    Java --> MQ
 
-- `MySQL`
-  - 用户主事实表
-  - tokenVersion、账号状态等强一致字段
-- `MongoDB`
-  - 帖子、评论、通知、关注关系、搜索历史等文档型数据
-- `Redis`
-  - refresh token 白名单
-  - tokenVersion 缓存
-  - 点赞/收藏/评分等互动高频读模型
-- `Elasticsearch`
-  - 帖子搜索索引
-  - 搜索建议
-  - 搜索排序
+    MQ --> Sidecar[sync-sidecar]
+    Sidecar --> Mongo
+    Sidecar --> ES
+```
 
-### 5. 事件驱动与同步层
+### 分层说明
 
-- `RabbitMQ`
-  - 承接 `post.*`、`comment.*`、`interaction.*`、`user.update` 等事件
-- `sync-sidecar`
-  - 消费日志事件写入 Mongo
-  - 消费帖子/用户更新事件同步 ES
-  - 提供手动全量重建索引能力
+#### 1. 网关层
 
-## 服务交互逻辑
+`gateway-api` 是统一 HTTP 入口，职责不是简单转发，而是承担：
 
-典型读链路：
+- JWT 解析与登录态注入
+- Cookie / Authorization 双模式鉴权适配
+- Go RPC 调用与 Java HTTP 代理的统一出口
+- 页面级数据聚合与统一响应结构收敛
 
-1. 前端请求 `gateway-api`
-2. 网关判断该接口是直连 Go RPC 还是代理 Java
-3. 如果需要聚合，则分别调用 `search-rpc`、`interaction-rpc`、`comment-rpc`、`notification-rpc`
-4. 网关统一返回前端视图模型
+它本质上是一个偏 BFF 的聚合网关，而不是纯反向代理。
 
-典型写链路：
+#### 2. 领域服务层
 
-1. 主写服务先写主存储
-2. 再通过 RabbitMQ 发布领域事件
-3. 由 Java listener 或 `sync-sidecar` 消费处理
-4. 更新计数、通知、ES 索引等冗余数据
+领域服务按“高频读、高并发、可独立演进”的原则拆分：
 
-这套方案没有强行引入分布式事务，而是采用“主写成功 + 异步补偿 + 最终一致性”的设计。
+- `user-rpc`：账号、登录、资料、Token 生命周期
+- `interaction-rpc`：点赞、收藏、评分等高频互动
+- `search-rpc`：帖子搜索、建议词、搜索历史
+- `comment-rpc`：评论创建、删除、一级评论列表、子评论列表
+- `notification-rpc`：通知中心、未读数、批量已读
 
-## 设计思路
+#### 3. Java 业务核心
 
-### 为什么采用 Go + Java 混合架构
-
-- Java 侧原有帖子、后台和复杂业务逻辑已经较完整，直接保留能降低迁移成本
-- Go 更适合承担高并发网关、账号、互动读模型、搜索和轻量 RPC 服务
-- 渐进式拆分比一次性重写风险更低，适合实战项目演进
-
-### 为什么选择 go-zero
-
-- 自带 API / RPC 脚手架，适合快速建立规范化微服务结构
-- 与 etcd、zRPC、middleware 链路集成较顺滑
-- 对于 Go 实习项目来说，既能体现工程化，也不会引入过重框架复杂度
-
-### 为什么帖子主业务暂时保留在 Spring Boot
-
-- 内容发布、审核、后台管理、关注流和历史接口原本就在 Java 中，迁移边界更复杂
-- 保留 Java 作为业务核心，可以专注把高并发、读模型和外围能力逐步迁到 Go
-- 这种拆法更符合真实业务系统中的“旧系统迁移”场景
-
-### 如何处理分布式事务问题
-
-项目没有采用 2PC/TCC。
-
-当前方案是：
-
-- 主写路径只保证本地事务成功
-- 冗余更新通过 MQ 解耦
-- ES、计数、通知等都通过异步消费者更新
-- 对关键写链路增加幂等、去重、失败回滚和重试机制
-
-例如：
-
-- 评论创建在 `comment-rpc` 中若 MQ 发布失败，会回滚 Mongo 插入，避免评论落库成功但通知/计数不同步
-- 通知服务对点赞、收藏、关注类消息使用 `upsert` + 唯一键，避免重复通知
-- sidecar 对 ES 写入增加重试和手动全量重建入口
-
-### Redis 在项目中的使用方式
-
-Redis 不是简单拿来做缓存，而是分别承担了三类职责：
-
-1. 会话控制
-   - refresh token 白名单
-   - blocked token 黑名单
-   - tokenVersion 快速校验
-
-2. 高频互动读模型
-   - 点赞、收藏使用 Set
-   - 评分使用 Hash
-   - 支持批量聚合帖子互动状态
-
-3. 缓存保护
-   - Dummy 占位防止缓存穿透
-   - 短锁防止并发预热击穿
-   - Bloom Filter 减少无意义预热
-
-## 技术亮点
-
-- 渐进式微服务拆分：评论、通知等能力从 Java 中平滑迁出，避免一次性重构
-- 网关聚合编排：将搜索结果、实时互动态、评论和通知状态统一聚合为前端可直接消费的数据结构
-- 最终一致性落地：以 RabbitMQ 为中心解耦主写链路和冗余同步链路
-- Redis 互动读模型：用 Set / Hash + Dummy + Bloom + 预热锁，解决热点查询、空值穿透和缓存抖动
-- 评论删除语义细分：一级评论软删除、二级评论物理删除，兼顾产品体验和计数一致性
-- 通知去重模型：对状态型通知做唯一键 upsert，避免消息中心刷屏
-- 本地可观测性完整：日志、trace、metrics 在本地开发环境中均可直接观测
-
-## 核心能力列表
-
-### 已完成
-
-- 邮箱验证码注册登录
-- JWT + refresh token + tokenVersion 会话体系
-- 帖子发布、详情、推荐流、关注流
-- 搜索、建议词、搜索历史
-- 点赞、收藏、评分、评论点赞
-- 评论创建、删除、分页查询
-- 通知未读数、通知列表、已读
-- Mongo -> ES 增量与全量同步
-- Jaeger / Loki / Grafana 本地观测链路
-
-### 当前仍由 Java 主导
+`platform-java` 仍承担以下职责：
 
 - 帖子主写链路
-- 关注关系与关注流查询
-- 后台管理、审核、日志导出
-- 评论/互动事件消费后的部分业务副作用
+- 管理后台
+- 关注流、部分复杂聚合接口
+- 一部分历史业务逻辑和异步事件消费
 
-## 目录结构
+这是一个典型的渐进式演进策略：先把最容易形成性能瓶颈、也最适合 Go 的模块迁出来，而不是一次性重写整套系统。
 
-```text
-.
-├── services/
-│   ├── gateway-api
-│   ├── user-rpc
-│   ├── interaction-rpc
-│   ├── search-rpc
-│   ├── comment-rpc
-│   ├── notification-rpc
-│   ├── sync-sidecar
-│   └── platform-java
-├── proto/
-├── deploy/
-├── scripts/
-├── docs/
-└── docker-compose.yml
-```
+#### 4. 异步同步层
+
+`sync-sidecar` 负责消费 MQ 事件并维护 ES 索引、日志落库等旁路能力。它的存在解决了两个问题：
+
+- 把“主业务写入”和“搜索索引更新”彻底解耦
+- 让 Java 和 Go 都不需要在核心请求链路里直接承担 ES 写入成本
+
+## 核心架构设计亮点
+
+### 1. 渐进式混合微服务架构
+
+项目没有采用“重写一切”的做法，而是围绕真实工程约束进行拆分：
+
+- 保留 Java 负责成熟但复杂的主业务
+- 引入 Go 负责吞吐更高、职责更窄的领域服务
+- 通过统一网关把双栈系统包装成一个外部一致的 API 平面
+
+这样做的价值在于：
+
+- 降低改造风险
+- 保持业务连续性
+- 能以模块为单位逐步迁移，而不是一次性切换
+
+### 2. 读写分离思路下的多存储协同
+
+系统不是把所有数据都堆在一个数据库里，而是基于访问模式做分工：
+
+- `MySQL` 保存账号与强事务用户数据
+- `MongoDB` 保存内容和交互明细，适合文档模型与冗余字段
+- `Redis` 提供会话控制、缓存和互动读模型
+- `Elasticsearch` 提供全文检索和排序能力
+
+这种多存储策略本质上是在做“按场景选存储”，而不是追求教科书式统一。
+
+### 3. 事件驱动与最终一致性
+
+帖子、评论、用户资料等主数据变更后，不直接联动所有下游存储，而是通过 MQ 进行异步传播。
+
+典型链路：
+
+1. 主业务先写 MySQL / MongoDB
+2. 发布领域事件到 `platform.topic.exchange`
+3. sidecar 或其他消费者订阅事件并更新 ES、冗余资料、通知状态
+
+这样做避免了把搜索索引更新、通知写入、资料扩散等副作用强塞到主事务里。
+
+### 4. 高频互动读模型
+
+互动场景的核心问题不是“怎么写入”，而是“怎么高频读取”：
+
+- 是否点赞 / 是否收藏要求低延迟判断
+- 帖子详情和列表页需要快速拿到用户态互动状态
+
+项目使用 Redis 维护点赞、收藏、评分等读模型，并通过异步事件与持久层保持最终一致。这种设计把“用户每次打开页面都要查 Mongo”转化成“先查 Redis，必要时再回源”。
+
+### 5. 搜索链路单独建模
+
+搜索不是 Mongo 正则查询的附属功能，而是独立的读模型：
+
+- 帖子审核通过或内容更新后，通过事件驱动同步至 ES
+- `search-rpc` 负责搜索、建议词、搜索历史等完整闭环
+- 排序结合文本相关性、热度和时间衰减，而不是单一字段排序
+
+这让搜索服务从“能搜”升级为“能按产品体验组织搜索结果”。
+
+### 6. 可观测性闭环
+
+项目在本地环境里补齐了日志、指标和链路追踪：
+
+- `OpenTelemetry + Jaeger`：看跨服务 trace
+- `Loki + Promtail + Grafana`：看结构化日志
+- `Prometheus`：看服务指标
+
+同时统一输出以下关键日志字段：
+
+- `service`
+- `traceId / requestId`
+- `routingKey`
+
+这使得 HTTP、gRPC、MQ 三类链路都可以被串起来排障。
+
+## 模块划分
+
+### gateway-api
+
+职责：
+
+- 统一 HTTP 入口
+- 鉴权与用户上下文注入
+- Go RPC 调用
+- Java 接口代理
+- 聚合多服务结果并输出前端友好结构
+
+适合展示的点：
+
+- BFF 思维
+- 混合后端统一出口
+- 统一错误码与响应结构
+
+### user-rpc
+
+职责：
+
+- 注册、登录、登出、刷新 Token
+- 邮箱验证码
+- 用户资料查询与更新
+- 用户事件发布
+
+适合展示的点：
+
+- `AccessToken + RefreshToken` 双令牌方案
+- Redis 中的 `tokenVersion / jti` 控制即时失效
+- 用户资料更新后的事件传播
+
+### interaction-rpc
+
+职责：
+
+- 点赞、取消点赞
+- 收藏、取消收藏
+- 评分
+- 用户态互动状态读取
+
+适合展示的点：
+
+- Redis 读模型
+- 高频互动状态快速判定
+- 与 Mongo / MQ 的最终一致性配合
+
+### search-rpc
+
+职责：
+
+- 帖子搜索
+- 搜索建议
+- 搜索历史管理
+
+适合展示的点：
+
+- ES 搜索链路
+- 建议词策略
+- 热度排序与时间衰减
+
+### comment-rpc
+
+职责：
+
+- 创建评论
+- 删除评论
+- 一级评论列表
+- 子评论分页
+
+适合展示的点：
+
+- 评论树查询建模
+- MQ 事件驱动副作用
+- 创建失败时的回滚与删除计数一致性修复
+
+### notification-rpc
+
+职责：
+
+- 未读数
+- 通知列表
+- 全部已读 / 批量已读
+- 状态型通知写入与去重
+
+适合展示的点：
+
+- 状态型通知唯一索引
+- 批量已读接口拆分
+- 通知中心从 Java 中抽离
+
+### sync-sidecar
+
+职责：
+
+- 消费 MQ 事件
+- Mongo -> ES 全量 / 增量同步
+- 日志旁路处理
+
+适合展示的点：
+
+- Sidecar 模式
+- 搜索索引异步同步
+- 管理接口触发全量重建
+
+### platform-java
+
+职责：
+
+- 帖子主写
+- 管理后台
+- 部分历史业务与异步消费逻辑
+
+适合展示的点：
+
+- 作为演进前核心业务服务继续承压
+- 与 Go 服务共同构成双栈系统
+- 渐进式迁移中的边界保留策略
+
+## 为什么这样设计
+
+### 为什么用 Go + Java 混合，而不是统一技术栈
+
+- Java 侧已有较完整业务实现，直接重写成本太高
+- Go 更适合承担边界清晰、性能敏感的服务
+- 双栈结合能体现真实工程中的“迁移与演进”，而不是理想化从零搭建
+
+### 为什么不做分布式事务
+
+项目选择 MQ 驱动的最终一致性，而不是在多个服务和多个存储之间强行维持分布式事务。
+
+原因很直接：
+
+- 搜索索引和通知写入不值得进入主事务
+- 分布式事务侵入性强，性能成本高
+- 内容社区场景通常允许短时间不一致，只要有补偿和重试机制
+
+### 为什么 Redis 要同时用于鉴权和互动
+
+因为这两个场景都需要“高频、低延迟、可过期”的数据访问：
+
+- 鉴权需要快速校验 Token 是否仍有效
+- 互动状态需要快速判断用户是否点赞 / 收藏
+
+Redis 在这里承担的是“会话控制 + 读模型加速”两种角色。
+
+## 典型业务链路
+
+### 发帖 -> 搜索可见
+
+1. 用户通过网关调用 Java 发帖接口
+2. Java 写入 MongoDB
+3. Java 发布帖子事件到 RabbitMQ
+4. `sync-sidecar` 消费事件并同步 ES
+5. `search-rpc` 从 ES 返回搜索结果
+
+### 评论 -> 计数/通知同步
+
+1. 网关调用 `comment-rpc` 创建评论
+2. `comment-rpc` 写入 Mongo，并发布 `comment.create`
+3. Java 或其他消费者处理帖子计数、通知落库等副作用
+4. 若事件发布失败，评论服务回滚写入，避免数据孤岛
+
+### 搜索结果页聚合
+
+1. 前端请求 `gateway-api`
+2. 网关调用 `search-rpc` 获取 ES 搜索结果
+3. 网关按需要补充用户态互动信息和作者资料
+4. 返回统一的 `PostVO / PageResult` 给前端
 
 ## 本地启动
 
-### 1. 启动基础设施和 Go 服务
+### 1. 启动基础设施与 Go 服务
 
 ```bash
 docker compose up -d --build
 ```
 
-### 2. 宿主机启动 Java
+### 2. 宿主机启动 Java 服务
 
 ```bash
 cd services/platform-java
 SPRING_PROFILES_ACTIVE=dev mvn spring-boot:run
 ```
 
-### 3. 打开观测面板
+### 3. 常用入口
 
-- Grafana: `http://localhost:3001`
-- Jaeger: `http://localhost:16686`
-- Prometheus: `http://localhost:9091`
-- RabbitMQ 管理台: `http://localhost:15672`
+- API 网关：`http://localhost:8090`
+- Jaeger：`http://localhost:16686`
+- Grafana：`http://localhost:3001`
+- RabbitMQ 管理台：`http://localhost:15672`
 
-## 服务端口
+## 仓库结构
 
-| 服务 | 端口 | 说明 |
-| --- | --- | --- |
-| gateway-api | 8090 | HTTP 网关 |
-| platform-java | 8080 | Java 主业务服务 |
-| interaction-rpc | 8081 / 40092 | HTTP metrics / gRPC |
-| search-rpc | 8082 / 40093 | HTTP metrics / gRPC |
-| user-rpc | 8083 / 40091 | HTTP metrics / gRPC |
-| notification-rpc | 8084 / 40095 | HTTP metrics / gRPC |
-| comment-rpc | 8085 / 40096 | HTTP metrics / gRPC |
-| sync-sidecar | 18088 | 管理接口 |
-| MySQL | 3306 | 关系型数据 |
-| MongoDB | 27017 | 文档数据 |
-| Redis | 6379 | 缓存与读模型 |
-| RabbitMQ | 5672 / 15672 | MQ / 控制台 |
-| Elasticsearch | 9200 | 搜索索引 |
-| etcd | 2379 | 服务发现 |
-| Jaeger | 16686 / 4318 | Trace UI / OTLP HTTP |
+```text
+.
+├── services/
+│   ├── gateway-api/
+│   ├── user-rpc/
+│   ├── interaction-rpc/
+│   ├── search-rpc/
+│   ├── comment-rpc/
+│   ├── notification-rpc/
+│   ├── sync-sidecar/
+│   └── platform-java/
+├── proto/
+├── docs/
+├── scripts/
+└── docker-compose.yml
+```
 
-## 相关文档
+## 关键词
 
-- [AGENTS.md](./AGENTS.md)
-- [shixi.md](./shixi.md)
-- [docs/todo-list.md](./docs/todo-list.md)
-- 各服务 README 位于 `services/*/README.md`
+- `Go / Java 混合微服务`
+- `go-zero / Spring Boot`
+- `Redis 读模型`
+- `RabbitMQ 事件驱动`
+- `MongoDB + Elasticsearch`
+- `最终一致性`
+- `OpenTelemetry / Jaeger / Loki / Grafana`
