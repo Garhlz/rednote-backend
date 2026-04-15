@@ -7,6 +7,7 @@ import co.elastic.clients.elasticsearch._types.query_dsl.*;
 import co.elastic.clients.elasticsearch.core.search.Suggester;
 import co.elastic.clients.json.JsonData;
 import com.szu.afternoon3.platform.common.UserContext;
+import com.szu.afternoon3.platform.common.MqPublisher;
 import com.szu.afternoon3.platform.component.SensitiveWordFilter;
 import com.szu.afternoon3.platform.config.RabbitConfig;
 import com.szu.afternoon3.platform.dto.PostUpdateDTO;
@@ -33,7 +34,6 @@ import com.szu.afternoon3.platform.entity.mongo.SearchHistoryDoc;
 import com.szu.afternoon3.platform.repository.SearchHistoryRepository;
 import lombok.extern.slf4j.Slf4j;
 import lombok.extern.slf4j.XSlf4j;
-import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.*;
@@ -88,7 +88,7 @@ public class PostServiceImpl implements PostService {
     @Autowired
     private StringRedisTemplate redisTemplate;
     @Autowired
-    private RabbitTemplate rabbitTemplate;
+    private MqPublisher mqPublisher;
 
     @Autowired
     private SensitiveWordFilter sensitiveWordFilter;
@@ -511,7 +511,7 @@ public class PostServiceImpl implements PostService {
                 user.getAvatar()
         );
         // 发送消息
-        rabbitTemplate.convertAndSend(RabbitConfig.PLATFORM_EXCHANGE, "post.create", event);
+        mqPublisher.publish(RabbitConfig.PLATFORM_EXCHANGE, "post.create", event);
         return post.getId();
     }
 
@@ -562,7 +562,7 @@ public class PostServiceImpl implements PostService {
                 isAdminOp           // isAdminOp
         );
 
-        rabbitTemplate.convertAndSend(RabbitConfig.PLATFORM_EXCHANGE, "post.delete", event);
+        mqPublisher.publish(RabbitConfig.PLATFORM_EXCHANGE, "post.delete", event);
     }
 
     @Override
@@ -666,7 +666,7 @@ public class PostServiceImpl implements PostService {
 
         // 5. 发布事件
         if (needAudit) {
-            rabbitTemplate.convertAndSend(RabbitConfig.PLATFORM_EXCHANGE, "post.update", new PostUpdateEvent(post.getId(), post.getTitle(), post.getContent()));
+            mqPublisher.publish(RabbitConfig.PLATFORM_EXCHANGE, "post.update", new PostUpdateEvent(post.getId(), post.getTitle(), post.getContent()));
         }
     }
     // --- Private Methods ---

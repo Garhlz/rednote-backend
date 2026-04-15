@@ -9,7 +9,9 @@ import (
 // ApiLogDoc 对应 MongoDB 里的 api_logs 集合
 type ApiLogDoc struct {
 	ID          primitive.ObjectID `bson:"_id,omitempty"`
+	Service     string             `bson:"service"`
 	TraceId     string             `bson:"traceId"`
+	RequestId   string             `bson:"requestId"`
 	LogType     string             `bson:"logType"`
 	Module      string             `bson:"module"`
 	BizId       string             `bson:"bizId"`

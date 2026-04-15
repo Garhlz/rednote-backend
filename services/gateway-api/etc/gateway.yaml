@@ -27,6 +27,12 @@ NotificationRpc:
       - etcd:2379
     Key: notification.rpc
 
+CommentRpc:
+  Etcd:
+    Hosts:
+      - etcd:2379
+    Key: comment.rpc
+
 Redis:
   Host: redis:6379
   Pass: ""

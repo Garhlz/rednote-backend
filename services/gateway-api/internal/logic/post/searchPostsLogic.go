@@ -116,7 +116,7 @@ func (l *SearchPostsLogic) SearchPosts(req *types.SearchReq) (resp *types.PageRe
 			RatingAverage: 0,
 			RatingCount:   0,
 			MyScore:       0,
-			CreatedAt:     "",
+			CreatedAt:     item.GetCreatedAt(),
 			Tags:          item.GetTags(),
 			CoverWidth:    item.GetCoverWidth(),
 			CoverHeight:   item.GetCoverHeight(),

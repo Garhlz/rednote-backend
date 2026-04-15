@@ -14,7 +14,6 @@ import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.annotation.Pointcut;
 import org.aspectj.lang.reflect.MethodSignature;
 import org.slf4j.MDC;
-import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.DefaultParameterNameDiscoverer; // 1. 参数名发现器
 import org.springframework.expression.EvaluationContext;
@@ -39,7 +38,7 @@ import java.util.stream.Collectors;
 public class WebLogAspect {
 
     @Autowired
-    private RabbitTemplate rabbitTemplate;
+    private MqPublisher mqPublisher;
 
     // --- SpEL 解析工具 ---
     private final ExpressionParser parser = new SpelExpressionParser();
@@ -112,7 +111,9 @@ public class WebLogAspect {
         }
 
         // 3. 基础信息
+        logDoc.setService(MDC.get(LogMdc.SERVICE));
         logDoc.setTraceId(MDC.get("traceId"));
+        logDoc.setRequestId(MDC.get("requestId"));
         logDoc.setCreatedAt(LocalDateTime.now());
         logDoc.setTimeCost(timeCost);
         logDoc.setUserId(UserContext.getUserId());
@@ -144,7 +145,7 @@ public class WebLogAspect {
                 StrUtil.subPre(logDoc.getParams(), 100)); // 参数截取前100字符，防止日志太长刷屏
 
         // 4. 发送 MQ
-        rabbitTemplate.convertAndSend(RabbitConfig.PLATFORM_EXCHANGE, "log.info", logDoc);
+        mqPublisher.publish(RabbitConfig.PLATFORM_EXCHANGE, "log.info", logDoc);
     }
 
     /**

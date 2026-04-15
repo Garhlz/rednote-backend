@@ -10,6 +10,7 @@ WORKDIR /app/services/gateway-api
 
 # 先复制依赖文件，利用 Docker 缓存
 COPY services/gateway-api/go.mod services/gateway-api/go.sum ./
+COPY services/comment-rpc/go.mod services/comment-rpc/go.sum ./../comment-rpc/
 COPY services/user-rpc/go.mod services/user-rpc/go.sum ./../user-rpc/
 COPY services/interaction-rpc/go.mod services/interaction-rpc/go.sum ./../interaction-rpc/
 COPY services/notification-rpc/go.mod services/notification-rpc/go.sum ./../notification-rpc/
@@ -20,6 +21,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 
 # 复制源码
 COPY services/gateway-api ./
+COPY services/comment-rpc ./../comment-rpc
 COPY services/user-rpc ./../user-rpc
 COPY services/interaction-rpc ./../interaction-rpc
 COPY services/notification-rpc ./../notification-rpc

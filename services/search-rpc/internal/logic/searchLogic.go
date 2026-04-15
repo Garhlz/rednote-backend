@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	appmetrics "search-rpc/internal/metrics"
@@ -125,6 +126,7 @@ func (l *SearchLogic) Search(in *search.SearchRequest) (*search.SearchResponse, 
 					},
 				},
 				"boost_mode": "multiply",
+				"score_mode": "sum",
 			},
 		}
 		// 排序: 分数倒序, 时间倒序
@@ -143,8 +145,12 @@ func (l *SearchLogic) Search(in *search.SearchRequest) (*search.SearchResponse, 
 			sortRule = []map[string]interface{}{{"createdAt": "asc"}}
 		case "likes":
 			sortRule = []map[string]interface{}{{"likeCount": "desc"}}
-		default: // default is new/hot fallback
-			sortRule = []map[string]interface{}{{"createdAt": "desc"}}
+		default:
+			if in.Keyword != "" {
+				sortRule = []map[string]interface{}{{"_score": "desc"}, {"createdAt": "desc"}}
+			} else {
+				sortRule = []map[string]interface{}{{"createdAt": "desc"}}
+			}
 		}
 	}
 
@@ -199,7 +205,8 @@ func (l *SearchLogic) Search(in *search.SearchRequest) (*search.SearchResponse, 
 				Value int64 `json:"value"`
 			} `json:"total"`
 			Hits []struct {
-				Source PostEsDoc `json:"_source"`
+				Source    PostEsDoc           `json:"_source"`
+				Highlight map[string][]string `json:"highlight"`
 			} `json:"hits"`
 		} `json:"hits"`
 	}
@@ -214,11 +221,7 @@ func (l *SearchLogic) Search(in *search.SearchRequest) (*search.SearchResponse, 
 	for _, hit := range esResponse.Hits.Hits {
 		doc := hit.Source
 
-		// 处理摘要 (Java: StrUtil.subPre(content, 50))
-		summary := doc.Content
-		if len([]rune(summary)) > 50 {
-			summary = string([]rune(summary)[:50]) + "..."
-		}
+		summary := buildSearchSummary(doc.Content, hit.Highlight)
 
 		item := &search.SearchPostVO{
 			Id:          doc.Id,
@@ -238,7 +241,8 @@ func (l *SearchLogic) Search(in *search.SearchRequest) (*search.SearchResponse, 
 			// TODO bug here
 			// IsLiked 可以在这里设为 false，让 Java 网关层去补全
 			// 或者如果 Search 微服务能访问 Redis，也可以在这里查
-			IsLiked: false,
+			IsLiked:   false,
+			CreatedAt: doc.CreatedAt,
 		}
 		items = append(items, item)
 	}
@@ -271,4 +275,21 @@ func (l *SearchLogic) recordSearchHistory(userId int64, keyword string) {
 	if err != nil {
 		logx.Errorf("Failed to record search history: %v", err)
 	}
+}
+
+func buildSearchSummary(content string, highlight map[string][]string) string {
+	for _, field := range []string{"content", "title", "tags"} {
+		if frags, ok := highlight[field]; ok && len(frags) > 0 && strings.TrimSpace(frags[0]) != "" {
+			return frags[0]
+		}
+	}
+
+	summary := strings.TrimSpace(content)
+	if summary == "" {
+		return ""
+	}
+	if len([]rune(summary)) > 50 {
+		return string([]rune(summary)[:50]) + "..."
+	}
+	return summary
 }

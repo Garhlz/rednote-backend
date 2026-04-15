@@ -51,6 +51,18 @@ type CommentCreateReq struct {
 	ParentId string `json:"parentId,optional"`
 }
 
+type CommentListReq struct {
+	PostId string `form:"postId"`
+	Page   int32  `form:"page,optional"`
+	Size   int32  `form:"size,optional"`
+}
+
+type CommentSubListReq struct {
+	RootId string `form:"rootId"`
+	Page   int32  `form:"page,optional"`
+	Size   int32  `form:"size,optional"`
+}
+
 type SimpleUserVO struct {
 	UserId   string `json:"userId"`
 	Nickname string `json:"nickname"`
@@ -72,6 +84,13 @@ type CommentVO struct {
 	ReplyToUser   ReplyUserInfo `json:"replyToUser"`
 	ReplyCount    int32         `json:"replyCount"`
 	ChildComments []CommentVO   `json:"childComments"`
+}
+
+type CommentPageResult struct {
+	Records []CommentVO `json:"records"`
+	Total   int64       `json:"total"`
+	Current int32       `json:"current"`
+	Size    int32       `json:"size"`
 }
 
 type Empty struct {
@@ -114,6 +133,10 @@ type IdPath struct {
 	Id int64 `path:"id"`
 }
 
+type CommentIdPath struct {
+	Id string `path:"id"`
+}
+
 type InteractionReq struct {
 	TargetId string `json:"targetId"`
 }
@@ -130,6 +153,7 @@ type RatePostReq struct {
 type SearchReq struct {
 	Keyword  string `form:"keyword,optional"`
 	Tag      string `form:"tag,optional"`
+	Tab      string `form:"tab,optional"`
 	Page     int32  `form:"page,optional"`
 	PageSize int32  `form:"pageSize,optional"`
 	Size     int32  `form:"size,optional"`

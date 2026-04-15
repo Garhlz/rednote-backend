@@ -82,7 +82,7 @@ message ListNotificationsResponse {
   int32 page_size = 4;
 }
 
-message MarkAllReadRequest {
+message MarkAllReadRequest {   
   int64 user_id = 1;
 }
 

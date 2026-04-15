@@ -10,6 +10,7 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.szu.afternoon3.platform.common.UserContext;
+import com.szu.afternoon3.platform.common.MqPublisher;
 import com.szu.afternoon3.platform.dto.*;
 import com.szu.afternoon3.platform.entity.User;
 import com.szu.afternoon3.platform.entity.mongo.*;
@@ -30,7 +31,6 @@ import io.grpc.StatusRuntimeException;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 import net.devh.boot.grpc.client.inject.GrpcClient;
-import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -76,7 +76,7 @@ public class AdminServiceImpl implements AdminService {
     @Autowired
     private MongoTemplate mongoTemplate;
     @Autowired
-    private RabbitTemplate rabbitTemplate; // 注入
+    private MqPublisher mqPublisher; // 注入
 
     @GrpcClient("user-service")
     private UserServiceGrpc.UserServiceBlockingStub userStub;
@@ -501,14 +501,14 @@ public class AdminServiceImpl implements AdminService {
                 adminId,    // set operatorId
                 adminName   // set operatorName
         );
-        rabbitTemplate.convertAndSend(RabbitConfig.PLATFORM_EXCHANGE, "post.audit", event);
+        mqPublisher.publish(RabbitConfig.PLATFORM_EXCHANGE, "post.audit", event);
 
 
         if (status == 1) {
             PostAuditPassEvent passEvent = new PostAuditPassEvent();
             BeanUtils.copyProperties(post,passEvent);
 
-            rabbitTemplate.convertAndSend(RabbitConfig.PLATFORM_EXCHANGE, "post.audit.pass", passEvent);
+            mqPublisher.publish(RabbitConfig.PLATFORM_EXCHANGE, "post.audit.pass", passEvent);
 
         }
         log.info("管理员审核帖子 {}: status={}, reason={}, operator={}", postId, status, reason, adminName);

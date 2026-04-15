@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	auth "gateway-api/internal/handler/auth"
+	comment "gateway-api/internal/handler/comment"
 	interaction "gateway-api/internal/handler/interaction"
 	javaproxy "gateway-api/internal/handler/javaproxy"
 	message "gateway-api/internal/handler/message"
@@ -168,28 +169,28 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 		rest.WithPrefix("/api/auth"),
 	)
 
-	// 评论接口当前主要还是 Java 业务域负责。
+	// 评论接口已全部切到 comment-rpc，网关不再经过 Java controller。
 	server.AddRoutes(
 		[]rest.Route{
 			{
 				Method:  http.MethodPost,
 				Path:    "/",
-				Handler: javaproxy.ProxyHandler(serverCtx),
+				Handler: comment.CreateCommentHandler(serverCtx),
 			},
 			{
 				Method:  http.MethodDelete,
 				Path:    "/:id",
-				Handler: javaproxy.ProxyHandler(serverCtx),
+				Handler: comment.DeleteCommentHandler(serverCtx),
 			},
 			{
 				Method:  http.MethodGet,
 				Path:    "/list",
-				Handler: javaproxy.ProxyHandler(serverCtx),
+				Handler: comment.ListCommentsHandler(serverCtx),
 			},
 			{
 				Method:  http.MethodGet,
 				Path:    "/sub-list",
-				Handler: javaproxy.ProxyHandler(serverCtx),
+				Handler: comment.SubListCommentsHandler(serverCtx),
 			},
 		},
 		rest.WithPrefix("/api/comment"),

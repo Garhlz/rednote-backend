@@ -12,6 +12,7 @@ type Config struct {
 	SearchRpc       zrpc.RpcClientConf
 	InteractionRpc  zrpc.RpcClientConf
 	NotificationRpc zrpc.RpcClientConf
+	CommentRpc      zrpc.RpcClientConf
 	Redis           redis.RedisConf
 	Metrics         struct {
 		Host string

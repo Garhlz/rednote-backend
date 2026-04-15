@@ -28,6 +28,7 @@ message SearchPostVO {
   int32 cover_width = 9;
   int32 cover_height = 10;
   bool is_liked = 11;     // Go 端如果不方便查，可以留空，Java 补全
+  string created_at = 12;  // 透传 ES 中的帖子创建时间
 }
 
 message UserVO {

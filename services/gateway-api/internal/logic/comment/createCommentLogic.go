@@ -1,13 +1,13 @@
-// Code scaffolded by goctl. Safe to edit.
-// goctl 1.9.2
-
 package comment
 
 import (
 	"context"
 
+	"comment-rpc/commentservice"
+	"gateway-api/internal/pkg/ctxutil"
 	"gateway-api/internal/svc"
 	"gateway-api/internal/types"
+	"user-rpc/userservice"
 
 	"github.com/zeromicro/go-zero/core/logx"
 )
@@ -26,8 +26,27 @@ func NewCreateCommentLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Cre
 	}
 }
 
-func (l *CreateCommentLogic) CreateComment(req *types.Empty) (resp *types.Empty, err error) {
-	// todo: add your logic here and delete this line
+func (l *CreateCommentLogic) CreateComment(req *types.CommentCreateReq) (resp *types.CommentVO, err error) {
+	userClient := userservice.NewUserService(l.svcCtx.UserRpc)
+	profile, err := userClient.GetMyProfile(l.ctx, &userservice.GetMyProfileRequest{
+		UserId: ctxutil.UserID(l.ctx),
+	})
+	if err != nil {
+		return nil, err
+	}
 
-	return
+	client := commentservice.NewCommentService(l.svcCtx.CommentRpc)
+	result, err := client.CreateComment(l.ctx, &commentservice.CreateCommentRequest{
+		PostId:        req.PostId,
+		CurrentUserId: profile.GetUserId(),
+		UserNickname:  profile.GetNickname(),
+		UserAvatar:    profile.GetAvatar(),
+		Content:       req.Content,
+		ParentId:      req.ParentId,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return toCommentVO(result), nil
 }

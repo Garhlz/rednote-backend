@@ -1,16 +1,20 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
+	"time"
 
 	"notification-rpc/internal/config"
 	appmetrics "notification-rpc/internal/metrics"
 	"notification-rpc/internal/server"
 	"notification-rpc/internal/svc"
+	"notification-rpc/internal/trace"
 	"notification-rpc/notification"
 
 	"github.com/zeromicro/go-zero/core/conf"
+	"github.com/zeromicro/go-zero/core/logx"
 	"github.com/zeromicro/go-zero/core/service"
 	"github.com/zeromicro/go-zero/zrpc"
 	"google.golang.org/grpc"
@@ -24,6 +28,16 @@ func main() {
 
 	var c config.Config
 	conf.MustLoad(*configFile, &c)
+	shutdownTelemetry, err := trace.InitProvider(context.Background(), "notification-rpc")
+	if err != nil {
+		panic(err)
+	}
+	defer func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = shutdownTelemetry(ctx)
+	}()
+	logx.AddGlobalFields(logx.Field("service", "notification-rpc"))
 
 	// ServiceContext 负责初始化 notification-rpc 运行时依赖。
 	// 当前这个服务的核心依赖比较简单，主要就是 MongoDB。
@@ -41,6 +55,7 @@ func main() {
 		}
 	})
 	defer s.Stop()
+	s.AddUnaryInterceptors(trace.UnaryServerInterceptor("notification-rpc"))
 
 	fmt.Printf("Starting rpc server at %s...\n", c.ListenOn)
 	s.Start()

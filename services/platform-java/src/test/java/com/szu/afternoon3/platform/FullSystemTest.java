@@ -346,7 +346,7 @@ public class FullSystemTest {
         checkResponse(collectResp, "收藏");
         printSuccess("收藏请求发送成功");
 
-        // --- 2.7 评论帖子 (黑盒) ---
+        // --- 2.7 评论帖子 (黑盒，经 gateway 直连 comment-rpc) ---
         printSubStep("【黑盒测试】 2.7 评论帖子接口调用");
         JSONObject commentPayload = new JSONObject();
         commentPayload.put("postId", postId);
@@ -426,7 +426,7 @@ public class FullSystemTest {
         Assertions.assertEquals(200, searchResult.getInt("code"));
         printSuccess("搜索接口响应正常 (数据由Mock处理)");
 
-        // --- 3.4 系统消息 (黑盒) ---
+        // --- 3.4 系统消息 (黑盒，经 gateway 直连 notification-rpc) ---
         printSubStep("【黑盒测试】 3.4 未读消息统计接口调用");
         // 正确路径: /api/message/unread-count
         HttpResponse notifResp = HttpRequest.get(BASE_URL + "/api/message/unread-count")

@@ -32,3 +32,8 @@ scrape_configs:
     metrics_path: '/metrics'
     static_configs:
       - targets: ['notification-rpc:40095']
+
+  - job_name: 'comment-rpc'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['comment-rpc:40096']

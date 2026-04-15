@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"time"
 )
@@ -12,7 +13,11 @@ type AppConfig struct {
 	IndexName    string
 	AuditEnable  bool
 	WorkerCount  int // 每个队列的并发数
+	ReindexBatch int
 	TimeLocation *time.Location
+	AdminHost    string
+	AdminPort    string
+	AdminToken   string
 
 	// 队列名称配置 (与 Java RabbitConfig 保持一致)
 	QueueLog    string
@@ -38,7 +43,11 @@ func LoadConfig() *AppConfig {
 		IndexName:    "posts",
 		AuditEnable:  getEnv("POST_AUDIT_ENABLE", "false") == "true",
 		WorkerCount:  20,
+		ReindexBatch: getEnvAsInt("REINDEX_BATCH_SIZE", 200),
 		TimeLocation: loc,
+		AdminHost:    getEnv("ADMIN_HOST", "0.0.0.0"),
+		AdminPort:    getEnv("ADMIN_PORT", "8088"),
+		AdminToken:   getEnv("ADMIN_TOKEN", "szu123"),
 
 		// 队列名硬编码以匹配 Java 配置
 		QueueLog:    "platform.log.queue",
@@ -59,6 +68,16 @@ func LoadConfig() *AppConfig {
 func getEnv(key, fallback string) string {
 	if value, ok := os.LookupEnv(key); ok {
 		return value
+	}
+	return fallback
+}
+
+func getEnvAsInt(key string, fallback int) int {
+	if value, ok := os.LookupEnv(key); ok {
+		var parsed int
+		if _, err := fmt.Sscanf(value, "%d", &parsed); err == nil && parsed > 0 {
+			return parsed
+		}
 	}
 	return fallback
 }

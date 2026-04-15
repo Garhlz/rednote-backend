@@ -1,16 +1,20 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
+	"time"
 
 	"user-rpc/internal/config"
 	appmetrics "user-rpc/internal/metrics"
 	"user-rpc/internal/server"
 	"user-rpc/internal/svc"
+	"user-rpc/internal/trace"
 	"user-rpc/user"
 
 	"github.com/zeromicro/go-zero/core/conf"
+	"github.com/zeromicro/go-zero/core/logx"
 	"github.com/zeromicro/go-zero/core/service"
 	"github.com/zeromicro/go-zero/zrpc"
 	"google.golang.org/grpc"
@@ -24,6 +28,16 @@ func main() {
 
 	var c config.Config
 	conf.MustLoad(*configFile, &c, conf.UseEnv())
+	shutdownTelemetry, err := trace.InitProvider(context.Background(), "user-rpc")
+	if err != nil {
+		panic(err)
+	}
+	defer func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = shutdownTelemetry(ctx)
+	}()
+	logx.AddGlobalFields(logx.Field("service", "user-rpc"))
 	ctx := svc.NewServiceContext(c)
 	appmetrics.StartServer(c.Metrics.Host, c.Metrics.Port, c.Metrics.Path)
 
@@ -35,6 +49,7 @@ func main() {
 		}
 	})
 	defer s.Stop()
+	s.AddUnaryInterceptors(trace.UnaryServerInterceptor("user-rpc"))
 
 	fmt.Printf("Starting rpc server at %s...\n", c.ListenOn)
 	s.Start()

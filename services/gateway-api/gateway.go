@@ -7,6 +7,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"time"
 
 	"gateway-api/internal/config"
 	"gateway-api/internal/handler"
@@ -14,8 +15,10 @@ import (
 	"gateway-api/internal/middleware"
 	"gateway-api/internal/response"
 	"gateway-api/internal/svc"
+	"gateway-api/internal/telemetry"
 
 	"github.com/zeromicro/go-zero/core/conf"
+	"github.com/zeromicro/go-zero/core/logx"
 	"github.com/zeromicro/go-zero/rest"
 	"github.com/zeromicro/go-zero/rest/httpx"
 )
@@ -30,10 +33,21 @@ func main() {
 	// 这样在 Docker 内外切换 Java 地址、Redis 地址、RPC 地址时，不必反复改源码。
 	conf.MustLoad(*configFile, &c, conf.UseEnv())
 
+	shutdownTelemetry, err := telemetry.InitProvider(context.Background(), "gateway-api")
+	if err != nil {
+		panic(err)
+	}
+	defer func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = shutdownTelemetry(ctx)
+	}()
+
 	// 创建 go-zero 的 HTTP Server。
 	// gateway-api 本身就是整个系统对外暴露的统一入口。
 	server := rest.MustNewServer(c.RestConf)
 	defer server.Stop()
+	logx.AddGlobalFields(logx.Field("service", "gateway-api"))
 
 	// 统一成功响应包装。
 	// 业务 logic 返回的 data 会在这里被包成 {code, message, data} 风格的统一响应。
@@ -60,6 +74,8 @@ func main() {
 	// 3. 校验 token version
 	// 4. 把 userId / role / nickname 等信息放进 context
 	// metrics middleware 放在比较外层，这样能看到整个网关处理链路的最终耗时。
+	server.Use(middleware.NewTracingMiddleware("gateway-api").Handle)
+	server.Use(middleware.NewRequestIdMiddleware().Handle)
 	server.Use(middleware.NewMetricsMiddleware())
 	server.Use(middleware.NewAuthMiddleware(c, ctx.Redis))
 

@@ -2,7 +2,9 @@ package event
 
 // LogEvent 对应 Java 发来的 JSON
 type LogEvent struct {
+	Service     string `json:"service"`
 	TraceId     string `json:"traceId"`
+	RequestId   string `json:"requestId"`
 	LogType     string `json:"logType"`
 	Module      string `json:"module"`
 	BizId       string `json:"bizId"`

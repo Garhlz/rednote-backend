@@ -16,6 +16,7 @@ import (
 	"gateway-api/internal/svc"
 
 	"github.com/zeromicro/go-zero/core/logx"
+	"go.opentelemetry.io/otel"
 )
 
 var passHeaders = []string{
@@ -24,6 +25,7 @@ var passHeaders = []string{
 	"Content-Length",
 	"X-Admin-Token",
 	"X-Request-Id",
+	"X-Trace-Id",
 	"X-Forwarded-For",
 	"X-Real-Ip",
 	"User-Agent",
@@ -67,6 +69,10 @@ func ProxyHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		if headers.Get("X-Request-Id") == "" {
 			headers.Set("X-Request-Id", newRequestId())
 		}
+		if headers.Get("X-Trace-Id") == "" {
+			headers.Set("X-Trace-Id", headers.Get("X-Request-Id"))
+		}
+		otel.GetTextMapPropagator().Inject(req.Context(), propagationHeaderCarrier(headers))
 
 		// 把鉴权中间件解析出的用户上下文转成 HTTP 头透传给 Java。
 		// 这样 Java 不需要重复解析 JWT，就能拿到用户身份、角色、昵称等信息。
@@ -116,6 +122,24 @@ func ProxyHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		proxy.ServeHTTP(rec, r)
 		appmetrics.ObserveJavaProxy(r.Method, r.URL.Path, rec.status, time.Since(start))
 	}
+}
+
+type propagationHeaderCarrier http.Header
+
+func (c propagationHeaderCarrier) Get(key string) string {
+	return http.Header(c).Get(key)
+}
+
+func (c propagationHeaderCarrier) Set(key, value string) {
+	http.Header(c).Set(key, value)
+}
+
+func (c propagationHeaderCarrier) Keys() []string {
+	keys := make([]string, 0, len(c))
+	for k := range c {
+		keys = append(keys, k)
+	}
+	return keys
 }
 
 // writeProxyError 用统一 JSON 结构包装代理错误。

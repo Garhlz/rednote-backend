@@ -1,0 +1,56 @@
+package main
+
+import (
+	"context"
+	"flag"
+	"fmt"
+	"time"
+
+	"comment-rpc/comment"
+	"comment-rpc/internal/config"
+	appmetrics "comment-rpc/internal/metrics"
+	"comment-rpc/internal/server"
+	"comment-rpc/internal/svc"
+	"comment-rpc/internal/trace"
+
+	"github.com/zeromicro/go-zero/core/conf"
+	"github.com/zeromicro/go-zero/core/logx"
+	"github.com/zeromicro/go-zero/core/service"
+	"github.com/zeromicro/go-zero/zrpc"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
+)
+
+var configFile = flag.String("f", "etc/comment.yaml", "the config file")
+
+func main() {
+	flag.Parse()
+
+	var c config.Config
+	conf.MustLoad(*configFile, &c)
+	shutdownTelemetry, err := trace.InitProvider(context.Background(), "comment-rpc")
+	if err != nil {
+		panic(err)
+	}
+	defer func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = shutdownTelemetry(ctx)
+	}()
+	logx.AddGlobalFields(logx.Field("service", "comment-rpc"))
+	ctx := svc.NewServiceContext(c)
+	appmetrics.StartServer(c.Metrics.Host, c.Metrics.Port, c.Metrics.Path)
+
+	s := zrpc.MustNewServer(c.RpcServerConf, func(grpcServer *grpc.Server) {
+		comment.RegisterCommentServiceServer(grpcServer, server.NewCommentServiceServer(ctx))
+
+		if c.Mode == service.DevMode || c.Mode == service.TestMode {
+			reflection.Register(grpcServer)
+		}
+	})
+	defer s.Stop()
+	s.AddUnaryInterceptors(trace.UnaryServerInterceptor("comment-rpc"))
+
+	fmt.Printf("Starting rpc server at %s...\n", c.ListenOn)
+	s.Start()
+}

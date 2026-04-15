@@ -1,11 +1,10 @@
-// Code scaffolded by goctl. Safe to edit.
-// goctl 1.9.2
-
 package comment
 
 import (
 	"context"
 
+	"comment-rpc/commentservice"
+	"gateway-api/internal/pkg/ctxutil"
 	"gateway-api/internal/svc"
 	"gateway-api/internal/types"
 
@@ -26,8 +25,15 @@ func NewDeleteCommentLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Del
 	}
 }
 
-func (l *DeleteCommentLogic) DeleteComment(req *types.IdPath) (resp *types.Empty, err error) {
-	// todo: add your logic here and delete this line
-
-	return
+func (l *DeleteCommentLogic) DeleteComment(req *types.CommentIdPath) (resp *types.Empty, err error) {
+	client := commentservice.NewCommentService(l.svcCtx.CommentRpc)
+	_, err = client.DeleteComment(l.ctx, &commentservice.DeleteCommentRequest{
+		CommentId:       req.Id,
+		CurrentUserId:   ctxutil.UserID(l.ctx),
+		CurrentUserRole: ctxutil.Role(l.ctx),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &types.Empty{}, nil
 }

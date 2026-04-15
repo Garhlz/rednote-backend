@@ -2,9 +2,11 @@ package svc
 
 import (
 	"context"
+	"log"
 
 	"notification-rpc/internal/config"
 
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -30,10 +32,54 @@ func NewServiceContext(c config.Config) *ServiceContext {
 			dbName = "rednote"
 		}
 		mongoDb = client.Database(dbName)
+		ensureNotificationIndexes(mongoDb)
 	}
 
 	return &ServiceContext{
 		Config: c,
 		Mongo:  mongoDb,
+	}
+}
+
+func ensureNotificationIndexes(db *mongo.Database) {
+	ctx := context.Background()
+	_, err := db.Collection("notifications").Indexes().CreateMany(ctx, []mongo.IndexModel{
+		{
+			Keys:    bson.D{{Key: "receiverId", Value: 1}, {Key: "isRead", Value: 1}, {Key: "createdAt", Value: -1}},
+			Options: options.Index().SetName("idx_notifications_receiver_read_created"),
+		},
+		{
+			Keys:    bson.D{{Key: "receiverId", Value: 1}, {Key: "createdAt", Value: -1}},
+			Options: options.Index().SetName("idx_notifications_receiver_created"),
+		},
+	})
+	if err != nil {
+		panic("failed to create notification indexes: " + err.Error())
+	}
+
+	_, err = db.Collection("notifications").Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys: bson.D{{Key: "receiverId", Value: 1}, {Key: "senderId", Value: 1}, {Key: "type", Value: 1}, {Key: "targetId", Value: 1}},
+		// 只有“状态型通知”才做唯一约束：
+		// 点赞、收藏、评分、关注这些通知会走 upsert；
+		// 评论、回复、系统通知需要保留完整历史，不能被这个唯一索引卡住。
+		Options: options.Index().
+			SetName("uk_notifications_state_key").
+			SetUnique(true).
+			SetPartialFilterExpression(bson.M{
+				"type": bson.M{
+					"$in": []string{
+						"LIKE_POST",
+						"COLLECT_POST",
+						"RATE_POST",
+						"LIKE_COMMENT",
+						"FOLLOW",
+					},
+				},
+			}),
+	})
+	if err != nil {
+		// 老环境里如果已经存在重复的状态型通知数据，唯一索引会创建失败。
+		// 这里记录告警但不阻断服务启动，让读写接口和清洗接口仍然可用。
+		log.Printf("warning: failed to create notification unique index uk_notifications_state_key: %v", err)
 	}
 }

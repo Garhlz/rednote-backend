@@ -5,7 +5,9 @@ package post
 
 import (
 	"net/http"
+	"strings"
 
+	"gateway-api/internal/handler/javaproxy"
 	"gateway-api/internal/logic/post"
 	"gateway-api/internal/svc"
 	"gateway-api/internal/types"
@@ -14,6 +16,12 @@ import (
 
 func ListPostsHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		// follow 流仍然复用 Java 侧原实现：它本质是关系链时间流，不是搜索/推荐流。
+		if strings.EqualFold(r.URL.Query().Get("tab"), "follow") {
+			javaproxy.ProxyHandler(svcCtx)(w, r)
+			return
+		}
+
 		var req types.SearchReq
 		if err := httpx.Parse(r, &req); err != nil {
 			httpx.ErrorCtx(r.Context(), w, err)

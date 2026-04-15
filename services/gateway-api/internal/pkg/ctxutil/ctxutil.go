@@ -49,3 +49,21 @@ func RefreshToken(ctx context.Context) string {
 	}
 	return ""
 }
+
+func RequestID(ctx context.Context) string {
+	if v := ctx.Value("requestId"); v != nil {
+		if requestID, ok := v.(string); ok {
+			return requestID
+		}
+	}
+	return ""
+}
+
+func TraceID(ctx context.Context) string {
+	if v := ctx.Value("traceId"); v != nil {
+		if traceID, ok := v.(string); ok {
+			return traceID
+		}
+	}
+	return ""
+}

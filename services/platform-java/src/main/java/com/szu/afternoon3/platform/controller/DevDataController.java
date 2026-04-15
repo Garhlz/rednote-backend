@@ -11,11 +11,11 @@ import com.szu.afternoon3.platform.dto.PostCreateDTO;
 import com.szu.afternoon3.platform.entity.User;
 import com.szu.afternoon3.platform.entity.mongo.PostDoc; // 假设你的MongoDB实体类位置
 import com.szu.afternoon3.platform.mapper.UserMapper;
-import com.szu.afternoon3.platform.service.CommentService;
+import com.szu.afternoon3.platform.grpc.CommentRpcClient;
 import com.szu.afternoon3.platform.service.InteractionService;
 import com.szu.afternoon3.platform.service.PostService;
 import com.szu.afternoon3.platform.service.UserService;
-import com.szu.afternoon3.platform.service.impl.NotificationServiceImpl;
+import com.szu.afternoon3.platform.grpc.NotificationRpcClient;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Profile;
@@ -45,7 +45,7 @@ public class DevDataController {
     @Autowired private UserService userService;
     @Autowired private PostService postService;
     @Autowired private InteractionService interactionService;
-    @Autowired private CommentService commentService;
+    @Autowired private CommentRpcClient commentRpcClient;
     @Autowired private UserMapper userMapper;
     @Autowired private MongoTemplate mongoTemplate; // 引入 MongoTemplate 用于反查帖子ID
 
@@ -200,7 +200,7 @@ public class DevDataController {
                         CommentCreateDTO commentDto = new CommentCreateDTO();
                         commentDto.setPostId(post.getId());
                         commentDto.setContent(RandomUtil.randomEle(COMMENTS));
-                        commentService.createComment(commentDto);
+                        commentRpcClient.createComment(commentDto);
                     }
                 } finally {
                     UserContext.clear();
@@ -229,12 +229,12 @@ public class DevDataController {
     }
 
     @Autowired
-    private NotificationServiceImpl notificationService;
+    private NotificationRpcClient notificationRpcClient;
 
     @PostMapping("/clean-notifications")
     @Transactional(rollbackFor = Exception.class)
     public Result<String> cleanNotifications() {
-        long count = notificationService.cleanDuplicateNotifications();
+        long count = notificationRpcClient.cleanDuplicateNotifications();
         return Result.success("清洗成功，删除了 " + count + " 条重复数据");
     }
 }

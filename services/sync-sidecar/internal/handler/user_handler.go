@@ -3,7 +3,6 @@ package handler
 import (
 	"context"
 	"encoding/json"
-	"log"
 	"strings"
 	"time"
 
@@ -12,6 +11,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 
 	"sync-sidecar/internal/event"
+	"sync-sidecar/internal/obslog"
 	"sync-sidecar/internal/service"
 )
 
@@ -48,18 +48,18 @@ func (h *UserHandler) Handle(d amqp.Delivery) {
 	}
 
 	if err != nil {
-		log.Printf("❌ [User-Mongo] Error handling %s: %v", className, err)
+		obslog.DeliveryErrorf(d, "user mongo handle error event=%s err=%v", className, err)
 		d.Nack(false, false)
 	} else {
 		// ✅ 打印耗时，方便观察性能
 		duration := time.Since(start)
-		log.Printf("✅ [User-Mongo] Processed %s in %v", className, duration)
+		obslog.DeliveryInfof(d, "user mongo processed event=%s duration=%v", className, duration)
 		d.Ack(false)
 	}
 }
 
 func (h *UserHandler) handleUserUpdate(e event.UserUpdateEvent) error {
-	log.Printf("🔄 [User-Mongo] Syncing User Info for UserId: %d", e.UserId)
+	obslog.Infof("user mongo sync update userId=%d", e.UserId)
 
 	db := h.Infra.Mongo.Database("rednote")
 	ctx := context.Background()
@@ -119,7 +119,7 @@ func (h *UserHandler) handleUserUpdate(e event.UserUpdateEvent) error {
 
 // 处理用户删除事件 (逻辑删除适配版)
 func (h *UserHandler) handleUserDelete(e event.UserDeleteEvent) error {
-	log.Printf("🚫 [User-Mongo] Anonymizing & Cleaning User Data for UserId: %d", e.UserId)
+	obslog.Infof("user mongo anonymize userId=%d", e.UserId)
 
 	db := h.Infra.Mongo.Database("rednote")
 	ctx := context.Background()
@@ -194,9 +194,9 @@ func (h *UserHandler) handleUserDelete(e event.UserDeleteEvent) error {
 func (h *UserHandler) updateManySafe(ctx context.Context, coll *mongo.Collection, filter interface{}, update interface{}) {
 	res, err := coll.UpdateMany(ctx, filter, update)
 	if err != nil {
-		log.Printf("⚠️ [User-Mongo] UpdateMany failed for %s: %v", coll.Name(), err)
+		obslog.Errorf("user mongo updateMany failed collection=%s err=%v", coll.Name(), err)
 	} else if res.ModifiedCount > 0 {
-		log.Printf("   -> Updated %d docs in %s", res.ModifiedCount, coll.Name())
+		obslog.Infof("user mongo updateMany collection=%s modified=%d", coll.Name(), res.ModifiedCount)
 	}
 }
 
@@ -204,8 +204,8 @@ func (h *UserHandler) updateManySafe(ctx context.Context, coll *mongo.Collection
 func (h *UserHandler) deleteManySafe(ctx context.Context, coll *mongo.Collection, filter interface{}) {
 	res, err := coll.DeleteMany(ctx, filter)
 	if err != nil {
-		log.Printf("⚠️ [User-Mongo] DeleteMany failed for %s: %v", coll.Name(), err)
+		obslog.Errorf("user mongo deleteMany failed collection=%s err=%v", coll.Name(), err)
 	} else if res.DeletedCount > 0 {
-		log.Printf("   -> Deleted %d docs from %s", res.DeletedCount, coll.Name())
+		obslog.Infof("user mongo deleteMany collection=%s deleted=%d", coll.Name(), res.DeletedCount)
 	}
 }

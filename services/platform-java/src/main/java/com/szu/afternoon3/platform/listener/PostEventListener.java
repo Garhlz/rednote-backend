@@ -2,6 +2,7 @@ package com.szu.afternoon3.platform.listener;
 
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
+import com.szu.afternoon3.platform.common.LogMdc;
 import com.szu.afternoon3.platform.config.RabbitConfig;
 import com.szu.afternoon3.platform.entity.User;
 import com.szu.afternoon3.platform.entity.mongo.CommentDoc;
@@ -12,13 +13,15 @@ import com.szu.afternoon3.platform.enums.NotificationType;
 import com.szu.afternoon3.platform.event.*;
 import com.szu.afternoon3.platform.mapper.UserMapper;
 import com.szu.afternoon3.platform.repository.*;
-import com.szu.afternoon3.platform.service.NotificationService;
+import com.szu.afternoon3.platform.grpc.NotificationRpcClient;
 import com.szu.afternoon3.platform.service.impl.AiServiceImpl;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.amqp.support.AmqpHeaders;
 import org.springframework.amqp.rabbit.annotation.RabbitHandler;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
@@ -45,7 +48,7 @@ public class PostEventListener {
     @Autowired private AiServiceImpl aiService;
     @Autowired private MongoTemplate mongoTemplate;
     @Autowired private UserMapper userMapper;
-    @Autowired private NotificationService notificationService; // 注入通知服务
+    @Autowired private NotificationRpcClient notificationRpcClient; // 直接写入 notification-rpc
 
     @Value("${ai.bot.user-id}")
     private Long botUserId;
@@ -54,12 +57,17 @@ public class PostEventListener {
      * 处理发帖：AI 自动评论
      */
     @RabbitHandler
-    public void handlePostCreate(PostCreateEvent event) {
-        log.info("RabbitMQ 收到发帖事件: {}", event.getId());
+    public void handlePostCreate(PostCreateEvent event,
+                                 @Header(name = "X-Request-Id", required = false) String requestId,
+                                 @Header(name = AmqpHeaders.RECEIVED_ROUTING_KEY, required = false) String routingKey) {
+        LogMdc.bindMqContext(requestId, routingKey, "platform-java");
+        log.info("mq consume start routingKey={} postId={}", routingKey, event.getId());
         try {
             handleAutoComment(event);
         } catch (Exception e) {
             log.error("AI 自动评论失败", e);
+        } finally {
+            LogMdc.clear();
         }
     }
 
@@ -67,17 +75,24 @@ public class PostEventListener {
      * 处理修帖：(暂留空)
      */
     @RabbitHandler
-    public void handlePostUpdate(PostUpdateEvent event) {
-        log.debug("RabbitMQ 收到修帖事件: {}", event.getPostId());
+    public void handlePostUpdate(PostUpdateEvent event,
+                                 @Header(name = "X-Request-Id", required = false) String requestId,
+                                 @Header(name = AmqpHeaders.RECEIVED_ROUTING_KEY, required = false) String routingKey) {
+        LogMdc.bindMqContext(requestId, routingKey, "platform-java");
+        log.debug("mq consume routingKey={} postId={}", routingKey, event.getPostId());
+        LogMdc.clear();
     }
 
     /**
      * 处理删帖：数据清理 + 管理员操作通知
      */
     @RabbitHandler
-    public void handlePostDelete(PostDeleteEvent event) {
+    public void handlePostDelete(PostDeleteEvent event,
+                                 @Header(name = "X-Request-Id", required = false) String requestId,
+                                 @Header(name = AmqpHeaders.RECEIVED_ROUTING_KEY, required = false) String routingKey) {
+        LogMdc.bindMqContext(requestId, routingKey, "platform-java");
         String postId = event.getPostId();
-        log.info("RabbitMQ 收到删帖事件: postId={}, operatorId={}", postId, event.getOperatorId());
+        log.info("mq consume start routingKey={} postId={} operatorId={}", routingKey, postId, event.getOperatorId());
 
         // ----------------------------------------------------
         // 1. 业务数据清理 (原有逻辑)
@@ -98,6 +113,7 @@ public class PostEventListener {
         if (event.isAdminOp()) {
             handleAdminDeleteLogAndNotify(event);
         }
+        LogMdc.clear();
     }
 
     // --- Private Methods ---
@@ -141,7 +157,7 @@ public class PostEventListener {
         note.setTargetPreview("您的笔记《" + event.getPostTitle() + "》已被移除。原因：" + reason);
         note.setTargetId(event.getPostId());
 
-        notificationService.save(note);
+        notificationRpcClient.save(note);
 
         // B. 记录操作日志
         try {
@@ -167,9 +183,13 @@ public class PostEventListener {
      * 添加此方法是为了避免抛出 "No listener method found" 异常。
      */
     @RabbitHandler
-    public void handlePostAudit(PostAuditEvent event) {
+    public void handlePostAudit(PostAuditEvent event,
+                                @Header(name = "X-Request-Id", required = false) String requestId,
+                                @Header(name = AmqpHeaders.RECEIVED_ROUTING_KEY, required = false) String routingKey) {
+        LogMdc.bindMqContext(requestId, routingKey, "platform-java");
         // 这里留空即可，表示“我知道收到了，但我不需要处理，请确认消费成功”
-        log.debug("PostEventListener 忽略审核操作消息: {}", event.getPostId());
+        log.debug("mq consume ignore routingKey={} postId={}", routingKey, event.getPostId());
+        LogMdc.clear();
     }
 
     /**
@@ -177,12 +197,16 @@ public class PostEventListener {
      * 同样是因为 "post.#" 路由键导致的误收。
      */
     @RabbitHandler
-    public void handlePostAuditPass(PostAuditPassEvent event) {
+    public void handlePostAuditPass(PostAuditPassEvent event,
+                                    @Header(name = "X-Request-Id", required = false) String requestId,
+                                    @Header(name = AmqpHeaders.RECEIVED_ROUTING_KEY, required = false) String routingKey) {
+        LogMdc.bindMqContext(requestId, routingKey, "platform-java");
         // 这里留空即可
-        log.debug("PostEventListener 忽略审核通过消息: {}", event.getId());
+        log.debug("mq consume ignore routingKey={} postId={}", routingKey, event.getId());
 
         // 扩展建议：
         // 如果未来想在审核通过后做一些业务（比如给作者加积分、触发某种奖励），
         // 就可以写在这里，而不需要去改 AdminService。
+        LogMdc.clear();
     }
 }

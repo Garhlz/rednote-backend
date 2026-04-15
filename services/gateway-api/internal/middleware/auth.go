@@ -52,17 +52,17 @@ func NewAuthMiddleware(cfg config.Config, redisClient *redis.Redis) rest.Middlew
 					// 登出接口比较特殊：即便本身允许跳过严格鉴权，也要把 access/refresh token 透传下去，
 					// 让 user-rpc 有机会做 token 拉黑和 refresh key 删除。
 					ctx := r.Context()
-					if token := extractBearer(r.Header.Get("Authorization")); token != "" {
+					if token := accessTokenFromRequest(r); token != "" {
 						ctx = context.WithValue(ctx, "accessToken", token)
 					}
-					if rt := extractBearer(r.Header.Get("X-Refresh-Token")); rt != "" {
+					if rt := refreshTokenFromRequest(r); rt != "" {
 						ctx = context.WithValue(ctx, "refreshToken", rt)
 					}
 					next.ServeHTTP(w, r.WithContext(ctx))
 					return
 				}
 				ctx := r.Context()
-				token := extractBearer(r.Header.Get("Authorization"))
+				token := accessTokenFromRequest(r)
 				if token != "" {
 					// 公开接口上的“弱鉴权”：
 					// token 合法就把用户上下文注入进去，后续 logic 就可以做个性化聚合；
@@ -85,7 +85,7 @@ func NewAuthMiddleware(cfg config.Config, redisClient *redis.Redis) rest.Middlew
 			}
 
 			// 第二类路径：必须登录后才能访问。
-			token := extractBearer(r.Header.Get("Authorization"))
+			token := accessTokenFromRequest(r)
 			if token == "" {
 				httpx.ErrorCtx(r.Context(), w, response.Unauthorized())
 				return
@@ -119,7 +119,7 @@ func NewAuthMiddleware(cfg config.Config, redisClient *redis.Redis) rest.Middlew
 			ctx = context.WithValue(ctx, "nickname", claims.Nickname)
 			// accessToken / refreshToken 也放进 context，便于后续 Java 代理或 user-rpc 调用时透传。
 			ctx = context.WithValue(ctx, "accessToken", token)
-			if rt := extractBearer(r.Header.Get("X-Refresh-Token")); rt != "" {
+			if rt := refreshTokenFromRequest(r); rt != "" {
 				ctx = context.WithValue(ctx, "refreshToken", rt)
 			}
 
@@ -135,6 +135,35 @@ func extractBearer(value string) string {
 	}
 	if strings.HasPrefix(value, "Bearer ") {
 		return strings.TrimSpace(strings.TrimPrefix(value, "Bearer "))
+	}
+	return ""
+}
+
+// accessTokenFromRequest 先取 Authorization 头，再兜底读取 accessToken Cookie。
+// 这样前端如果采用 cookie 存 token，公开路径上的弱鉴权和强鉴权路径都能拿到一致登录态。
+func accessTokenFromRequest(r *http.Request) string {
+	if r == nil {
+		return ""
+	}
+	if token := extractBearer(r.Header.Get("Authorization")); token != "" {
+		return token
+	}
+	if cookie, err := r.Cookie("accessToken"); err == nil {
+		return cookie.Value
+	}
+	return ""
+}
+
+// refreshTokenFromRequest 先取显式 header，再兜底读取 refreshToken Cookie。
+func refreshTokenFromRequest(r *http.Request) string {
+	if r == nil {
+		return ""
+	}
+	if token := extractBearer(r.Header.Get("X-Refresh-Token")); token != "" {
+		return token
+	}
+	if cookie, err := r.Cookie("refreshToken"); err == nil {
+		return cookie.Value
 	}
 	return ""
 }

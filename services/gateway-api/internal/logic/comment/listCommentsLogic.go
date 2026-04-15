@@ -1,11 +1,10 @@
-// Code scaffolded by goctl. Safe to edit.
-// goctl 1.9.2
-
 package comment
 
 import (
 	"context"
 
+	"comment-rpc/commentservice"
+	"gateway-api/internal/pkg/ctxutil"
 	"gateway-api/internal/svc"
 	"gateway-api/internal/types"
 
@@ -26,8 +25,16 @@ func NewListCommentsLogic(ctx context.Context, svcCtx *svc.ServiceContext) *List
 	}
 }
 
-func (l *ListCommentsLogic) ListComments() (resp *types.Empty, err error) {
-	// todo: add your logic here and delete this line
-
-	return
+func (l *ListCommentsLogic) ListComments(req *types.CommentListReq) (resp *types.CommentPageResult, err error) {
+	client := commentservice.NewCommentService(l.svcCtx.CommentRpc)
+	result, err := client.ListRootComments(l.ctx, &commentservice.ListRootCommentsRequest{
+		PostId:        req.PostId,
+		Page:          req.Page,
+		PageSize:      req.Size,
+		CurrentUserId: ctxutil.UserID(l.ctx),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return toCommentPageResult(result), nil
 }

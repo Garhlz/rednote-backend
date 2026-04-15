@@ -1,6 +1,7 @@
 package com.szu.afternoon3.platform.listener;
 
 import cn.hutool.core.util.StrUtil;
+import com.szu.afternoon3.platform.common.LogMdc;
 import com.szu.afternoon3.platform.config.RabbitConfig;
 import com.szu.afternoon3.platform.entity.User;
 import com.szu.afternoon3.platform.entity.mongo.CommentDoc;
@@ -12,11 +13,13 @@ import com.szu.afternoon3.platform.mapper.UserMapper;
 import com.szu.afternoon3.platform.repository.CommentLikeRepository;
 import com.szu.afternoon3.platform.repository.CommentRepository;
 import com.szu.afternoon3.platform.repository.PostRepository;
-import com.szu.afternoon3.platform.service.NotificationService;
+import com.szu.afternoon3.platform.grpc.NotificationRpcClient;
 import com.szu.afternoon3.platform.service.impl.AiServiceImpl;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.amqp.support.AmqpHeaders;
 import org.springframework.amqp.rabbit.annotation.RabbitHandler;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
+import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.mongodb.core.MongoTemplate;
@@ -36,7 +39,7 @@ public class CommentEventListener {
     private MongoTemplate mongoTemplate;
 
     @Autowired
-    private NotificationService notificationService;
+    private NotificationRpcClient notificationRpcClient;
 
     @Autowired
     private UserMapper userMapper;
@@ -62,21 +65,29 @@ public class CommentEventListener {
      * 根据 event.getType() 分发逻辑
      */
     @RabbitHandler
-    public void handleCommentEvent(CommentEvent event) {
-        if (event == null || event.getType() == null) {
-            log.warn("收到无效的 CommentEvent");
-            return;
-        }
+    public void handleCommentEvent(CommentEvent event,
+                                   @Header(name = "X-Request-Id", required = false) String requestId,
+                                   @Header(name = AmqpHeaders.RECEIVED_ROUTING_KEY, required = false) String routingKey) {
+        LogMdc.bindMqContext(requestId, routingKey, "platform-java");
+        try {
+            if (event == null || event.getType() == null) {
+                log.warn("收到无效的 CommentEvent");
+                return;
+            }
 
-        switch (event.getType()) {
-            case "CREATE":
-                processCommentCreate(event);
-                break;
-            case "DELETE":
-                processCommentDelete(event);
-                break;
-            default:
-                log.warn("未知的评论事件类型: {}", event.getType());
+            log.info("mq consume start routingKey={} type={} commentId={}", routingKey, event.getType(), event.getCommentId());
+            switch (event.getType()) {
+                case "CREATE":
+                    processCommentCreate(event);
+                    break;
+                case "DELETE":
+                    processCommentDelete(event);
+                    break;
+                default:
+                    log.warn("未知的评论事件类型: {}", event.getType());
+            }
+        } finally {
+            LogMdc.clear();
         }
     }
     /**
@@ -250,7 +261,8 @@ public class CommentEventListener {
                 PostDoc.class
         );
 
-        // 3. 更新父评论回复数
+        // 3. 如果删除的是二级评论，还需要同步把根评论的 replyCount -1。
+        // 否则评论列表会长期显示膨胀后的“回复数”。
         if (StrUtil.isNotBlank(event.getParentId())) {
             mongoTemplate.updateFirst(
                     Query.query(Criteria.where("id").is(event.getParentId()).and("replyCount").gt(0)),
@@ -305,6 +317,6 @@ public class CommentEventListener {
         doc.setTargetPreview(StrUtil.subPre(event.getContent(), 50));
 
         // 3. 保存
-        notificationService.save(doc);
+        notificationRpcClient.save(doc);
     }
 }

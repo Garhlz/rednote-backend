@@ -2,7 +2,7 @@ spring:
   # --- 1. 数据库与中间件连接 (Dev 环境专属 IP 和密码) ---
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: ${DB_URL:jdbc:mysql://localhost:3306/user_db?useUnicode=true&characterEncoding=utf8mb4&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false}
+    url: ${DB_URL:jdbc:mysql://localhost:3306/user_db?useUnicode=true&characterEncoding=utf8&connectionCollation=utf8mb4_unicode_ci&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false}
     username: ${DB_USERNAME:root}
     password: ${DB_PASSWORD:123456}
     hikari:
@@ -134,4 +134,7 @@ grpc:
       negotiation-type: plaintext
     notification-service:
       address: 'static://127.0.0.1:8084'
+      negotiation-type: plaintext
+    comment-service:
+      address: 'static://127.0.0.1:8085'
       negotiation-type: plaintext

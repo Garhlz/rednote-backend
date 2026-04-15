@@ -159,6 +159,7 @@ type RatePostReq {
 type SearchReq {
 	keyword  string `form:"keyword,optional"`
 	tag      string `form:"tag,optional"`
+	tab      string `form:"tab,optional"`
 	page     int32  `form:"page,optional"`
 	pageSize int32  `form:"pageSize,optional"`
 	sort     string `form:"sort,optional"`

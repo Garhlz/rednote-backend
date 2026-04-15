@@ -118,6 +118,28 @@ services:
       retries: 5
       start_period: 20s
 
+  jaeger:
+    image: jaegertracing/all-in-one:1.59
+    ports:
+      - "127.0.0.1:16686:16686"
+      - "127.0.0.1:4317:4317"
+      - "127.0.0.1:4318:4318"
+    environment:
+      - TZ=Asia/Shanghai
+      - COLLECTOR_OTLP_ENABLED=true
+      - COLLECTOR_OTLP_GRPC_HOST_PORT=0.0.0.0:4317
+      - COLLECTOR_OTLP_HTTP_HOST_PORT=0.0.0.0:4318
+      - HTTP_PROXY=
+      - HTTPS_PROXY=
+      - ALL_PROXY=
+      - http_proxy=
+      - https_proxy=
+      - all_proxy=
+      - NO_PROXY=jaeger,localhost,127.0.0.1
+      - no_proxy=jaeger,localhost,127.0.0.1
+    networks:
+      - dev-net
+
 
   # ==========================================
   # 4. 业务服务 (Go Sidecar & New Interaction Service)
@@ -133,19 +155,28 @@ services:
       - ES_ADDRESS=http://es:9200
       - RABBITMQ_URL=amqp://admin:admin@mq:5672/
       - MONGO_URI=mongodb://mongo:27017
+      - OTEL_ENABLED=true
+      - OTEL_EXPORTER_OTLP_ENDPOINT=jaeger:4318
       - TZ=Asia/Shanghai
       - POST_AUDIT_ENABLE=false
       - HTTP_PROXY=
       - HTTPS_PROXY=
+      - ALL_PROXY=
       - http_proxy=
       - https_proxy=
-      - NO_PROXY=es,localhost,127.0.0.1
+      - all_proxy=
+      - NO_PROXY=jaeger,es,mongo,mq,localhost,127.0.0.1
+      - no_proxy=jaeger,es,mongo,mq,localhost,127.0.0.1
 
     volumes:
       - ./services/sync-sidecar:/app
+    ports:
+      - "127.0.0.1:18088:8088"
     depends_on:
       es:
         condition: service_healthy
+      jaeger:
+        condition: service_started
       mq:
         condition: service_healthy
       mongo:
@@ -166,6 +197,16 @@ services:
       - "127.0.0.1:40092:40092"
     environment:
       - TZ=Asia/Shanghai
+      - OTEL_ENABLED=true
+      - OTEL_EXPORTER_OTLP_ENDPOINT=jaeger:4318
+      - HTTP_PROXY=
+      - HTTPS_PROXY=
+      - ALL_PROXY=
+      - http_proxy=
+      - https_proxy=
+      - all_proxy=
+      - NO_PROXY=jaeger,etcd,redis,mq,localhost,127.0.0.1
+      - no_proxy=jaeger,etcd,redis,mq,localhost,127.0.0.1
     depends_on:
       etcd:
         condition: service_started
@@ -173,6 +214,8 @@ services:
         condition: service_started
       mq:
         condition: service_healthy
+      jaeger:
+        condition: service_started
     networks:
       - dev-net
 
@@ -188,11 +231,16 @@ services:
       - "127.0.0.1:40093:40093"
     environment:
       - TZ=Asia/Shanghai
+      - OTEL_ENABLED=true
+      - OTEL_EXPORTER_OTLP_ENDPOINT=jaeger:4318
       - HTTP_PROXY=
       - HTTPS_PROXY=
+      - ALL_PROXY=
       - http_proxy=
       - https_proxy=
-      - NO_PROXY=es,etcd,mongo,mq,localhost,127.0.0.1
+      - all_proxy=
+      - NO_PROXY=jaeger,es,etcd,mongo,mq,redis,localhost,127.0.0.1
+      - no_proxy=jaeger,es,etcd,mongo,mq,redis,localhost,127.0.0.1
     depends_on:
       etcd:
         condition: service_started
@@ -202,6 +250,8 @@ services:
         condition: service_healthy
       es:
         condition: service_healthy
+      jaeger:
+        condition: service_started
     networks:
       - dev-net
 
@@ -219,12 +269,24 @@ services:
       - services/user-rpc/.env
     environment:
       - TZ=Asia/Shanghai
+      - OTEL_ENABLED=true
+      - OTEL_EXPORTER_OTLP_ENDPOINT=jaeger:4318
+      - HTTP_PROXY=
+      - HTTPS_PROXY=
+      - ALL_PROXY=
+      - http_proxy=
+      - https_proxy=
+      - all_proxy=
+      - NO_PROXY=jaeger,etcd,db,redis,localhost,127.0.0.1
+      - no_proxy=jaeger,etcd,db,redis,localhost,127.0.0.1
     depends_on:
       etcd:
         condition: service_started
       db:
         condition: service_healthy
       redis:
+        condition: service_started
+      jaeger:
         condition: service_started
     networks:
       - dev-net
@@ -241,10 +303,56 @@ services:
       - "127.0.0.1:40095:40095"
     environment:
       - TZ=Asia/Shanghai
+      - OTEL_ENABLED=true
+      - OTEL_EXPORTER_OTLP_ENDPOINT=jaeger:4318
+      - HTTP_PROXY=
+      - HTTPS_PROXY=
+      - ALL_PROXY=
+      - http_proxy=
+      - https_proxy=
+      - all_proxy=
+      - NO_PROXY=jaeger,etcd,mongo,mq,localhost,127.0.0.1
+      - no_proxy=jaeger,etcd,mongo,mq,localhost,127.0.0.1
     depends_on:
       etcd:
         condition: service_started
       mongo:
+        condition: service_started
+      mq:
+        condition: service_healthy
+      jaeger:
+        condition: service_started
+    networks:
+      - dev-net
+
+  comment-rpc:
+    build:
+      context: services/comment-rpc
+      dockerfile: Dockerfile
+      network: host
+      args:
+        GOPROXY: https://goproxy.cn,direct
+    ports:
+      - "127.0.0.1:8085:8080"
+      - "127.0.0.1:40096:40096"
+    environment:
+      - TZ=Asia/Shanghai
+      - OTEL_ENABLED=true
+      - OTEL_EXPORTER_OTLP_ENDPOINT=jaeger:4318
+      - HTTP_PROXY=
+      - HTTPS_PROXY=
+      - ALL_PROXY=
+      - http_proxy=
+      - https_proxy=
+      - all_proxy=
+      - NO_PROXY=jaeger,etcd,mongo,mq,localhost,127.0.0.1
+      - no_proxy=jaeger,etcd,mongo,mq,localhost,127.0.0.1
+    depends_on:
+      etcd:
+        condition: service_started
+      mongo:
+        condition: service_started
+      jaeger:
         condition: service_started
     networks:
       - dev-net
@@ -261,13 +369,17 @@ services:
       - "127.0.0.1:40090:40090"
     environment:
       - TZ=Asia/Shanghai
+      - OTEL_ENABLED=true
+      - OTEL_EXPORTER_OTLP_ENDPOINT=jaeger:4318
       - JAVA_API_BASE_URL=http://host.docker.internal:8080
       - HTTP_PROXY=
       - HTTPS_PROXY=
-      - NO_PROXY=host.docker.internal,localhost,127.0.0.1
+      - ALL_PROXY=
+      - NO_PROXY=jaeger,etcd,user-rpc,interaction-rpc,search-rpc,notification-rpc,comment-rpc,host.docker.internal,localhost,127.0.0.1
       - http_proxy=
       - https_proxy=
-      - no_proxy=host.docker.internal,localhost,127.0.0.1
+      - all_proxy=
+      - no_proxy=jaeger,etcd,user-rpc,interaction-rpc,search-rpc,notification-rpc,comment-rpc,host.docker.internal,localhost,127.0.0.1
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
@@ -280,6 +392,10 @@ services:
       search-rpc:
         condition: service_started
       notification-rpc:
+        condition: service_started
+      comment-rpc:
+        condition: service_started
+      jaeger:
         condition: service_started
     networks:
       - dev-net
@@ -295,10 +411,10 @@ services:
       - HTTPS_PROXY=
       - http_proxy=
       - https_proxy=
-      - NO_PROXY=prometheus,grafana,gateway-api,interaction-rpc,user-rpc,search-rpc,host.docker.internal,localhost,127.0.0.1
-      - no_proxy=prometheus,grafana,gateway-api,interaction-rpc,user-rpc,search-rpc,host.docker.internal,localhost,127.0.0.1
+      - NO_PROXY=prometheus,grafana,loki,promtail,gateway-api,interaction-rpc,user-rpc,search-rpc,notification-rpc,comment-rpc,host.docker.internal,localhost,127.0.0.1
+      - no_proxy=prometheus,grafana,loki,promtail,gateway-api,interaction-rpc,user-rpc,search-rpc,notification-rpc,comment-rpc,host.docker.internal,localhost,127.0.0.1
     ports:
-      - "127.0.0.1:9091:9090"
+      - "0.0.0.0:9091:9090"
     volumes:
       - ./deploy/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus_data:/prometheus
@@ -315,7 +431,7 @@ services:
   grafana:
     image: grafana/grafana:latest
     ports:
-      - "127.0.0.1:3001:3000"
+      - "0.0.0.0:3001:3000"
     environment:
       - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD=admin
@@ -325,12 +441,58 @@ services:
       - HTTPS_PROXY=
       - http_proxy=
       - https_proxy=
-      - NO_PROXY=prometheus,grafana,gateway-api,interaction-rpc,user-rpc,search-rpc,host.docker.internal,localhost,127.0.0.1
-      - no_proxy=prometheus,grafana,gateway-api,interaction-rpc,user-rpc,search-rpc,host.docker.internal,localhost,127.0.0.1
+      - NO_PROXY=prometheus,grafana,loki,promtail,gateway-api,interaction-rpc,user-rpc,search-rpc,notification-rpc,comment-rpc,host.docker.internal,localhost,127.0.0.1
+      - no_proxy=prometheus,grafana,loki,promtail,gateway-api,interaction-rpc,user-rpc,search-rpc,notification-rpc,comment-rpc,host.docker.internal,localhost,127.0.0.1
     volumes:
       - grafana_data:/var/lib/grafana
+      - ./deploy/grafana/provisioning:/etc/grafana/provisioning:ro
     depends_on:
       prometheus:
+        condition: service_started
+      loki:
+        condition: service_started
+    networks:
+      - dev-net
+
+  loki:
+    image: grafana/loki:3.2.1
+    command:
+      - -config.file=/etc/loki/config.yml
+    ports:
+      - "0.0.0.0:3100:3100"
+    environment:
+      - TZ=Asia/Shanghai
+      - HTTP_PROXY=
+      - HTTPS_PROXY=
+      - http_proxy=
+      - https_proxy=
+      - NO_PROXY=loki,promtail,localhost,127.0.0.1
+      - no_proxy=loki,promtail,localhost,127.0.0.1
+    volumes:
+      - ./deploy/loki/loki-config.yml:/etc/loki/config.yml:ro
+      - loki_data:/loki
+    networks:
+      - dev-net
+
+  promtail:
+    image: grafana/promtail:3.2.1
+    command:
+      - -config.file=/etc/promtail/config.yml
+    environment:
+      - TZ=Asia/Shanghai
+      - HTTP_PROXY=
+      - HTTPS_PROXY=
+      - http_proxy=
+      - https_proxy=
+      - NO_PROXY=loki,promtail,localhost,127.0.0.1
+      - no_proxy=loki,promtail,localhost,127.0.0.1
+    volumes:
+      - ./deploy/promtail/promtail-config.yml:/etc/promtail/config.yml:ro
+      - ./services/platform-java/logs:/var/log/platform-java:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - promtail_positions:/tmp/promtail
+    depends_on:
+      loki:
         condition: service_started
     networks:
       - dev-net
@@ -343,6 +505,8 @@ volumes:
   es_local_data:
   prometheus_data:
   grafana_data:
+  loki_data:
+  promtail_positions:
 
 
 networks:

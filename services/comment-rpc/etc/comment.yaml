@@ -1,0 +1,15 @@
+Name: comment.rpc
+ListenOn: 0.0.0.0:8080
+Etcd:
+  Hosts:
+  - etcd:2379
+  Key: comment.rpc
+Metrics:
+  Host: 0.0.0.0
+  Port: 40096
+  Path: /metrics
+Mongo:
+  Uri: "mongodb://mongo:27017"
+  Database: "rednote"
+RabbitMQ:
+  DataSource: "amqp://admin:admin@mq:5672/"

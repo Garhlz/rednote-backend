@@ -1,7 +1,4 @@
-下面给你一份可以直接照着配的 Grafana 面板配置清单。
-你先做一个总览 Dashboard 就够了，名字建议叫：
-
-Rednote Overview
+下面是一份可以直接照着配的 Grafana 面板配置清单。名字建议叫 Rednote Overview
 
 ———
 

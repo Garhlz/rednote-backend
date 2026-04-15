@@ -2,6 +2,7 @@ package com.szu.afternoon3.platform.listener;
 
 import cn.hutool.core.util.StrUtil;
 import com.mongodb.DuplicateKeyException;
+import com.szu.afternoon3.platform.common.LogMdc;
 import com.szu.afternoon3.platform.config.RabbitConfig;
 import com.szu.afternoon3.platform.entity.User;
 import com.szu.afternoon3.platform.entity.mongo.*;
@@ -9,10 +10,12 @@ import com.szu.afternoon3.platform.enums.NotificationType;
 import com.szu.afternoon3.platform.event.InteractionEvent;
 import com.szu.afternoon3.platform.mapper.UserMapper;
 import com.szu.afternoon3.platform.repository.*;
-import com.szu.afternoon3.platform.service.NotificationService;
+import com.szu.afternoon3.platform.grpc.NotificationRpcClient;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.amqp.support.AmqpHeaders;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.mapping.IndexCoordinates;
 import org.springframework.data.elasticsearch.core.query.ScriptType;
@@ -47,7 +50,7 @@ public class InteractionEventListener {
     @Autowired
     private MongoTemplate mongoTemplate;
     @Autowired
-    private NotificationService notificationService;
+    private NotificationRpcClient notificationRpcClient;
     @Autowired
     private UserMapper userMapper;
     @Autowired
@@ -57,9 +60,12 @@ public class InteractionEventListener {
      * 自动反序列化 JSON 为 InteractionEvent 对象
      */
     @RabbitListener(queues = RabbitConfig.QUEUE_INTERACTION)
-    public void handleInteraction(InteractionEvent event) {
-        log.debug("RabbitMQ 收到交互消息: {}", event);
+    public void handleInteraction(InteractionEvent event,
+                                  @Header(name = "X-Request-Id", required = false) String requestId,
+                                  @Header(name = AmqpHeaders.RECEIVED_ROUTING_KEY, required = false) String routingKey) {
+        LogMdc.bindMqContext(requestId, routingKey, "platform-java");
         try {
+            log.info("mq consume start routingKey={} type={} targetId={}", routingKey, event.getType(), event.getTargetId());
             switch (event.getType()) {
                 case "LIKE":
                     if (handleLike(event)) {
@@ -91,6 +97,8 @@ public class InteractionEventListener {
         } catch (Exception e) {
             log.error("交互消息处理失败: ", e);
             // 可以在这里抛出异常以触发重试，或者记录死信队列
+        } finally {
+            LogMdc.clear();
         }
     }
 
@@ -152,7 +160,7 @@ public class InteractionEventListener {
 
         // 3. 执行更新
         try {
-            elasticsearchOperations.update(updateQuery, IndexCoordinates.of("post_index"));
+            elasticsearchOperations.update(updateQuery, IndexCoordinates.of("posts"));
             log.debug("✅ ES Count Updated: postId={}, field={}, delta={}", postId, fieldName, delta);
         } catch (org.springframework.data.elasticsearch.ResourceNotFoundException e) {
             log.warn("ES doc missing, skip count update: postId={}, field={}, delta={}", postId, fieldName, delta);
@@ -343,7 +351,7 @@ public class InteractionEventListener {
         // 摘要：显示被点赞的评论内容
         doc.setTargetPreview(StrUtil.subPre(comment.getContent(), 50));
 
-        notificationService.save(doc);
+        notificationRpcClient.save(doc);
     }
 
     // 通用：原子更新简单计数器
@@ -404,7 +412,7 @@ public class InteractionEventListener {
         String preview = StrUtil.isNotBlank(post.getTitle()) ? post.getTitle() : StrUtil.subPre(post.getContent(), 20);
         doc.setTargetPreview(preview);
 
-        notificationService.save(doc);
+        notificationRpcClient.save(doc);
     }
 
     // 发送关注通知
@@ -438,6 +446,6 @@ public class InteractionEventListener {
         doc.setTargetPreview("关注了你"); // 简单文案
 
         // 4. 保存
-        notificationService.save(doc);
+        notificationRpcClient.save(doc);
     }
 }

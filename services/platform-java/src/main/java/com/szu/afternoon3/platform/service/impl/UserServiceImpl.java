@@ -5,6 +5,7 @@ import cn.hutool.core.util.StrUtil;
 import cn.hutool.crypto.digest.BCrypt;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.szu.afternoon3.platform.common.UserContext;
+import com.szu.afternoon3.platform.common.MqPublisher;
 import com.szu.afternoon3.platform.config.RabbitConfig;
 import com.szu.afternoon3.platform.dto.*;
 import com.szu.afternoon3.platform.entity.User;
@@ -18,7 +19,6 @@ import com.szu.afternoon3.platform.repository.*;
 import com.szu.afternoon3.platform.service.UserService;
 import com.szu.afternoon3.platform.vo.*;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.mongodb.core.MongoTemplate;
@@ -56,7 +56,7 @@ public class UserServiceImpl implements UserService {
     private UserFollowRepository userFollowRepository;
 
     @Autowired
-    private RabbitTemplate rabbitTemplate;
+    private MqPublisher mqPublisher;
 
     @Autowired
     private CommentRepository commentRepository;
@@ -129,7 +129,7 @@ public class UserServiceImpl implements UserService {
                     user.getAvatar()
             );
             // 路由键: user.update
-            rabbitTemplate.convertAndSend(RabbitConfig.PLATFORM_EXCHANGE, "user.update", event);
+            mqPublisher.publish(RabbitConfig.PLATFORM_EXCHANGE, "user.update", event);
         }
         if (changed) {
             userMapper.updateById(user);
@@ -336,7 +336,7 @@ public class UserServiceImpl implements UserService {
                 null
         );
         // 路由键: interaction.create
-        rabbitTemplate.convertAndSend(RabbitConfig.PLATFORM_EXCHANGE, "interaction.create", event);
+        mqPublisher.publish(RabbitConfig.PLATFORM_EXCHANGE, "interaction.create", event);
     }
 
     @Override
@@ -568,6 +568,8 @@ public class UserServiceImpl implements UserService {
             return new ArrayList<>();
         }
 
+        String normalizedKeyword = keyword.trim().toLowerCase();
+
         // 1. [PostgreSQL] 模糊查询
         // 注意：这里 LIMIT 50 稍微放宽一点，增加命中熟人的概率
         List<User> users = userMapper.selectList(new LambdaQueryWrapper<User>()
@@ -621,18 +623,55 @@ public class UserServiceImpl implements UserService {
         }).collect(Collectors.toList());
 
         // 5. 内存排序
-        // 只有登录了才需要排，没登录大家都是路人
-        if (currentUserId != null) {
-            resultList.sort((o1, o2) -> {
-                // 计算权重分数 (越高越靠前)
-                int score1 = calculateWeight(o1);
-                int score2 = calculateWeight(o2);
-                // 降序排列 (分数高的在前)
-                return score2 - score1;
-            });
-        }
+        // 先按搜索匹配质量排序，再用关注关系做次级加权，
+        // 避免“模糊命中很多但真正最相关的人排不到前面”的体验问题。
+        resultList.sort((o1, o2) -> {
+            int matchScore1 = calculateSearchWeight(o1, normalizedKeyword);
+            int matchScore2 = calculateSearchWeight(o2, normalizedKeyword);
+            if (matchScore1 != matchScore2) {
+                return matchScore2 - matchScore1;
+            }
+
+            int relationScore1 = calculateWeight(o1);
+            int relationScore2 = calculateWeight(o2);
+            if (relationScore1 != relationScore2) {
+                return relationScore2 - relationScore1;
+            }
+
+            return o1.getNickname().compareToIgnoreCase(o2.getNickname());
+        });
 
         return resultList;
+    }
+
+    /**
+     * 辅助方法：计算搜索匹配权重
+     * 昵称完全命中 > 昵称前缀命中 > 昵称包含 > 邮箱前缀命中 > 邮箱包含
+     */
+    private int calculateSearchWeight(UserSearchVO vo, String normalizedKeyword) {
+        if (vo == null || StrUtil.isBlank(normalizedKeyword)) {
+            return 0;
+        }
+
+        String nickname = StrUtil.blankToDefault(vo.getNickname(), "").toLowerCase();
+        String email = StrUtil.blankToDefault(vo.getEmail(), "").toLowerCase();
+
+        if (nickname.equals(normalizedKeyword)) {
+            return 500;
+        }
+        if (nickname.startsWith(normalizedKeyword)) {
+            return 400;
+        }
+        if (nickname.contains(normalizedKeyword)) {
+            return 300;
+        }
+        if (email.startsWith(normalizedKeyword)) {
+            return 200;
+        }
+        if (email.contains(normalizedKeyword)) {
+            return 100;
+        }
+        return 0;
     }
 
     /**

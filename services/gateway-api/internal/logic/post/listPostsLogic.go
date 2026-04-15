@@ -41,6 +41,9 @@ func (l *ListPostsLogic) ListPosts(req *types.SearchReq) (resp *types.PageResult
 	if req.Page == 0 {
 		req.Page = 1
 	}
+	if req.Sort == "" {
+		req.Sort = "hot"
+	}
 	client := searchservice.NewSearchService(l.svcCtx.SearchRpc)
 	result, err := client.Search(l.ctx, &searchservice.SearchRequest{
 		Keyword:  "",
@@ -107,7 +110,7 @@ func (l *ListPostsLogic) ListPosts(req *types.SearchReq) (resp *types.PageResult
 			RatingAverage: 0,
 			RatingCount:   0,
 			MyScore:       0,
-			CreatedAt:     "",
+			CreatedAt:     item.GetCreatedAt(),
 			Tags:          item.GetTags(),
 			CoverWidth:    item.GetCoverWidth(),
 			CoverHeight:   item.GetCoverHeight(),

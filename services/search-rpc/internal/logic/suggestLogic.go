@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"regexp"
+	"strings"
 	"time"
 
 	appmetrics "search-rpc/internal/metrics"
@@ -99,11 +101,20 @@ func (l *SuggestLogic) Suggest(in *search.SuggestRequest) (*search.SuggestRespon
 	defer res.Body.Close()
 	appmetrics.ObserveESQuery("suggest", time.Since(esStart))
 
+	if res.IsError() {
+		appmetrics.ObserveRequest("suggest", "es_status_error", time.Since(start))
+		return nil, fmt.Errorf("ES error: %s", res.String())
+	}
+
 	// 5. 解析高亮结果
 	var esResponse struct {
 		Hits struct {
 			Hits []struct {
 				Highlight map[string][]string `json:"highlight"`
+				Source    struct {
+					Title string   `json:"title"`
+					Tags  []string `json:"tags"`
+				} `json:"_source"`
 			} `json:"hits"`
 		} `json:"hits"`
 	}
@@ -113,14 +124,21 @@ func (l *SuggestLogic) Suggest(in *search.SuggestRequest) (*search.SuggestRespon
 	}
 
 	// 6. 提取建议词 (去重 + 保持顺序)
-	// Java 用了 LinkedHashSet，Go 没有内置，可以用 map + slice 模拟
+	// Java 用了 LinkedHashSet，Go 没有内置，可以用 map + slice 模拟。
+	// 这里的策略是“原词优先，但只有在确实有搜索结果时才插入”，
+	// 避免建议框总是回显一条没有命中的原词，体验上像“假联想”。
 	suggestions := []string{}
 	seen := map[string]bool{}
+	seededOriginal := false
 
-	// 添加原始词高亮
-	rawHighlight := "<em>" + in.Keyword + "</em>"
-	suggestions = append(suggestions, rawHighlight)
-	seen[rawHighlight] = true
+	if len(esResponse.Hits.Hits) > 0 {
+		original := strings.TrimSpace(in.Keyword)
+		if original != "" {
+			suggestions = append(suggestions, original)
+			seen[original] = true
+			seededOriginal = true
+		}
+	}
 
 	for _, hit := range esResponse.Hits.Hits {
 		// 检查各个字段的高亮
@@ -134,11 +152,44 @@ func (l *SuggestLogic) Suggest(in *search.SuggestRequest) (*search.SuggestRespon
 				}
 			}
 		}
+		for _, candidate := range collectSuggestFallbacks(hit.Source.Title, hit.Source.Tags, in.Keyword) {
+			if !seen[candidate] {
+				suggestions = append(suggestions, candidate)
+				seen[candidate] = true
+			}
+			if len(suggestions) >= 10 {
+				break
+			}
+		}
 		if len(suggestions) >= 10 {
 			break
 		}
 	}
 
+	// 如果只有原词一条，而没有任何真正候选，就把它去掉。
+	// 这样最终返回空数组，前端会比“只回显用户输入”更符合预期。
+	if seededOriginal && len(suggestions) == 1 {
+		suggestions = suggestions[:0]
+	}
+
 	appmetrics.ObserveRequest("suggest", "success", time.Since(start))
 	return &search.SuggestResponse{Suggestions: suggestions}, nil
+}
+
+func collectSuggestFallbacks(title string, tags []string, keyword string) []string {
+	candidates := make([]string, 0, 1+len(tags))
+	kw := strings.ToLower(strings.TrimSpace(keyword))
+	if kw == "" {
+		return candidates
+	}
+
+	if strings.Contains(strings.ToLower(title), kw) {
+		candidates = append(candidates, title)
+	}
+	for _, tag := range tags {
+		if strings.Contains(strings.ToLower(tag), kw) {
+			candidates = append(candidates, tag)
+		}
+	}
+	return candidates
 }

@@ -1,0 +1,78 @@
+syntax = "proto3";
+
+package comment;
+
+option go_package = "./comment";
+
+message Empty {}
+
+message SimpleUser {
+  int64 user_id = 1;
+  string nickname = 2;
+  string avatar = 3;
+}
+
+message ReplyUser {
+  int64 user_id = 1;
+  string nickname = 2;
+}
+
+message Comment {
+  string id = 1;
+  string post_id = 2;
+  int64 user_id = 3;
+  string user_nickname = 4;
+  string user_avatar = 5;
+  string content = 6;
+  string parent_id = 7;
+  int64 reply_to_user_id = 8;
+  string reply_to_user_nickname = 9;
+  int32 reply_count = 10;
+  int32 like_count = 11;
+  bool is_liked = 12;
+  int64 created_at = 13;
+  repeated Comment child_comments = 14;
+}
+
+message CreateCommentRequest {
+  string post_id = 1;
+  int64 current_user_id = 2;
+  string user_nickname = 3;
+  string user_avatar = 4;
+  string content = 5;
+  string parent_id = 6;
+}
+
+message DeleteCommentRequest {
+  string comment_id = 1;
+  int64 current_user_id = 2;
+  string current_user_role = 3;
+}
+
+message ListRootCommentsRequest {
+  string post_id = 1;
+  int32 page = 2;
+  int32 page_size = 3;
+  int64 current_user_id = 4;
+}
+
+message ListSubCommentsRequest {
+  string root_comment_id = 1;
+  int32 page = 2;
+  int32 page_size = 3;
+  int64 current_user_id = 4;
+}
+
+message CommentPageResponse {
+  repeated Comment items = 1;
+  int64 total = 2;
+  int32 page = 3;
+  int32 page_size = 4;
+}
+
+service CommentService {
+  rpc CreateComment(CreateCommentRequest) returns (Comment);
+  rpc DeleteComment(DeleteCommentRequest) returns (Empty);
+  rpc ListRootComments(ListRootCommentsRequest) returns (CommentPageResponse);
+  rpc ListSubComments(ListSubCommentsRequest) returns (CommentPageResponse);
+}

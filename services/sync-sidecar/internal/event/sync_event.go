@@ -24,6 +24,10 @@ type PostDeleteEvent struct {
 	PostId string `json:"postId"`
 }
 
+type PostAuditPassEvent struct {
+	Id string `json:"id"`
+}
+
 type UserUpdateEvent struct {
 	UserId      int64  `json:"userId"`
 	NewNickname string `json:"newNickname"`

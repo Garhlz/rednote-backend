@@ -1,21 +1,34 @@
 package main
 
 import (
-	"log"
+	"context"
+	"net/http"
 	"os"
 	"os/signal"
 	"sync"
 	"syscall"
+	"time"
 
 	"sync-sidecar/internal/config"
 	"sync-sidecar/internal/handler"
+	"sync-sidecar/internal/obslog"
 	"sync-sidecar/internal/service"
+	"sync-sidecar/internal/telemetry"
 )
 
 func main() {
 	// 1. 加载配置
 	cfg := config.LoadConfig()
-	log.Println("🚀 Go Sidecar Starting...")
+	obslog.Infof("sidecar starting")
+	shutdownTelemetry, err := telemetry.InitProvider(context.Background(), "sync-sidecar")
+	if err != nil {
+		panic(err)
+	}
+	defer func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = shutdownTelemetry(ctx)
+	}()
 
 	// 2. 初始化基础设施 (Infra)
 	infra := service.InitInfra(cfg)
@@ -25,6 +38,22 @@ func main() {
 	logHandler := &handler.LogHandler{Infra: infra}
 	syncHandler := &handler.SyncHandler{Infra: infra}
 	userHandler := &handler.UserHandler{Infra: infra}
+
+	// 3.1 启动管理接口。
+	// 目前主要提供手动触发 Mongo -> ES 全量回填，用于历史数据补索引。
+	adminMux := http.NewServeMux()
+	adminMux.HandleFunc("/admin/reindex/posts", syncHandler.HandleReindexPosts)
+	adminServer := &http.Server{
+		Addr:    cfg.AdminHost + ":" + cfg.AdminPort,
+		Handler: telemetry.HTTPMiddleware("sync-sidecar", adminMux),
+	}
+	go func() {
+		obslog.Infof("admin http listening addr=%s", adminServer.Addr)
+		if err := adminServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			obslog.Errorf("admin server error err=%v", err)
+			panic(err)
+		}
+	}()
 
 	// 4. 启动多队列消费者
 	var wg sync.WaitGroup
@@ -46,9 +75,14 @@ func main() {
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 	<-sigChan
 
-	log.Println("⚠️ Shutting down sidecar...")
+	obslog.Infof("sidecar shutting down")
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := adminServer.Shutdown(shutdownCtx); err != nil {
+		obslog.Errorf("admin server shutdown error err=%v", err)
+	}
 	// 注意：rabbitmq connection 关闭会导致 channel 关闭，从而让 worker loop 退出
 	infra.Close()
 	wg.Wait()
-	log.Println("✅ Sidecar stopped gracefully.")
+	obslog.Infof("sidecar stopped gracefully")
 }

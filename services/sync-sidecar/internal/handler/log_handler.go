@@ -3,13 +3,13 @@ package handler
 import (
 	"context"
 	"encoding/json"
-	"log"
 	"time"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 
 	"sync-sidecar/internal/event"
 	"sync-sidecar/internal/model"
+	"sync-sidecar/internal/obslog"
 	"sync-sidecar/internal/service"
 )
 
@@ -20,7 +20,7 @@ type LogHandler struct {
 func (h *LogHandler) Handle(d amqp.Delivery) {
 	var e event.LogEvent
 	if err := json.Unmarshal(d.Body, &e); err != nil {
-		log.Printf("Log JSON parse error: %v", err)
+		obslog.DeliveryErrorf(d, "log json parse error err=%v", err)
 		d.Ack(false)
 		return
 	}
@@ -38,7 +38,7 @@ func (h *LogHandler) Handle(d amqp.Delivery) {
 	}
 
 	doc := model.ApiLogDoc{
-		TraceId: e.TraceId, LogType: e.LogType, Module: e.Module,
+		Service: e.Service, RequestId: e.RequestId, TraceId: e.TraceId, LogType: e.LogType, Module: e.Module,
 		BizId: e.BizId, UserId: e.UserId, Username: e.Username,
 		Role: e.Role, Method: e.Method, Uri: e.Uri,
 		Ip: e.Ip, Params: e.Params, Status: e.Status,
@@ -48,10 +48,9 @@ func (h *LogHandler) Handle(d amqp.Delivery) {
 
 	_, err = coll.InsertOne(context.Background(), doc)
 	if err != nil {
-		log.Printf("❌ [Log] Insert Error: %v", err)
+		obslog.DeliveryErrorf(d, "log insert error err=%v", err)
 	} else {
-		// ✅ 增加成功日志 (仅打印关键信息，防止太长)
-		log.Printf("📝 [Log] Saved: [%s] %s %s (Trace: %s)", e.LogType, e.Method, e.Uri, e.TraceId)
+		obslog.DeliveryInfof(d, "log saved type=%s method=%s uri=%s", e.LogType, e.Method, e.Uri)
 	}
 	d.Ack(false)
 }

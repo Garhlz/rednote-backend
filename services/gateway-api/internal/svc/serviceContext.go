@@ -1,15 +1,22 @@
 package svc
 
 import (
+	"context"
 	"net"
 	"net/http"
 	"os"
 	"time"
 
 	"gateway-api/internal/config"
+	"gateway-api/internal/pkg/ctxutil"
+	"gateway-api/internal/telemetry"
 
 	"github.com/zeromicro/go-zero/core/stores/redis"
 	"github.com/zeromicro/go-zero/zrpc"
+	"go.opentelemetry.io/otel"
+	oteltrace "go.opentelemetry.io/otel/trace"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 )
 
 type ServiceContext struct {
@@ -18,6 +25,7 @@ type ServiceContext struct {
 	SearchRpc       zrpc.Client
 	InteractionRpc  zrpc.Client
 	NotificationRpc zrpc.Client
+	CommentRpc      zrpc.Client
 	Redis           *redis.Redis
 	JavaHttpClient  *http.Client
 	// JavaApiBaseUrl 是 Java 主业务服务的入口地址。
@@ -28,10 +36,34 @@ type ServiceContext struct {
 func NewServiceContext(c config.Config) *ServiceContext {
 	// 三个 RPC client 对应网关后面的 Go 微服务。
 	// gateway-api 自己不保存业务状态，它主要负责把请求分发到这些后端能力上。
-	userClient := zrpc.MustNewClient(c.UserRpc)
-	searchClient := zrpc.MustNewClient(c.SearchRpc)
-	interactionClient := zrpc.MustNewClient(c.InteractionRpc)
-	notificationClient := zrpc.MustNewClient(c.NotificationRpc)
+	clientOption := zrpc.WithUnaryClientInterceptor(func(ctx context.Context, method string, req, reply any, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
+		tracer := otel.Tracer("gateway-api")
+		ctx, span := tracer.Start(ctx, method, oteltrace.WithSpanKind(oteltrace.SpanKindClient))
+		defer span.End()
+
+		requestID := ctxutil.RequestID(ctx)
+		if requestID == "" {
+			requestID = ctxutil.TraceID(ctx)
+		}
+		if requestID == "" {
+			requestID = telemetry.TraceID(ctx)
+		}
+		md, _ := metadata.FromOutgoingContext(ctx)
+		md = md.Copy()
+		if requestID != "" {
+			md.Set("x-request-id", requestID)
+			md.Set("x-trace-id", requestID)
+		}
+		otel.GetTextMapPropagator().Inject(ctx, metadataCarrier(md))
+		ctx = metadata.NewOutgoingContext(ctx, md)
+		return invoker(ctx, method, req, reply, cc, opts...)
+	})
+
+	userClient := zrpc.MustNewClient(c.UserRpc, clientOption)
+	searchClient := zrpc.MustNewClient(c.SearchRpc, clientOption)
+	interactionClient := zrpc.MustNewClient(c.InteractionRpc, clientOption)
+	notificationClient := zrpc.MustNewClient(c.NotificationRpc, clientOption)
+	commentClient := zrpc.MustNewClient(c.CommentRpc, clientOption)
 
 	// Java 地址支持三层来源：
 	// 1. 配置文件
@@ -69,8 +101,31 @@ func NewServiceContext(c config.Config) *ServiceContext {
 		SearchRpc:       searchClient,
 		InteractionRpc:  interactionClient,
 		NotificationRpc: notificationClient,
+		CommentRpc:      commentClient,
 		Redis:           redis.MustNewRedis(c.Redis),
 		JavaHttpClient:  &http.Client{Timeout: timeout, Transport: transport},
 		JavaApiBaseUrl:  javaBaseURL,
 	}
+}
+
+type metadataCarrier metadata.MD
+
+func (c metadataCarrier) Get(key string) string {
+	values := metadata.MD(c).Get(key)
+	if len(values) == 0 {
+		return ""
+	}
+	return values[0]
+}
+
+func (c metadataCarrier) Set(key, value string) {
+	metadata.MD(c).Set(key, value)
+}
+
+func (c metadataCarrier) Keys() []string {
+	keys := make([]string, 0, len(c))
+	for k := range metadata.MD(c) {
+		keys = append(keys, k)
+	}
+	return keys
 }

@@ -26,7 +26,11 @@ public class ApiLogDoc {
 
     // --- 基础信息 ---
     @Indexed
+    private String service;
+    @Indexed
     private String traceId;
+    @Indexed
+    private String requestId;
     @Indexed
     private Long userId;      // 操作人 ID
     private String username;

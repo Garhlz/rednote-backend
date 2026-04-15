@@ -1,7 +1,6 @@
 package com.szu.afternoon3.platform.config;
 
-import cn.hutool.core.lang.UUID;
-import org.slf4j.MDC;
+import com.szu.afternoon3.platform.common.LogMdc;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 import jakarta.servlet.http.HttpServletRequest;
@@ -9,23 +8,32 @@ import jakarta.servlet.http.HttpServletResponse;
 
 @Component
 public class RequestIdInterceptor implements HandlerInterceptor {
-    
-    private static final String TRACE_ID = "traceId";
+
+    private static final String REQUEST_ID_HEADER = "X-Request-Id";
+    private static final String TRACE_ID_HEADER = "X-Trace-Id";
+    private static final String TRACEPARENT_HEADER = "traceparent";
+    private static final String TRACESTATE_HEADER = "tracestate";
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
-        // 生成一个唯一ID，放入 MDC 容器
-        String uuid = UUID.fastUUID().toString(true);
-        MDC.put(TRACE_ID, uuid);
-        
-        // 顺便把 ID 塞回 Response Header，方便前端拿着 ID 找你报修
-        response.setHeader("X-Trace-Id", uuid);
+        String requestId = request.getHeader(REQUEST_ID_HEADER);
+        if (requestId == null || requestId.isBlank()) {
+            requestId = request.getHeader(TRACE_ID_HEADER);
+        }
+        String traceId = request.getHeader(TRACE_ID_HEADER);
+        String traceparent = request.getHeader(TRACEPARENT_HEADER);
+        String tracestate = request.getHeader(TRACESTATE_HEADER);
+        String effectiveId = LogMdc.initHttpContext(requestId, traceId, traceparent, "platform-java");
+        if (tracestate != null && !tracestate.isBlank()) {
+            org.slf4j.MDC.put(LogMdc.TRACESTATE, tracestate);
+        }
+        response.setHeader(REQUEST_ID_HEADER, effectiveId);
+        response.setHeader(TRACE_ID_HEADER, effectiveId);
         return true;
     }
 
     @Override
     public void afterCompletion(HttpServletRequest request, HttpServletResponse response, Object handler, Exception ex) {
-        // 请求结束，清理 MDC，防止内存泄漏
-        MDC.remove(TRACE_ID);
+        LogMdc.clear();
     }
 }
