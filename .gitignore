@@ -4,6 +4,13 @@ HELP.md
 !**/src/main/**/target/
 !**/src/test/**/target/
 
+# OS / editor temp files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
 ### STS ###
 .apt_generated
 .classpath
@@ -62,5 +69,28 @@ shixi.md
 tmp.md
 
 .cache/
+.codex/
 
 .tools/
+
+# Local env / runtime files
+.env
+.env.*
+!.env.example
+*.log
+*.pid
+*.seed
+
+# Go / test artifacts
+coverage.out
+cover.out
+*.coverprofile
+*.test
+*.prof
+bin/
+dist/
+tmp/
+
+# Local backup / dump artifacts
+
+deploy/prod.env

@@ -156,7 +156,7 @@ services:
       - RABBITMQ_URL=amqp://admin:admin@mq:5672/
       - MONGO_URI=mongodb://mongo:27017
       - OTEL_ENABLED=true
-      - OTEL_EXPORTER_OTLP_ENDPOINT=jaeger:4318
+      - OTEL_EXPORTER_OTLP_ENDPOINT=jaeger:4317
       - TZ=Asia/Shanghai
       - POST_AUDIT_ENABLE=false
       - HTTP_PROXY=

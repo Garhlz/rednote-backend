@@ -27,7 +27,7 @@ func main() {
 	flag.Parse()
 
 	var c config.Config
-	conf.MustLoad(*configFile, &c)
+	conf.MustLoad(*configFile, &c, conf.UseEnv())
 	shutdownTelemetry, err := trace.InitProvider(context.Background(), "notification-rpc")
 	if err != nil {
 		panic(err)

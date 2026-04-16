@@ -1,32 +1,33 @@
-# 阶段 1: 构建阶段 (使用 JDK)
-FROM maven:3.8.5-eclipse-temurin-17-alpine AS builder
-WORKDIR /build
+# syntax=docker/dockerfile:1.5
 
-# 利用 Docker 层缓存：先只复制 pom.xml
-COPY pom.xml .
-# 预下载依赖 (这一步如果不改变 pom.xml 就会被缓存)
-RUN mvn dependency:go-offline
+FROM maven:3.9.9-eclipse-temurin-17-alpine AS builder
 
-# 复制源码并打包 (跳过单元测试以加快速度)
-COPY src ./src
-RUN mvn clean package -DskipTests
+WORKDIR /build/services/platform-java
 
-# 阶段 2: 运行阶段 (使用精简 JRE)
+# 先复制依赖描述和 proto，尽量利用缓存层
+COPY services/platform-java/pom.xml ./
+COPY proto /build/proto
+
+RUN --mount=type=cache,target=/root/.m2 \
+    mvn -f pom.xml dependency:go-offline
+
+# 再复制源码进行打包
+COPY services/platform-java/src ./src
+
+RUN --mount=type=cache,target=/root/.m2 \
+    mvn -f pom.xml clean package -DskipTests
+
 FROM eclipse-temurin:17-jre-alpine
+
 WORKDIR /app
 
-# 安装时区数据和基础工具 (Alpine 默认可能缺少)
-RUN apk add --no-cache tzdata
+RUN apk add --no-cache tzdata ca-certificates
+
 ENV TZ=Asia/Shanghai
-RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+ENV JAVA_OPTS="-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0"
 
-# 从构建阶段复制生成的 JAR
-COPY --from=builder /build/target/rednote_backend.jar app.jar
-
-# JVM 参数优化：感知容器内存限制
-# -XX:+UseContainerSupport 让 Java 自动识别 Docker 的内存限制
-ENV JAVA_OPTS="-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -XshowSettings:vm"
+COPY --from=builder /build/services/platform-java/target/rednote_backend.jar /app/app.jar
 
 EXPOSE 8080
 
-ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]
+ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar /app/app.jar"]

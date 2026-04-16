@@ -2,7 +2,7 @@ Name: user.rpc
 ListenOn: 0.0.0.0:8080
 Etcd:
   Hosts:
-  - etcd:2379
+    - etcd:2379
   Key: user.rpc
 Metrics:
   Host: 0.0.0.0

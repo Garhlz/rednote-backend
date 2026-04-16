@@ -12,7 +12,7 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
-	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/propagation"
 	sdkresource "go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
@@ -27,14 +27,14 @@ func InitProvider(ctx context.Context, service string) (func(context.Context) er
 
 	endpoint := strings.TrimSpace(os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"))
 	if endpoint == "" {
-		endpoint = "jaeger:4318"
+		endpoint = "jaeger:4317"
 	}
 	endpoint = strings.TrimPrefix(endpoint, "http://")
 	endpoint = strings.TrimPrefix(endpoint, "https://")
 
-	exporter, err := otlptracehttp.New(ctx,
-		otlptracehttp.WithEndpoint(endpoint),
-		otlptracehttp.WithInsecure(),
+	exporter, err := otlptracegrpc.New(ctx,
+		otlptracegrpc.WithEndpoint(endpoint),
+		otlptracegrpc.WithInsecure(),
 	)
 	if err != nil {
 		return nil, err

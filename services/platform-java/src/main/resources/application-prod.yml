@@ -1,0 +1,127 @@
+spring:
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: ${DB_URL:jdbc:mysql://db:3306/user_db?useUnicode=true&characterEncoding=utf8&connectionCollation=utf8mb4_unicode_ci&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false}
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:123456}
+    hikari:
+      maximum-pool-size: ${DB_MAX_POOL_SIZE:30}
+      minimum-idle: ${DB_MIN_IDLE:10}
+      connection-timeout: 30000
+
+  data:
+    mongodb:
+      uri: ${MONGO_URI:mongodb://mongo:27017/rednote}
+      auto-index-creation: true
+    redis:
+      host: ${REDIS_HOST:redis}
+      port: ${REDIS_PORT:6379}
+      database: 0
+      password: ${REDIS_PASSWORD:}
+
+  elasticsearch:
+    uris: ${ELASTICSEARCH_URIS:http://es:9200}
+    socket-timeout: 30s
+    connection-timeout: 5s
+
+  rabbitmq:
+    host: ${RABBITMQ_HOST:mq}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:admin}
+    password: ${RABBITMQ_PASSWORD:admin}
+    listener:
+      simple:
+        retry:
+          enabled: true
+          max-attempts: 3
+          initial-interval: 1000ms
+          multiplier: 2.0
+          max-interval: 10000ms
+        default-requeue-rejected: false
+
+  mail:
+    host: ${MAIL_HOST}
+    username: ${MAIL_USERNAME}
+    password: ${MAIL_PASSWORD}
+    default-encoding: UTF-8
+    protocol: smtp
+    properties:
+      mail:
+        debug: false
+        smtp:
+          auth: true
+          ssl:
+            enable: true
+            trust: "*"
+          socketFactory:
+            port: 465
+            class: javax.net.ssl.SSLSocketFactory
+
+aliyun:
+  oss:
+    enable: true
+    endpoint: ${ALIYUN_OSS_ENDPOINT:oss-cn-shenzhen.aliyuncs.com}
+    access-key-id: ${ALIYUN_ACCESS_KEY_ID}
+    access-key-secret: ${ALIYUN_ACCESS_KEY_SECRET}
+    bucket-name: ${ALIYUN_BUCKET_NAME}
+
+wechat:
+  appid: ${WECHAT_APPID}
+  secret: ${WECHAT_SECRET}
+
+tencent:
+  im:
+    sdk-appid: ${TENCENT_IM_SDK_APPID}
+    secret-key: ${TENCENT_IM_SECRET_KEY}
+    expire-time: 604800
+
+ai:
+  deepseek:
+    url: https://api.deepseek.com/chat/completions
+    key: ${DEEPSEEK_API_KEY}
+    model: deepseek-chat
+  dashscope:
+    api-key: ${QWENVL_API_KEY}
+    model: qwen-vl-plus
+  bot:
+    user-id: ${CHATBOT_ID}
+    user-nickname: ${CHATBOT_NICKNAME}
+
+szu:
+  jwt:
+    secret: ${JWT_SECRET:defaultSecretForProdOnly}
+
+app:
+  post:
+    audit-enable: ${POST_AUDIT_ENABLE:false}
+
+file:
+  upload:
+    path: /app/uploads/
+    base-url: ${FILE_BASE_URL:http://localhost/uploads/}
+
+logging:
+  level:
+    root: INFO
+    com.szu.afternoon3.platform.listener: INFO
+    com.szu.afternoon3.platform.mapper: INFO
+    org.springframework.data.mongodb.core.MongoTemplate: WARN
+    org.mongodb.driver.protocol.command: WARN
+
+grpc:
+  client:
+    interaction-service:
+      address: ${GRPC_INTERACTION_ADDR:static://interaction-rpc:8080}
+      negotiation-type: plaintext
+    search-service:
+      address: ${GRPC_SEARCH_ADDR:static://search-rpc:8080}
+      negotiation-type: plaintext
+    user-service:
+      address: ${GRPC_USER_ADDR:static://user-rpc:8080}
+      negotiation-type: plaintext
+    notification-service:
+      address: ${GRPC_NOTIFICATION_ADDR:static://notification-rpc:8080}
+      negotiation-type: plaintext
+    comment-service:
+      address: ${GRPC_COMMENT_ADDR:static://comment-rpc:8080}
+      negotiation-type: plaintext

@@ -14,14 +14,15 @@
   - 文档、代码生成结果和真实接口返回不一致
   - 前端和 Apifox 容易继续基于旧结构联调
 - 建议：
-  - 继续梳理部分后台接口、开发辅助接口等当前仍走 Java 且返回结构未建模的接口
-  - 在确认生成结果不会覆盖现有自定义实现后，统一重新生成网关代码
+  - 继续梳理部分后台接口、开发辅助接口等当前仍走 Java 且返回结构未建模的接口。经排查，目前 `/admin/*` 路径下的所有后台管理 API（如 `login`、`send-code`、`user/list`、`post/audit-list`、`log/export`、`stats/top-views` 等）在 `gateway.api` 中均使用 `Empty` 占位返回结构，并且 Go 的 internal logic 层里全是 `todo: add your logic here`。
+  - 在确认生成结果不会覆盖现有自定义实现后，统一重新生成网关代码并实现这些后台 API 的代理或重构。
 
 ### 补齐用户域仍由 Java 承担的接口迁移策略
 
 - 现状：
-  - 用户搜索已能通过网关正确代理到 Java
-  - 但关注列表、粉丝列表、好友列表、我的点赞/收藏/评分/历史/评论等接口仍主要依赖 Java
+  - 用户搜索已能通过网关正确代理到 Java。
+  - 但关注列表 (`/api/user/follows`)、粉丝列表 (`/api/user/fans`)、好友列表 (`/api/user/friends`)、关注/取消关注动作、以及各种个人的互动查询如：我的点赞/收藏/评分/历史/评论等接口，目前仍完全在 `platform-java` (`UserController` 及 `UserServiceImpl`) 中实现。
+  - Go 网关 (`gateway-api`) 中针对上述用户域接口的 handler 和 logic 虽然已通过代码生成，但实际上全部处于 `todo: add your logic here` 的占位状态。
 - 影响：
   - 用户域边界还不够清晰
   - 文档层面容易给人“已经完全迁到 Go”的误解
@@ -52,7 +53,7 @@
   - 索引名冲突
   - 唯一索引和历史脏数据冲突
 - 建议：
-  - 增加脚本列出以下集合的索引定义：
+  - 增加脚本列出以下集合的索引定义并核对兼容情况，防范重复/唯一性冲突（因为已发现 Java 与 Go 混用可能导致同字段但不同名的冲突以及唯一索引在老数据上的容错差异）：
     - `comments`
     - `comment_likes`
     - `notifications`

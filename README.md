@@ -385,7 +385,7 @@ docker compose up -d --build
 
 ```bash
 cd services/platform-java
-SPRING_PROFILES_ACTIVE=dev mvn spring-boot:run
+./scripts/run-platform-java-with-otel.sh
 ```
 
 ### 3. 常用入口
@@ -423,3 +423,4 @@ SPRING_PROFILES_ACTIVE=dev mvn spring-boot:run
 - `MongoDB + Elasticsearch`
 - `最终一致性`
 - `OpenTelemetry / Jaeger / Loki / Grafana`
+
