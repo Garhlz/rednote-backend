@@ -195,6 +195,36 @@ type PostAuthor struct {
 	Avatar   string `json:"avatar"`
 }
 
+type PostCreateReq struct {
+	Title       string   `json:"title"`
+	Content     string   `json:"content"`
+	Type        int32    `json:"type"`
+	Images      []string `json:"images,optional"`
+	Video       string   `json:"video,optional"`
+	Tags        []string `json:"tags,optional"`
+	CoverWidth  int32    `json:"coverWidth,optional"`
+	CoverHeight int32    `json:"coverHeight,optional"`
+}
+
+type IdVO struct {
+	Id string `json:"id"`
+}
+
+type PostUpdateReq struct {
+	Id          string   `path:"id"`
+	Title       string   `json:"title,optional"`
+	Content     string   `json:"content,optional"`
+	Images      []string `json:"images,optional"`
+	Video       string   `json:"video,optional"`
+	Tags        []string `json:"tags,optional"`
+	CoverWidth  int32    `json:"coverWidth,optional"`
+	CoverHeight int32    `json:"coverHeight,optional"`
+}
+
+type PostIdReq struct {
+	Id string `path:"id"`
+}
+
 type PostVO struct {
 	Id            string     `json:"id"`
 	Author        PostAuthor `json:"author"`

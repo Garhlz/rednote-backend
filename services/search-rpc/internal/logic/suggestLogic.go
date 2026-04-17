@@ -124,15 +124,39 @@ func (l *SuggestLogic) Suggest(in *search.SuggestRequest) (*search.SuggestRespon
 	}
 
 	// 6. 提取建议词 (去重 + 保持顺序)
-	// Java 用了 LinkedHashSet，Go 没有内置，可以用 map + slice 模拟。
-	// 这里的策略是“原词优先，但只有在确实有搜索结果时才插入”，
-	// 避免建议框总是回显一条没有命中的原词，体验上像“假联想”。
+	hits := make([]suggestHit, 0, len(esResponse.Hits.Hits))
+	for _, h := range esResponse.Hits.Hits {
+		hits = append(hits, suggestHit{
+			Highlight: h.Highlight,
+			Title:     h.Source.Title,
+			Tags:      h.Source.Tags,
+		})
+	}
+
+	suggestions := assembleSuggestions(in.Keyword, hits)
+
+	appmetrics.ObserveRequest("suggest", "success", time.Since(start))
+	return &search.SuggestResponse{Suggestions: suggestions}, nil
+}
+
+// assembleSuggestions 是建议词组装的核心纯函数，可独立测试。
+// 策略：原词优先（但仅在有 ES 命中时插入），去重保序，最多 10 条，仅有原词时清空。
+type suggestHit struct {
+	Highlight map[string][]string
+	Title     string
+	Tags      []string
+}
+
+func assembleSuggestions(keyword string, hits []suggestHit) []string {
 	suggestions := []string{}
 	seen := map[string]bool{}
 	seededOriginal := false
 
-	if len(esResponse.Hits.Hits) > 0 {
-		original := strings.TrimSpace(in.Keyword)
+	// Java 用了 LinkedHashSet，Go 没有内置，可以用 map + slice 模拟。
+	// 这里的策略是"原词优先，但只有在确实有搜索结果时才插入"，
+	// 避免建议框总是回显一条没有命中的原词，体验上像"假联想"。
+	if len(hits) > 0 {
+		original := strings.TrimSpace(keyword)
 		if original != "" {
 			suggestions = append(suggestions, original)
 			seen[original] = true
@@ -140,8 +164,7 @@ func (l *SuggestLogic) Suggest(in *search.SuggestRequest) (*search.SuggestRespon
 		}
 	}
 
-	for _, hit := range esResponse.Hits.Hits {
-		// 检查各个字段的高亮
+	for _, hit := range hits {
 		fieldsToCheck := []string{"title", "title.pinyin", "tags", "tags.pinyin"}
 		for _, field := range fieldsToCheck {
 			if frags, ok := hit.Highlight[field]; ok && len(frags) > 0 {
@@ -152,7 +175,7 @@ func (l *SuggestLogic) Suggest(in *search.SuggestRequest) (*search.SuggestRespon
 				}
 			}
 		}
-		for _, candidate := range collectSuggestFallbacks(hit.Source.Title, hit.Source.Tags, in.Keyword) {
+		for _, candidate := range collectSuggestFallbacks(hit.Title, hit.Tags, keyword) {
 			if !seen[candidate] {
 				suggestions = append(suggestions, candidate)
 				seen[candidate] = true
@@ -167,13 +190,11 @@ func (l *SuggestLogic) Suggest(in *search.SuggestRequest) (*search.SuggestRespon
 	}
 
 	// 如果只有原词一条，而没有任何真正候选，就把它去掉。
-	// 这样最终返回空数组，前端会比“只回显用户输入”更符合预期。
+	// 这样最终返回空数组，前端会比"只回显用户输入"更符合预期。
 	if seededOriginal && len(suggestions) == 1 {
 		suggestions = suggestions[:0]
 	}
-
-	appmetrics.ObserveRequest("suggest", "success", time.Since(start))
-	return &search.SuggestResponse{Suggestions: suggestions}, nil
+	return suggestions
 }
 
 func collectSuggestFallbacks(title string, tags []string, keyword string) []string {

@@ -1,96 +1,80 @@
 # sync-sidecar
 
-`sync-sidecar` 是项目里的异步同步和日志侧车服务，核心职责是消费 MQ 事件并维护 Mongo / ES 的冗余数据。
+`sync-sidecar` 是项目的异步同步旁路服务，核心职责是消费 RabbitMQ 事件，将主库数据增量同步到 Elasticsearch，并提供手动全量重建能力。
 
 ## 服务职责
 
-- 消费日志事件并落库
-- 消费帖子和用户更新事件，增量同步到 Elasticsearch
-- 提供手动触发的全量重建接口
-- 输出统一结构化日志和链路追踪
+| 职责 | 说明 |
+|------|------|
+| ES 增量同步 | 消费帖子创建、更新、审核通过事件，回查 Mongo 后写入 ES |
+| ES 全量重建 | 管理接口触发，分批扫描 Mongo → 批量写入 ES |
+| 用户资料冗余同步 | 消费 `UserUpdateEvent`，刷新 ES 中帖子文档的作者冗余字段 |
+| 日志落库 | 消费 `log.#` 事件，将操作日志写入 Mongo 供后台审计 |
 
-## 接口规范
+## 管理接口
 
-该服务不对前端开放业务接口，只提供管理接口。
+该服务不对外暴露业务接口，仅提供以下管理端点（需 `X-Admin-Token` 验证）：
 
 | 路径 | 方法 | 说明 |
-| --- | --- | --- |
-| `/admin/reindex/posts` | `POST` | 手动触发 Mongo -> ES 全量同步 |
+|------|------|------|
+| `/admin/reindex/posts` | `POST` | 触发 Mongo → ES 全量重建 |
 
-调用示例：
+**调用示例**（Docker 本地环境，宿主机端口 18088）：
 
 ```bash
-curl --noproxy '*' -X POST 'http://127.0.0.1:18088/admin/reindex/posts' \
-  -H 'X-Admin-Token: szu123'
+curl -X POST 'http://127.0.0.1:18088/admin/reindex/posts' \
+  -H 'X-Admin-Token: <your-admin-token>'
 ```
 
-## 技术实现
+> `AdminToken` 通过环境变量 `ADMIN_TOKEN` 注入，默认值仅供开发调试使用。
 
-### 1. MQ 消费模型
+## MQ 消费拓扑
 
-当前绑定的队列和 routing key：
+| 队列 | Routing Key | 处理逻辑 |
+|------|-------------|----------|
+| `platform.es.sync.queue` | `post.#` | 帖子增量写入 / 软删除同步 ES |
+| `platform.es.sync.queue` | `user.update` | 刷新 ES 中帖子的作者冗余字段 |
+| `platform.es.sync.queue` | `post.audit.pass` | 审核通过后将帖子写入 ES（仅审核模式） |
+| `platform.log.queue` | `log.#` | 操作日志写入 Mongo |
+| `platform.user.queue` | `user.#` | 用户数据同步到 Mongo 多集合冗余字段 |
 
-- `platform.log.queue`
-  - `log.#`
-- `platform.es.sync.queue`
-  - `post.#`
-  - `user.update`
-  - `post.audit.pass`
-- `platform.user.queue`
-  - `user.#`
+## handleUpdate 分支逻辑
 
-sidecar 启动后会为各队列启动固定 worker 并发消费。
+`PostUpdateEvent` 触发 `handleUpdate`，回查 Mongo 后按以下规则路由：
 
-### 2. ES 增量同步
+- `ErrNoDocuments`（文档不存在）→ 走 `handleDelete`，在 ES 中删除该帖子
+- `IsDeleted == 1` 或 `Status != 1` → 同上，同步删除
+- 正常文档 → 重新索引（upsert）
 
-- 监听帖子创建、更新、审核通过等事件
-- 回查 Mongo 中的帖子主文档
-- 组装 ES 索引文档写入 `posts` 索引
-- 用户昵称/头像更新时，同步刷新帖子索引中的冗余作者信息
+这确保了即使帖子在 Mongo 中被标记删除，ES 侧也会最终保持一致。
 
-### 3. 全量重建
-
-管理接口触发后会：
+## 全量重建流程
 
 1. 校验 `X-Admin-Token`
-2. 清空目标索引
-3. 分批扫描 Mongo `posts`
-4. 批量写入 Elasticsearch
+2. 互斥锁保证同时只有一次重建任务运行（并发请求返回 `409 Conflict`）
+3. 清空 ES 目标索引
+4. 分批扫描 Mongo `posts`（`status=1` 且 `isDeleted=0`）
+5. 批量写入 ES
 
-适合以下场景：
-
-- 初次接入 ES
-- 历史增量消息丢失后修复索引
-- 调整映射或排序策略后重建数据
-
-### 4. 日志落库
-
-- 消费 `log.#` 事件
-- 将访问日志、操作日志统一存入 Mongo
-- 便于后台检索、导出和审计
-
-## 技术亮点
-
-- 把“异步同步”和“主业务写链路”剥离开，避免 Java/Go 主流程里夹杂太多同步逻辑
-- 既支持 MQ 增量同步，也支持 HTTP 手动全量重建，运维手段完整
-- 统一消费层能集中处理 traceId、routingKey、失败重试日志
-- 对 ES 写入失败场景有更好的定位能力，适合本地排查和扩展成生产方案
-
-## 关键依赖
-
-- `RabbitMQ`
-- `MongoDB`
-- `Elasticsearch`
+适用场景：初次接入 ES、历史增量事件丢失后修复索引、调整映射策略后重建。
 
 ## 本地运行
 
 ```bash
+# 构建
 cd services/sync-sidecar
 go build ./...
-```
 
-通过 Docker 启动：
-
-```bash
+# 通过 Docker Compose 启动（推荐）
 docker compose up -d --build sync-sidecar
 ```
+
+服务启动后监听：
+- 内部 HTTP 管理端口：`:8088`
+- Docker 宿主机映射：`127.0.0.1:18088`
+
+## 关键依赖
+
+- `RabbitMQ`：事件消费
+- `MongoDB`：主数据源与日志落库
+- `Elasticsearch`：搜索索引写入

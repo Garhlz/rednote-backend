@@ -191,6 +191,36 @@ type PostAuthor {
 	avatar   string `json:"avatar"`
 }
 
+type PostCreateReq {
+	title       string   `json:"title"`
+	content     string   `json:"content"`
+	type        int32    `json:"type"`
+	images      []string `json:"images,optional"`
+	video       string   `json:"video,optional"`
+	tags        []string `json:"tags,optional"`
+	coverWidth  int32    `json:"coverWidth,optional"`
+	coverHeight int32    `json:"coverHeight,optional"`
+}
+
+type IdVO {
+	id string `json:"id"`
+}
+
+type PostUpdateReq {
+	id          string   `path:"id"`
+	title       string   `json:"title,optional"`
+	content     string   `json:"content,optional"`
+	images      []string `json:"images,optional"`
+	video       string   `json:"video,optional"`
+	tags        []string `json:"tags,optional"`
+	coverWidth  int32    `json:"coverWidth,optional"`
+	coverHeight int32    `json:"coverHeight,optional"`
+}
+
+type PostIdReq {
+	id string `path:"id"`
+}
+
 type PostVO {
 	id            string     `json:"id"`
 	author        PostAuthor `json:"author"`
@@ -486,13 +516,13 @@ service gateway {
 	get /search/suggest (SuggestReq) returns (SearchSuggestResp)
 
 	@handler CreatePost
-	post / (Empty) returns (Empty)
+	post / (PostCreateReq) returns (IdVO)
 
 	@handler DeletePost
-	delete /:id (IdPath) returns (Empty)
+	delete /:id (PostIdReq) returns (Empty)
 
 	@handler UpdatePost
-	put /:id (IdPath) returns (Empty)
+	put /:id (PostUpdateReq) returns (Empty)
 }
 
 @server (

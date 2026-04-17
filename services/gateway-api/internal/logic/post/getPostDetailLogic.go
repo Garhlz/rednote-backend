@@ -103,6 +103,12 @@ func buildJavaHeaders(ctx context.Context) map[string]string {
 	if token := ctxutil.AuthToken(ctx); token != "" {
 		headers["Authorization"] = "Bearer " + token
 	}
+	if requestID := ctxutil.RequestID(ctx); requestID != "" {
+		headers["X-Request-Id"] = requestID
+	}
+	if traceID := ctxutil.TraceID(ctx); traceID != "" {
+		headers["X-Trace-Id"] = traceID
+	}
 	if userID := ctxutil.UserID(ctx); userID > 0 {
 		headers["X-User-Id"] = strconv.FormatInt(userID, 10)
 	}

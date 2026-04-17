@@ -2,56 +2,79 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-总是使用简体中文进行回答和注释
+总是使用简体中文进行回答、思考和注释
+
+不需要帮我使用 git commit
+
 ## Commands
 
-- **Start Infrastructure and Go Services**: `docker compose up -d --build` (this starts all dependencies like Redis, MongoDB, Elasticsearch, RabbitMQ, Etcd, and the Go services).
-- **Run Java Service (Local)**: `./scripts/run-platform-java-with-otel.sh` (runs the Spring Boot application with OpenTelemetry enabled).
-- **Build Go Services**: Run `go build ./...` inside any specific Go service directory (e.g., `cd services/gateway-api && go build ./...`).
-- **Run Go Tests**: Run `go test ./...` inside a specific Go service directory to run tests for that service.
+- **启动基础设施与 Go 服务**：`docker compose up -d --build`（启动 Redis、MongoDB、Elasticsearch、RabbitMQ、Etcd 及所有 Go 服务）
+- **本地启动 Java 服务**：`./scripts/run-platform-java-with-otel.sh`（挂载 OpenTelemetry agent 运行 Spring Boot）
+- **构建单个 Go 服务**：在服务目录下执行 `go build ./...`，例如 `cd services/gateway-api && go build ./...`
+- **运行 Go 单元测试**：在服务目录下执行 `go test ./...`；新增依赖后需先执行 `go mod tidy`
+- **运行单个测试函数**：`go test ./internal/... -run TestFunctionName -v`
+- **MongoDB 索引审计**：`./scripts/audit_mongo_indexes.sh`（列出各集合现有索引，检查 Java/Go 双写下的索引冲突）
+- **联调回归脚本**：`./scripts/verify_full_integration.sh`（评论软删、通知 upsert、Cookie 鉴权等场景回归）
 
-## Project Architecture
+## 项目架构
 
-This is a hybrid microservices backend for a content community (like a "Sharely" app) using a **Go + Java** dual-stack approach. The architecture follows a progressive migration strategy, where a core Java monolithic application is gradually broken down by extracting high-frequency, read-heavy, and high-concurrency domains into dedicated Go services.
+本项目是一个面向内容社区的 **Go + Java 双栈混合微服务后端**，采用渐进式演进策略：Java 核心服务保留高耦合的主业务写链路，高频读/高并发的领域逐步抽离为独立的 Go 服务。
 
-### Core Components
+### 核心组件
 
-1.  **API Gateway (`services/gateway-api`)**:
-    *   Acts as the unified HTTP entry point (BFF - Backend for Frontend).
-    *   Handles JWT parsing, authentication (compatible with both strict auth and anonymous access with partial user context), and request routing.
-    *   Routes requests either to Go RPC services or proxies them to the Java service.
-    *   Aggregates data from multiple services (e.g., combining search results with user interaction states).
+1. **API 网关（`services/gateway-api`）**
+   - 统一 HTTP 入口，兼容强鉴权与弱登录态（匿名访问时仍可注入 userId 以补全互动状态字段）
+   - 基于 `internal/handler/javaproxy/proxy.go` 的 `ProxyHandler` 将未迁移的接口（管理后台 `/admin/*`、用户复杂查询域）平滑反向代理回 Java，并自动透传 `X-User-Id / X-User-Role / X-User-Nickname / traceId` 等头
+   - 已迁移到 Go 的路由走 zRPC 调用；其余全部走 `javaproxy`，不留空 TODO
 
-2.  **Domain Services (Go/gRPC using go-zero)**:
-    *   **`user-rpc`**: Manages accounts, login/logout, tokens (Access/Refresh), email verification, and profile updates.
-    *   **`interaction-rpc`**: Handles high-frequency interactions like likes, collections, and ratings. Uses Redis heavily as a read model for fast state checks.
-    *   **`search-rpc`**: Manages post searching, autocomplete suggestions, and search history via Elasticsearch.
-    *   **`comment-rpc`**: Manages the comment tree (creation, deletion, top-level/sub-comment lists).
-    *   **`notification-rpc`**: Manages the notification center, unread counts, and read states.
+2. **领域 RPC 服务（Go / go-zero / gRPC）**
+   - **`user-rpc`**：注册、登录、Token（AccessToken + RefreshToken 双令牌 + Redis jti 即时失效）、邮箱验证码、资料更新
+   - **`interaction-rpc`**：点赞、收藏、评分。Redis 作为读模型，异步与 MongoDB 保持最终一致
+   - **`search-rpc`**：ES 全文检索、建议词（原词优先但不盲目插入策略）、搜索历史
+   - **`comment-rpc`**：评论树（创建、软删/硬删分支、一级列表、子评论分页）；MQ 发布失败时回滚写入
+   - **`notification-rpc`**：未读数、通知列表、状态型通知 upsert 去重（`uk_notifications_state_key` 唯一部分索引）
 
-3.  **Java Core (`services/platform-java`)**:
-    *   Built with Spring Boot.
-    *   Maintains the primary write paths for core entities (like creating posts), the admin backend, and complex business orchestrations that haven't been migrated yet.
-    *   Represents the "legacy" core in this progressive migration architecture.
+3. **Java 核心（`services/platform-java`，Spring Boot 3.3）**
+   - 帖子主写链路、管理后台、关注/粉丝/好友列表、个人互动历史等尚未迁移的业务
+   - 通过 RabbitMQ 发布领域事件（`platform.topic.exchange`）供 sync-sidecar 消费
 
-4.  **Async/Sync Layer (`services/sync-sidecar`)**:
-    *   A Go sidecar service that listens to RabbitMQ events.
-    *   Responsible for updating the Elasticsearch index and handling logging side-effects based on events emitted by the main services (e.g., when a post is created in Java, it emits an event, and this sidecar updates ES for the `search-rpc`).
-    *   Decouples the main write transaction from secondary data store updates (Event-Driven Architecture / Eventual Consistency).
+4. **异步同步层（`services/sync-sidecar`）**
+   - 消费 RabbitMQ 事件，将帖子增量/全量同步至 ES（`PostCreateEvent / PostUpdateEvent / PostAuditPassEvent / PostDeleteEvent`）
+   - 同步用户资料变更至 Mongo 多集合冗余字段（`UserUpdateEvent / UserDeleteEvent`）
+   - 提供管理 HTTP 接口 `POST /reindex/posts`（需 `X-Admin-Token`）触发全量重建，内置并发互斥保护
 
-### Data Storage Strategy
+### 数据存储分工
 
-*   **MySQL**: Core relational data requiring strong transactions (User accounts, auth data).
-*   **MongoDB**: Document store for posts, comments, notifications, and interaction details.
-*   **Redis**: Caching, session management (JWT invalidation via `jti`/versions), and crucially, as a **Read Model** for high-frequency interaction states (likes/collections).
-*   **Elasticsearch**: Full-text search, relevance/hotness sorting, and suggestions.
-*   **RabbitMQ**: Event bus for asynchronous decoupling (e.g., post creation -> search index update, comment creation -> notification).
-*   **Etcd**: Service discovery for Go RPC services.
+| 存储 | 职责 |
+|------|------|
+| MySQL | 账号、认证，强事务数据 |
+| MongoDB | 帖子、评论、通知、互动明细等文档数据 |
+| Redis | JWT 失效控制（jti/版本）+ 高频互动读模型（点赞/收藏状态） |
+| Elasticsearch | 帖子全文检索、热度排序、建议词 |
+| RabbitMQ | 事件总线，主写与副作用解耦（最终一致性） |
+| Etcd | Go 服务注册与发现 |
 
-### Observability
+### 关键设计模式
 
-The project has a unified local observability stack configured via Docker Compose:
-*   **Jaeger**: Distributed tracing (OpenTelemetry).
-*   **Loki + Promtail + Grafana**: Structured logging.
-*   **Prometheus**: Metrics collection.
-All services (both Go and Java) are configured to export traces, logs, and metrics to this stack, using standardized fields (`traceId`, `requestId`, `service`) to correlate requests across HTTP, gRPC, and MQ boundaries.
+- **双栈代理**：网关通过 `javaproxy` 屏蔽 Go/Java 分工细节，前端调用无感知
+- **读写分离**：互动状态走 Redis 读模型，不每次回查 MongoDB
+- **MQ 副作用隔离**：评论创建、帖子发布均先完成主写，再异步发布事件；事件发布失败则回滚主写
+- **索引兼容规范**：Java（Spring Data `@CompoundIndex`）和 Go（`ensureIndexes` 启动时建索引）共用同一个 MongoDB 实例；Go 侧需与 Java 侧保持索引名一致，避免 `IndexOptionsConflict`；唯一索引建失败时记录 warning 而非 panic
+
+### 可观测性
+
+本地通过 Docker Compose 提供完整可观测栈：
+
+- **Jaeger**（`:16686`）：分布式链路追踪（OpenTelemetry）
+- **Grafana + Loki + Promtail**（`:3001`）：结构化日志，按 `service / traceId / routingKey` 查询
+- **Prometheus**：指标采集
+
+所有服务日志统一输出 `service`、`traceId`、`requestId`、`routingKey` 字段，支持跨 HTTP / gRPC / MQ 三类链路串联排查。详见 `docs/observability.md`。
+
+### 测试规范（概要）
+
+- **框架**：Go 原生 `testing` + `testify/assert`（前置断言用 `require`，其余用 `assert`）
+- **命名**：场景化，如 `TestCreateComment_MQPublishFailed`、`TestSuggest_PreferOriginalKeyword`
+- **隔离**：L1 单测绝不连真实数据库；需要依赖时用 fake/stub；集成测试用独立容器
+- **结构**：优先表驱动，减少重复样板
+- 详细规划见 `docs/todo-list.md` 的「补充完整的自动化测试规划与规范」章节

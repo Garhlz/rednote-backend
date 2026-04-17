@@ -306,17 +306,17 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			{
 				Method:  http.MethodPost,
 				Path:    "/",
-				Handler: javaproxy.ProxyHandler(serverCtx),
+				Handler: post.CreatePostHandler(serverCtx),
 			},
 			{
 				Method:  http.MethodDelete,
 				Path:    "/:id",
-				Handler: javaproxy.ProxyHandler(serverCtx),
+				Handler: post.DeletePostHandler(serverCtx),
 			},
 			{
 				Method:  http.MethodPut,
 				Path:    "/:id",
-				Handler: javaproxy.ProxyHandler(serverCtx),
+				Handler: post.UpdatePostHandler(serverCtx),
 			},
 			{
 				Method:  http.MethodGet,

@@ -5,7 +5,10 @@ package post
 
 import (
 	"context"
+	"encoding/json"
+	"net/http"
 
+	"gateway-api/internal/response"
 	"gateway-api/internal/svc"
 	"gateway-api/internal/types"
 
@@ -26,8 +29,23 @@ func NewDeletePostLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Delete
 	}
 }
 
-func (l *DeletePostLogic) DeletePost(req *types.IdPath) (resp *types.Empty, err error) {
-	// todo: add your logic here and delete this line
+func (l *DeletePostLogic) DeletePost(req *types.PostIdReq) (resp *types.Empty, err error) {
+	javaResp, err := l.svcCtx.ProxyToJava(l.ctx, svc.JavaProxyRequest{
+		Method:  http.MethodDelete,
+		Path:    "/api/post/" + req.Id,
+		Headers: buildJavaHeaders(l.ctx),
+	})
+	if err != nil {
+		return nil, err
+	}
 
-	return
+	var envelope javaEnvelope[struct{}]
+	if err := json.Unmarshal(javaResp.Body, &envelope); err != nil {
+		return nil, err
+	}
+	if javaResp.StatusCode != http.StatusOK || envelope.Code != 200 {
+		return nil, response.NewError(envelope.Code, envelope.Message, javaResp.StatusCode)
+	}
+
+	return &types.Empty{}, nil
 }
