@@ -17,7 +17,6 @@ import com.szu.afternoon3.platform.grpc.NotificationRpcClient;
 import com.szu.afternoon3.platform.service.impl.AiServiceImpl;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.support.AmqpHeaders;
-import org.springframework.amqp.rabbit.annotation.RabbitHandler;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -32,7 +31,6 @@ import java.time.LocalDateTime;
 
 @Component
 @Slf4j
-@RabbitListener(queues = RabbitConfig.QUEUE_COMMENT)
 public class CommentEventListener {
 
     @Autowired
@@ -64,7 +62,7 @@ public class CommentEventListener {
      * 唯一的入口方法
      * 根据 event.getType() 分发逻辑
      */
-    @RabbitHandler
+    @RabbitListener(queues = RabbitConfig.QUEUE_COMMENT)
     public void handleCommentEvent(CommentEvent event,
                                    @Header(name = "X-Request-Id", required = false) String requestId,
                                    @Header(name = AmqpHeaders.RECEIVED_ROUTING_KEY, required = false) String routingKey) {
