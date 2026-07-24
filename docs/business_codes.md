@@ -1,125 +1,64 @@
-在设计api的时候，我们统一了响应体设计：
+# 统一响应与业务错误码
+
+本文记录 `gateway-api` 当前实际响应契约。实现以
+`services/gateway-api/internal/response/response.go` 为准。
+
+## 响应结构
+
 ```json
 {
-  "code": 10200,        // 业务码 (5位数字，前3位对应HTTP状态，后2位细分)
-  "message": "操作成功", // 人类可读的提示
-  "data": {}       // 数据
+  "code": 200,
+  "message": "操作成功",
+  "data": {}
 }
 ```
-不需要添加success字段，前端可以直接通过code判断是否成功
 
-前端直接展示我们约定好返回的message即可
+- HTTP 状态码表达传输层结果，`code` 表达前端可判断的业务结果。
+- 成功时 HTTP 状态和业务码均为 `200`，不存在 `success` 字段。
+- 失败码通常为五位：前三位对应 HTTP 状态，后两位区分业务场景。
+- `data` 的具体结构由接口决定；失败时通常为 `null`。
+- 前端可以展示 `message`，但不应依赖中文文案判断业务分支。
 
-以下是api规范的json版本，具体来说，就是在http响应码的三位之后加上自定义的两位，表示更加细分的响应类型
-```json
-[
-  // ==================== 200 OK ====================
-  {
-    "code": 200,
-    "message": "操作成功", // description: 请求成功
-    "data": null
-  },
+## 当前网关错误码
 
-  // ==================== 400 Bad Request ====================
-  {
-    "code": 40001,
-    "message": "请求参数错误", // description: 必填项缺失、格式不对（如邮箱格式错）
-    "data": null
-  },
-  {
-    "code": 40002,
-    "message": "验证码错误或已失效", // description: 绑定邮箱/重置密码时，验证码输错
-    "data": null
-  },
-  {
-    "code": 40003,
-    "message": "用户名或密码错误", // description: 账号登录失败
-    "data": null
-  },
-  {
-    "code": 40004,
-    "message": "微信授权失败，请重试", // description: code 无效或过期，需前端重新 wx.login
-    "data": null
-  },
-  {
-    "code": 40005,
-    "message": "密码强度不符合要求", // description: 密码强度不够（比如太短、没大写字母）
-    "data": null
-  },
-  {
-    "code": 40006,
-    "message": "旧密码错误", // description: 在更新密码的时候，旧密码错误
-    "data": null
-  },
+| HTTP | 业务码 | 默认含义 |
+|---:|---:|---|
+| 400 | 40001 | 请求参数错误 |
+| 400 | 40002 | 验证码错误或已失效 |
+| 400 | 40003 | 用户名或密码错误 |
+| 400 | 40005 | 密码强度不符合要求 |
+| 400 | 40006 | 旧密码错误 |
+| 401 | 40101 | 未提供登录凭证 |
+| 401 | 40102 | Token 非法、过期或已失效 |
+| 403 | 40301 | 账号已禁用 |
+| 403 | 40302 | 无权限访问 |
+| 404 | 40401 | 账号或邮箱不存在 |
+| 404 | 40402 | 资源不存在 |
+| 409 | 40901 | 邮箱或资源冲突 |
+| 409 | 40902 | 当前状态不允许该操作 |
+| 429 | 42901 | 操作过于频繁 |
+| 500 | 50001 | 未分类的服务内部错误 |
+| 500 | 50002 | 邮件服务异常 |
+| 500 | 50003 | OSS 上传异常 |
+| 502 | 50005 | 下游 RPC 或 Java 服务不可用 |
 
-  // ==================== 401 Unauthorized ====================
-  {
-    "code": 40101,
-    "message": "请先登录", // description: Header 没带 Token
-    "data": null
-  },
-  {
-    "code": 40102,
-    "message": "登录已过期，请重新登录", // description: Token 过期或非法
-    "data": null
-  },
+部分 Java 代理接口仍由 `platform-java` 的 `Result<T>` 和异常处理器生成响应。
+新增接口时应保持相同 Envelope，并逐步收敛到上表，避免 Go/Java 同一错误使用不同业务码。
 
-  // ==================== 403 Forbidden ====================
-  {
-    "code": 40301,
-    "message": "账号已被禁用", // description: users.status 为 banned
-    "data": null
-  },
+## gRPC 到 HTTP 的映射
 
-  // ==================== 404 Not Found ====================
-  {
-    "code": 40401,
-    "message": "该账号未注册", // description: 账号登录时，邮箱不存在
-    "data": null
-  },
-  {
-    "code": 40402,
-    "message": "资源不存在", // description: 访问了不存在的帖子或评论
-    "data": null
-  },
+网关会将常见 gRPC 状态转换为 HTTP 与业务码：
 
-  // ==================== 409 Conflict ====================
-  {
-    "code": 40901,
-    "message": "该邮箱已被其他账号绑定", // description: 绑定邮箱时，发现邮箱已存在
-    "data": null
-  },
-  {
-    "code": 40902,
-    "message": "已设置过密码，请调用修改密码接口", // description: 已设置过密码，请调用修改密码接口
-    "data": null
-  },
+| gRPC 状态 | HTTP | 业务码 |
+|---|---:|---:|
+| `InvalidArgument` | 400 | 40001 |
+| `NotFound` | 404 | 40401 或 40402 |
+| `AlreadyExists` | 409 | 40901 |
+| `FailedPrecondition` | 409 | 40902 |
+| `PermissionDenied` | 403 | 40301 或 40302 |
+| `Unauthenticated` | 401 | 40102 |
+| `ResourceExhausted` | 429 | 42901 |
+| `Internal` | 500 | 50001 或 50002 |
+| `Unavailable` | 502 | 50005 |
 
-  // ==================== 429 Too Many Requests ====================
-  {
-    "code": 42901,
-    "message": "操作太频繁，请稍后再试", // description: 发送验证码频率过高 (限流)
-    "data": null
-  },
-
-  // ==================== 500 Internal Server Error ====================
-  {
-    "code": 50001,
-    "message": "服务器开小差了", // description: 后端代码抛出未捕获异常 (空指针、DB连不上)
-    "data": null
-  },
-  {
-    "code": 50002,
-    "message": "邮件服务异常", // description: 第三方服务发送邮件可能会失败（比如网断了或者达到上限）
-    "data": null
-  },
-  {
-    "code": 50003,
-    "message": "OSS服务上传异常", // description: OSS服务出于种种原因失效
-    "data": null
-  }
-]
-```
-
-
-
+修改映射时必须同步更新网关单元测试、前端错误处理和本文。

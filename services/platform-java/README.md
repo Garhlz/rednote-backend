@@ -95,6 +95,14 @@ Java 当前仍保留多个关键 listener：
 
 ## 本地运行
 
+首次启动先准备本地配置：
+
+```bash
+cp services/platform-java/.env.example services/platform-java/.env
+```
+
+在仓库根目录执行复制命令。默认配置连接 Docker 暴露到宿主机的 MySQL、MongoDB、Redis、RabbitMQ 和 Elasticsearch。第三方能力使用禁用占位值；只有验证邮件、OSS、微信或 AI 时才填写专用测试凭证。
+
 ```bash
 cd services/platform-java
 SPRING_PROFILES_ACTIVE=dev mvn spring-boot:run
@@ -105,3 +113,33 @@ SPRING_PROFILES_ACTIVE=dev mvn spring-boot:run
 ```bash
 ./scripts/run-platform-java-with-otel.sh
 ```
+
+该脚本从仓库根目录执行，会按需下载 OpenTelemetry Java Agent；如本机未安装 `tspin`，可先使用普通 `mvn spring-boot:run` 启动。
+
+## 测试分层
+
+Java 测试使用 JUnit 5 Tag 隔离外部依赖和真实副作用：
+
+```bash
+# 默认：只运行不依赖中间件、不会访问外部服务的快速测试
+mvn test
+
+# 集成：需要先启动 MySQL、MongoDB、Redis、RabbitMQ、Elasticsearch
+mvn test -Pintegration
+
+# 真实外部服务：可能发送邮件或上传 OSS，必须显式设置安全开关
+RUN_EXTERNAL_TESTS=true \
+EXTERNAL_TEST_EMAIL=your-test-mailbox@example.com \
+mvn test -Pexternal
+```
+
+默认测试覆盖统一响应、业务错误码、用户 ThreadLocal 上下文和 JWT
+等纯逻辑；带 `integration` / `external` Tag 的历史测试不会进入默认执行。
+
+标签约定：
+
+- 无标签：可在本机和 CI 中安全、快速运行
+- `integration`：依赖本地基础设施，允许写入测试数据
+- `external`：访问真实第三方服务；同时也属于 `integration`
+
+普通开发和 CI 不应设置 `RUN_EXTERNAL_TESTS`。真实外部测试应使用专用测试账号和测试 Bucket，不能使用生产凭证。

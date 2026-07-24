@@ -95,5 +95,6 @@ go test ./...
 通过 Docker 启动：
 
 ```bash
+# 在仓库根目录执行
 docker compose up -d --build search-rpc
 ```

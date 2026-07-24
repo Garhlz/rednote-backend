@@ -66,6 +66,8 @@ cd services/sync-sidecar
 go build ./...
 
 # 通过 Docker Compose 启动（推荐）
+# 返回仓库根目录后执行
+cd ../..
 docker compose up -d --build sync-sidecar
 ```
 

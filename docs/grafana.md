@@ -265,7 +265,7 @@ histogram_quantile(0.95, sum by (action, le) (rate(search_es_query_duration_seco
 
 先看 Prometheus：
 
-- 打开 http://localhost:9090/targets
+- 打开 http://localhost:9091/targets
 - 确认 target 是 UP
 
 ## Grafana 里查不到 metric

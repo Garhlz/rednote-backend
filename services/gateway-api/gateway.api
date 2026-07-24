@@ -594,6 +594,9 @@ service gateway {
 	post /clean-notifications returns (Empty)
 }
 
+// Compatibility contract only: /admin routes are registered with javaproxy.ProxyHandler
+// in internal/handler/routes.go and are implemented by platform-java. The Empty types
+// below must not be treated as the real Java request/response schema.
 @server (
 	prefix: /admin
 	group:  admin

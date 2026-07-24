@@ -1,10 +1,17 @@
-# TODO List
+# 开发与验证状态
+
+状态约定：
+
+- **已实现**：代码或脚本已经完成并有局部自动化验证
+- **待验证**：需要完整运行环境确认
+- **已自动化**：已经进入普通 CI
 
 ## P1 — 功能与架构
 
 ### 网关 OpenAPI 对齐
-- `/admin/*` 路径下所有后台管理 API 在 `gateway.api` 中均使用 `Empty` 占位，Go logic 层全是 TODO
-- 建议：梳理完后统一重新生成网关代码并实现代理
+- `/admin/*` 已在运行时路由中统一绑定 `javaproxy.ProxyHandler`，后台功能由 Java `AdminController` 承担，不会进入生成的 Go logic
+- `gateway.api` 中后台请求/响应仍使用 `Empty` 占位，生成的 admin handler/logic 只是未被注册的脚手架代码
+- 待办：补齐后台接口契约；决定是保留 API 声明并生成“代理型 handler”，还是将代理路由独立维护并删除无效脚手架，避免后续执行 `goctl` 时覆盖手工路由
 
 ### 用户域接口迁移策略
 - 关注列表、粉丝列表、好友列表、个人互动历史等仍由 Java 承担
@@ -47,7 +54,7 @@
 
 ### 测试完成情况
 
-#### L1（已全部完成）
+#### L1（已实现并进入 CI）
 
 | 文件 | 覆盖内容 |
 |------|---------|
@@ -60,8 +67,21 @@
 | `search-rpc/suggest_dedup_test.go` | `assembleSuggestions`，原词优先/仅有原词清空/去重/高亮优先/最多10条 |
 | `notification-rpc/notification_doc_test.go` | `FormatNotificationType`/`ParseNotificationType` 全类型双向映射 |
 | `sync-sidecar/reindex_test.go` | `beginReindex/finishReindex` 并发互斥，10 goroutine 仅1个成功 |
+| `user-rpc/helpers_test.go` | 密码哈希、Token 类型/JTI/版本、邮箱场景、生日解析、可空字段映射 |
+| `interaction-rpc/common_test.go` | MQ 事件 JSON 契约、requestId 优先级、AMQP header carrier、缓存规格 |
+| `gateway-api/auth/mapper_test.go` | 登录 Token/User DTO 完整、部分与 nil 响应映射 |
+| `gateway-api/comment/common_test.go` | 评论分页、作者、回复对象、子评论和时间字段映射 |
+| `gateway-api/response/response_test.go` | 成功 Envelope、AppError 和 gRPC→HTTP/业务码映射 |
+| `user-rpc/validation_test.go` | 登录、注册、验证码、刷新 Token、资料更新的依赖前输入校验 |
+| `user-rpc/helpers_test.go`（追加） | Redis Key 命名、Token JTI、六位验证码和邮件格式 |
+| `interaction-rpc/common_test.go`（追加） | 四类缓存规格、Bloom Key、MQ exchange/routing key 和 TTL 常量 |
+| `interaction-rpc/like_post_logic_test.go` | miniredis 点赞幂等、Dummy 清理、事件发布与 MQ 失败弱一致性 |
+| `user-rpc/auth_state_test.go` | fake store + miniredis 覆盖登录、注册、黑名单、Token 版本与 Refresh 轮换 |
+| `platform-java/common/UserContextTest.java` | ThreadLocal 用户信息读写、清理和线程隔离 |
+| `platform-java/enums/ResultCodeTest.java` | 错误码唯一性、文案非空和 HTTP 前缀约定 |
+| `platform-java/util/JwtUtilTest.java` | Access/Refresh claims、签名校验和篡改拒绝 |
 
-#### L2（已完成）
+#### L2（已实现并进入 CI）
 
 | 文件 | 覆盖内容 |
 |------|---------|
@@ -79,8 +99,9 @@
 | `search-rpc/suggest_integration_test.go` | 空关键词不调ES；5xx透传错误；0命中原词不插入；有高亮原词在前；非法JSON解码错误；仅有原词清空 |
 | `notification-rpc/notification_logic_test.go` | GetUnreadCount；Create/Upsert（nil payload/正常/重复）；MarkAllRead；MarkBatchRead（空ids/非法ids） |
 | `notification-rpc/list_notifications_logic_test.go` | 分页参数兜底；空结果；字段映射；未知类型映射为UNKNOWN |
+| `gateway-api/write_post_logic_test.go` | Java 帖子写代理的方法、路径、鉴权/链路头、请求体和业务错误 |
 
-#### L3（已完成）
+#### L3（已在完整集群验证）
 
 | 脚本 | 覆盖链路 |
 |------|---------|
@@ -91,15 +112,17 @@
 | `scripts/smoke/05_auth_cookie_vs_header.sh` | Cookie 鉴权与 Header 鉴权两种路径打通评论/通知接口；无 Token 公开接口不 401 |
 | `scripts/smoke/run_all.sh` | 汇总执行入口 |
 
+> 2026-07-23 在 macOS + OrbStack 环境完成验证，5/5 通过。L3 依赖完整中间件和 Java 服务，普通 CI 不自动执行；后续修改跨服务契约后应重新运行并更新日期。
+
 ---
 
 ### 当前状态说明
 
 #### L2 测试
-已补齐大部分高价值测试（见上方已完成表格），待进一步 review / 收敛。
+评论、通知、搜索、sidecar 和网关已有主要分支测试。`user-rpc/internal/logic` 已通过 fake store + miniredis 提升到 31.9%；`interaction-rpc/internal/logic` 已通过事件契约和真实 Redis 点赞幂等测试提升到 12.4%。下一阶段优先补互动缓存冷启动/取消/评分，以及修改密码后的 Token 失效。
 
 #### L3 smoke 脚本
-已有所有 5 条脚本的初版，已按真实网关契约修正（端口 8090、`/api/auth/login`、Cookie 名 `accessToken`、`POST /api/post/`、`POST /api/comment/`、`DELETE /api/comment/:id`）。脚本依赖真实运行环境，需 `docker compose up` 后执行验证。
+已有 5 条业务脚本和汇总入口，已按当前网关契约修正。2026-07-23 最近一次完整运行结果为 5/5 通过。
 
 ---
 
@@ -110,6 +133,6 @@
 - 搜索与建议词优化（hot 权重、原词优先策略）
 - 网关鉴权增强（Cookie 回退、用户头透传、javaproxy 平滑代理）
 - 可观测性建设（OpenTelemetry、Jaeger、Loki + Grafana、统一日志字段）
-- 文档体系（README、intern_prepare.md、observability.md、user_events.md）
+- 文档体系（README、文档导航、面试速查、observability.md、user_events.md）
 - 工具脚本（audit_mongo_indexes.sh、verify_full_integration.sh、smoke/）
-- 自动化测试体系（L1/L2 全层覆盖；L3 smoke 脚本已对齐真实网关契约）
+- 自动化测试体系（L1/L2 进入 CI；L3 smoke 已在完整集群验证）

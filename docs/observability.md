@@ -1,6 +1,6 @@
-# 可观测性平台使用指南 (Observability Guide)
+# 可观测性平台使用指南
 
-本指南介绍如何在 RedNote 的可观测性平台（Jaeger & Grafana/Loki）中查询日志和调用链路。
+本指南介绍如何在 Sharely 的可观测性平台（Jaeger、Prometheus、Grafana 和 Loki）中查询调用链、指标与日志。
 
 所有服务（Go RPC 核心服务、网关、Java 单体应用以及 Async/Sync Layer）均已统一接入 OpenTelemetry 和 Loki 收集栈。
 
@@ -22,22 +22,22 @@ Jaeger 用于查看跨服务的请求调用链，分析延迟瓶颈和错误来�
 
 - **HTTP 接口性能分析**
   - Service: `gateway-api`
-  - Operation: `HTTP GET /api/post/list` 或 `HTTP POST /api/comment/create`
+  - Operation: `HTTP GET /api/post/list` 或 `HTTP POST /api/comment/`
   - Min Duration: 设置例如 `500ms`，查找慢请求。
 
 - **gRPC 调用排查**
   - Service: 选择对应的下游服务（如 `comment-rpc`）
-  - Operation: 查看具体的 gRPC 方法（如 `comment.CommentSvc/CreateComment`）。
+  - Operation: 查看具体的 gRPC 方法（如 `comment.CommentService/CreateComment`）。
   - Tags: 可以输入 `error=true` 过滤出发生异常的调用。
 
 - **MQ 异步事件追踪**
-  - 我们的系统通过 `sync-sidecar` 处理 RabbitMQ 消息。
-  - 搜索 Tags: `routingKey=post.create` 可以查看从发帖到 ES 索引更新的完整异步链路。
+  - `sync-sidecar` 处理帖子同步等 RabbitMQ 消息，Java listener 处理部分评论和互动副作用。
+  - 搜索 Tags：`routingKey=post.create` 可定位从发帖到 ES 索引更新的异步链路。
 
 ## 2. 日志查询 (Grafana / Loki)
 
 Loki 用于统一收集和查询结构化日志。
-本地访问地址：[http://localhost:3000](http://localhost:3000)
+本地访问地址：[http://localhost:3001](http://localhost:3001)
 
 在 Grafana 中，进入 **Explore** 页面，选择 `Loki` 作为数据源。使用 LogQL (Log Query Language) 进行检索。
 
@@ -70,7 +70,7 @@ Loki 用于统一收集和查询结构化日志。
 
 查询 MQ 消费日志：
 ```logql
-{service="sync-sidecar"} |= "routingKey=comment.create"
+{service=~"sync-sidecar|platform-java"} |= "routingKey=comment.create"
 ```
 
 ### 高级提取与统计 (Metric Queries)
