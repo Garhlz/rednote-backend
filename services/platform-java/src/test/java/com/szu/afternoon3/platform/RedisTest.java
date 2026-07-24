@@ -8,6 +8,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 
 import java.util.concurrent.TimeUnit;
 
+@org.junit.jupiter.api.Tag("integration")
 @SpringBootTest
 public class RedisTest {
 

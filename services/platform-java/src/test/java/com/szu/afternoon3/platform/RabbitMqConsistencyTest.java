@@ -21,6 +21,7 @@ import java.util.concurrent.TimeUnit;
 
 import static org.awaitility.Awaitility.await;
 
+@org.junit.jupiter.api.Tag("integration")
 @SpringBootTest
 @ActiveProfiles("dev") // 确保使用 dev 配置连接本地 RabbitMQ
 public class RabbitMqConsistencyTest {

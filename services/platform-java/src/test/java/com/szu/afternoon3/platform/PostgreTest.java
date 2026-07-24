@@ -8,6 +8,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 
 import java.time.LocalDateTime;
 
+@org.junit.jupiter.api.Tag("integration")
 @SpringBootTest
 public class PostgreTest {
 

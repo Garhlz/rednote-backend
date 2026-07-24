@@ -41,16 +41,9 @@ func (l *UnlikePostLogic) UnlikePost(in *interaction.InteractionRequest) (*inter
 		return nil, err
 	}
 
-	if removed > 0 {
+	if event, changed := interactionEventIfChanged(removed, in.UserId, in.TargetId, "LIKE", "REMOVE", nil); changed {
 		ensureDummyUserIfEmpty(l.ctx, l.svcCtx, key)
 
-		event := &InteractionEvent{
-			UserId:   in.UserId,
-			TargetId: in.TargetId,
-			Type:     "LIKE",
-			Action:   "REMOVE", // 注意这里
-			Value:    nil,
-		}
 		// 使用 Delete 的 RoutingKey
 		_ = publishEvent(l.ctx, l.svcCtx.MqChannel, RoutingKeyDelete, event)
 	}

@@ -14,6 +14,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
+@org.junit.jupiter.api.Tag("integration")
 @SpringBootTest
 @Disabled("migrated to gateway/user-rpc")
 public class UserProfileTest {

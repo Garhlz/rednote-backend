@@ -44,17 +44,10 @@ func (l *LikeCommentLogic) LikeComment(in *interaction.InteractionRequest) (*int
 	}
 
 	// 3. 如果添加成功，发送 MQ 消息
-	if added > 0 {
+	if event, changed := interactionEventIfChanged(added, in.UserId, in.TargetId, "COMMENT_LIKE", "ADD", nil); changed {
 		removeDummyUser(l.ctx, l.svcCtx, key)
 		AddBloom(l.ctx, l.svcCtx, KeyBloomCommentLike, in.TargetId)
 
-		event := &InteractionEvent{
-			UserId:   in.UserId,
-			TargetId: in.TargetId,
-			Type:     "COMMENT_LIKE",
-			Action:   "ADD",
-			Value:    nil,
-		}
 		// 调用 common.go 里的通用发送方法
 		if err := publishEvent(l.ctx, l.svcCtx.MqChannel, RoutingKeyCreate, event); err != nil {
 			// 注意：这里发送失败是否要回滚 BizRedis？

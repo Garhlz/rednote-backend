@@ -6,7 +6,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-GW="${1:-http://localhost:8888}"
+GW="${1:-${BASE_URL:-http://localhost:8090}}"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -17,6 +17,13 @@ TOTAL=0
 PASSED=0
 FAILED_LIST=()
 
+echo "Gateway: $GW"
+if ! curl --noproxy '*' -fsS --connect-timeout 3 "$GW/api/post/list?page=1&size=1" >/dev/null; then
+  echo -e "${RED}Gateway 不可用：$GW${NC}"
+  echo "请先启动 Docker 集群和 platform-java，再重试。"
+  exit 1
+fi
+
 run_smoke() {
   local script="$1"
   local name
@@ -24,7 +31,7 @@ run_smoke() {
   TOTAL=$((TOTAL+1))
   echo ""
   echo -e "${YELLOW}━━━ $name ━━━${NC}"
-  if bash "$script" "$GW"; then
+  if BASE_URL="$GW" bash "$script" "$GW"; then
     PASSED=$((PASSED+1))
   else
     FAILED_LIST+=("$name")

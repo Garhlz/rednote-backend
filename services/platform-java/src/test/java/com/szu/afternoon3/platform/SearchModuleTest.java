@@ -20,6 +20,7 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.*;
 
 @Slf4j
+@org.junit.jupiter.api.Tag("integration")
 @SpringBootTest
 @Disabled("migrated to gateway/user-rpc")
 public class SearchModuleTest {

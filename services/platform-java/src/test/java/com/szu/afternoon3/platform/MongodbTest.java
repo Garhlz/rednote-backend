@@ -9,6 +9,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import java.time.LocalDateTime;
 import java.util.List;
 
+@org.junit.jupiter.api.Tag("integration")
 @SpringBootTest
 public class MongodbTest {
 

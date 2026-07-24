@@ -1,6 +1,7 @@
 package com.szu.afternoon3.platform.service;
 
-import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -10,6 +11,8 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.File;
 import java.io.FileInputStream;
 
+@org.junit.jupiter.api.Tag("integration")
+@org.junit.jupiter.api.Tag("external")
 @SpringBootTest
 // @Disabled // ⚠️ 平时开发建议加上这个注解，避免每次 mvn package 都真的上传文件。想测的时候手动注释掉。
 public class OssServiceRealTest {
@@ -19,6 +22,10 @@ public class OssServiceRealTest {
 
     @Test
     public void testRealUpload() {
+        Assumptions.assumeTrue(
+                "true".equalsIgnoreCase(System.getenv("RUN_EXTERNAL_TESTS")),
+                "设置 RUN_EXTERNAL_TESTS=true 后才允许上传真实 OSS 文件"
+        );
         System.out.println("========== 开始真实 OSS 上传测试 ==========");
 
         try {
@@ -42,7 +49,7 @@ public class OssServiceRealTest {
 
         } catch (Exception e) {
             System.err.println("❌ 上传失败！请检查 application.yml 里的阿里云配置。");
-            e.printStackTrace();
+            Assertions.fail("真实 OSS 上传失败", e);
         }
 
         System.out.println("========== 测试结束 ==========");

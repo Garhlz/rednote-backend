@@ -115,6 +115,19 @@ type InteractionEvent struct {
 	Value    interface{} `json:"value"`  // 评分的分数 (Double/Float)
 }
 
+func interactionEventIfChanged(changed int, userID int64, targetID, interactionType, action string, value any) (*InteractionEvent, bool) {
+	if changed <= 0 {
+		return nil, false
+	}
+	return &InteractionEvent{
+		UserId:   userID,
+		TargetId: targetID,
+		Type:     interactionType,
+		Action:   action,
+		Value:    value,
+	}, true
+}
+
 // ==========================================
 // 3. 通用 MQ 发送函数
 // ==========================================
@@ -224,16 +237,26 @@ func EnsurePostRateCache(ctx context.Context, svcCtx *svc.ServiceContext, postId
 	return ensureHashCacheLoaded(ctx, svcCtx, postId, postRateCacheSpec)
 }
 
+func setCacheMetricKind(spec setCacheSpec) string {
+	switch spec.redisKeyPrefix {
+	case KeyPostLikeSet:
+		return "like"
+	case KeyPostCollectSet:
+		return "collect"
+	case KeyCommentLikeSet:
+		return "comment_like"
+	default:
+		return strings.Trim(spec.redisKeyPrefix, ":")
+	}
+}
+
 // ensureSetCacheLoaded 用于预热 Set 结构缓存，如点赞/收藏/评论点赞。
 // 这段逻辑解决的是 write-behind 模式下最危险的问题：
 // 如果 Redis key 因为冷启动或淘汰而消失，直接 SADD/SREM 会把“当前操作”误当成全量数据，
 // 造成 Redis 中只剩新写入的一条记录，历史互动数据在读链路上“蒸发”。
 func ensureSetCacheLoaded(ctx context.Context, svcCtx *svc.ServiceContext, targetId string, spec setCacheSpec) error {
 	start := time.Now()
-	kind := strings.TrimSuffix(strings.TrimPrefix(spec.redisKeyPrefix, "post:"), ":")
-	if strings.HasPrefix(spec.redisKeyPrefix, KeyCommentLikeSet) {
-		kind = "comment_like"
-	}
+	kind := setCacheMetricKind(spec)
 	key := spec.redisKeyPrefix + targetId
 	exists, err := svcCtx.Redis.ExistsCtx(ctx, key)
 	if err != nil {

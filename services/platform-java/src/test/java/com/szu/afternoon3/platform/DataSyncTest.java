@@ -18,6 +18,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Slf4j
+@org.junit.jupiter.api.Tag("integration")
 @SpringBootTest // 启动 Spring 上下文，获取 Repository
 public class DataSyncTest {
 

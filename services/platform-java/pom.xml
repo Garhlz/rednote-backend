@@ -28,6 +28,9 @@
     </scm>
     <properties>
         <java.version>17</java.version>
+        <!-- 默认测试必须可离线运行，不能访问真实中间件、邮箱或云服务。 -->
+        <test.groups></test.groups>
+        <test.excludedGroups>integration,external</test.excludedGroups>
     </properties>
     <dependencies>
         <dependency>
@@ -183,6 +186,15 @@
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.2.5</version>
+                <configuration>
+                    <groups>${test.groups}</groups>
+                    <excludedGroups>${test.excludedGroups}</excludedGroups>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
                 <configuration>
                     <annotationProcessorPaths>
@@ -227,5 +239,31 @@
             </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <!--
+          依赖本地 MySQL/MongoDB/Redis/RabbitMQ/Elasticsearch 的测试：
+          mvn test -Pintegration
+        -->
+        <profile>
+            <id>integration</id>
+            <properties>
+                <test.groups>integration</test.groups>
+                <test.excludedGroups>external</test.excludedGroups>
+            </properties>
+        </profile>
+
+        <!--
+          会发送真实邮件或上传真实 OSS 文件，只能人工显式执行：
+          mvn test -Pexternal
+        -->
+        <profile>
+            <id>external</id>
+            <properties>
+                <test.groups>external</test.groups>
+                <test.excludedGroups></test.excludedGroups>
+            </properties>
+        </profile>
+    </profiles>
 
 </project>

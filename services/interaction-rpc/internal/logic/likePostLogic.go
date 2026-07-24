@@ -11,8 +11,9 @@ import (
 )
 
 type LikePostLogic struct {
-	ctx    context.Context
-	svcCtx *svc.ServiceContext
+	ctx     context.Context
+	svcCtx  *svc.ServiceContext
+	publish func(string, *InteractionEvent) error
 	logx.Logger
 }
 
@@ -20,6 +21,9 @@ func NewLikePostLogic(ctx context.Context, svcCtx *svc.ServiceContext) *LikePost
 	return &LikePostLogic{
 		ctx:    ctx,
 		svcCtx: svcCtx,
+		publish: func(routingKey string, event *InteractionEvent) error {
+			return publishEvent(ctx, svcCtx.MqChannel, routingKey, event)
+		},
 		Logger: logx.WithContext(ctx),
 	}
 }
@@ -53,22 +57,15 @@ func (l *LikePostLogic) LikePost(in *interaction.InteractionRequest) (*interacti
 	}
 
 	// 3. 如果添加成功，发送 MQ 消息
-	if added > 0 {
+	if event, changed := interactionEventIfChanged(added, in.UserId, in.TargetId, "LIKE", "ADD", nil); changed {
 		// 一旦写入了真实 userId，就把 Dummy 占位节点移除，避免它影响后续计数。
 		removeDummyUser(l.ctx, l.svcCtx, key)
 		// 真实互动出现后，把帖子加入 Bloom，后续读链路可以更快判断“值得预热”。
 		AddBloom(l.ctx, l.svcCtx, KeyBloomPostLike, in.TargetId)
 
-		event := &InteractionEvent{
-			UserId:   in.UserId,
-			TargetId: in.TargetId,
-			Type:     "LIKE",
-			Action:   "ADD",
-			Value:    nil,
-		}
 		// 调用 common.go 里的通用发送方法
 		// interaction.* 由 Java 侧 listener 消费，用于更新 Mongo 冗余字段、ES 索引等最终一致结果。
-		if err := publishEvent(l.ctx, l.svcCtx.MqChannel, RoutingKeyCreate, event); err != nil {
+		if err := l.publish(RoutingKeyCreate, event); err != nil {
 			// 注意：这里发送失败是否要回滚 BizRedis？
 			// 对于点赞这种非强一致业务，通常只打印 Error log，不回滚，允许短暂不一致。
 			l.Logger.Errorf("Failed to send MQ: %v", err)

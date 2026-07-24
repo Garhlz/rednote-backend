@@ -35,6 +35,7 @@ import java.io.File;
 import java.util.Collections;
 import java.util.concurrent.TimeUnit;
 
+@org.junit.jupiter.api.Tag("integration")
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.DEFINED_PORT)
 @ActiveProfiles("dev")
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)

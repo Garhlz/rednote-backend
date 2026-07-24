@@ -44,17 +44,10 @@ func (l *CollectPostLogic) CollectPost(in *interaction.InteractionRequest) (*int
 	}
 
 	// 3. 如果添加成功，发送 MQ 消息
-	if added > 0 {
+	if event, changed := interactionEventIfChanged(added, in.UserId, in.TargetId, "COLLECT", "ADD", nil); changed {
 		removeDummyUser(l.ctx, l.svcCtx, key)
 		AddBloom(l.ctx, l.svcCtx, KeyBloomPostCollect, in.TargetId)
 
-		event := &InteractionEvent{
-			UserId:   in.UserId,
-			TargetId: in.TargetId,
-			Type:     "COLLECT",
-			Action:   "ADD",
-			Value:    nil,
-		}
 		// 调用 common.go 里的通用发送方法
 		if err := publishEvent(l.ctx, l.svcCtx.MqChannel, RoutingKeyCreate, event); err != nil {
 			// 这里不回滚Redis

@@ -49,13 +49,7 @@ func (l *RatePostLogic) RatePost(in *interaction.RateRequest) (*interaction.Empt
 	}
 
 	// 2. 发送 MQ (Java注释提到：无论是新增还是修改，统一用 Rate/ADD)
-	event := &InteractionEvent{
-		UserId:   in.UserId,
-		TargetId: in.TargetId,
-		Type:     "RATE",
-		Action:   "ADD",
-		Value:    in.Score, // 这里要把分数传过去
-	}
+	event, _ := interactionEventIfChanged(1, in.UserId, in.TargetId, "RATE", "ADD", in.Score)
 
 	// 评分写入后，同样去掉空值占位并更新 Bloom。
 	removeDummyRate(l.ctx, l.svcCtx, key)

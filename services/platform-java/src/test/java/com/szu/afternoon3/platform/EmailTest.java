@@ -2,11 +2,14 @@ package com.szu.afternoon3.platform;
 
 import com.szu.afternoon3.platform.service.AuthService;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.data.redis.core.StringRedisTemplate;
 
+@org.junit.jupiter.api.Tag("integration")
+@org.junit.jupiter.api.Tag("external")
 @SpringBootTest
 public class EmailTest {
 
@@ -18,7 +21,15 @@ public class EmailTest {
 
     @Test
     public void testSendEmailCode() {
-        String targetEmail = "garhlz257@gmail.com";
+        Assumptions.assumeTrue(
+                "true".equalsIgnoreCase(System.getenv("RUN_EXTERNAL_TESTS")),
+                "设置 RUN_EXTERNAL_TESTS=true 后才允许发送真实邮件"
+        );
+        String targetEmail = System.getenv("EXTERNAL_TEST_EMAIL");
+        Assumptions.assumeTrue(
+                targetEmail != null && !targetEmail.isBlank(),
+                "必须通过 EXTERNAL_TEST_EMAIL 指定测试收件箱"
+        );
         System.out.println("========== 开始邮件发送测试 ==========");
         System.out.println("目标邮箱: " + targetEmail);
 
