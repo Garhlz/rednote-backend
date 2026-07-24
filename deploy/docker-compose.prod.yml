@@ -97,7 +97,7 @@ services:
   platform-java:
     image: rednote/platform-java:latest
     env_file:
-      - ./prod.env
+      - ${PROD_ENV_FILE:-./prod.env}
     environment:
       SPRING_PROFILES_ACTIVE: prod
       TZ: Asia/Shanghai
@@ -123,7 +123,7 @@ services:
   sync-sidecar:
     image: rednote/sync-sidecar:latest
     env_file:
-      - ./prod.env
+      - ${PROD_ENV_FILE:-./prod.env}
     environment:
       TZ: Asia/Shanghai
       ES_ADDRESS: ${ELASTICSEARCH_ADDRESS:-http://es:9200}
@@ -149,7 +149,7 @@ services:
       args:
         GOPROXY: https://goproxy.cn,direct
     env_file:
-      - ./prod.env
+      - ${PROD_ENV_FILE:-./prod.env}
     environment:
       TZ: Asia/Shanghai
     restart: unless-stopped
@@ -172,7 +172,7 @@ services:
       args:
         GOPROXY: https://goproxy.cn,direct
     env_file:
-      - ./prod.env
+      - ${PROD_ENV_FILE:-./prod.env}
     environment:
       TZ: Asia/Shanghai
     restart: unless-stopped
@@ -195,7 +195,7 @@ services:
       args:
         GOPROXY: https://goproxy.cn,direct
     env_file:
-      - ./prod.env
+      - ${PROD_ENV_FILE:-./prod.env}
     environment:
       TZ: Asia/Shanghai
     restart: unless-stopped
@@ -220,7 +220,7 @@ services:
       args:
         GOPROXY: https://goproxy.cn,direct
     env_file:
-      - ./prod.env
+      - ${PROD_ENV_FILE:-./prod.env}
     environment:
       TZ: Asia/Shanghai
     restart: unless-stopped
@@ -239,7 +239,7 @@ services:
       args:
         GOPROXY: https://goproxy.cn,direct
     env_file:
-      - ./prod.env
+      - ${PROD_ENV_FILE:-./prod.env}
     environment:
       TZ: Asia/Shanghai
     restart: unless-stopped
@@ -260,7 +260,7 @@ services:
       args:
         GOPROXY: https://goproxy.cn,direct
     env_file:
-      - ./prod.env
+      - ${PROD_ENV_FILE:-./prod.env}
     environment:
       TZ: Asia/Shanghai
       JAVA_API_BASE_URL: ${JAVA_API_BASE_URL:-http://platform-java:8080}

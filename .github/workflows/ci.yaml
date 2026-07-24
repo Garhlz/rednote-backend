@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  go-test:
+    name: Go test (${{ matrix.service }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - comment-rpc
+          - gateway-api
+          - interaction-rpc
+          - notification-rpc
+          - search-rpc
+          - sync-sidecar
+          - user-rpc
+    defaults:
+      run:
+        working-directory: services/${{ matrix.service }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: services/${{ matrix.service }}/go.mod
+          cache-dependency-path: services/${{ matrix.service }}/go.sum
+      - run: go test ./...
+      - run: go vet ./...
+
+  java-test:
+    name: Java test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/platform-java
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: maven
+      - run: mvn --batch-mode --no-transfer-progress test
+
+  compose-config:
+    name: Validate Compose files
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker compose config --quiet
+      - run: PROD_ENV_FILE=./prod.env.example docker compose --env-file deploy/prod.env.example -f deploy/docker-compose.prod.yml config --quiet
